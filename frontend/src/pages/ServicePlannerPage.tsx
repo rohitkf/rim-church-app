@@ -21,6 +21,7 @@ import {
   saveAssignees,
   substituteNamesOn,
   substitutesOn,
+  withNewOrder,
   type PersonRef,
 } from '../lib/sessionAssignees'
 import { GrowingField } from '../components/GrowingField'
@@ -250,8 +251,20 @@ export function ServicePlannerPage() {
       substitute?: boolean
     }) =>
       saveAssignees(session.id, substitute ? substitutesOn(session) : peopleOn(session), next, substitute),
+    // A new order for the same people is drawn at once (lib/sessionAssignees).
+    onMutate: ({ session, next, substitute = false }) => {
+      const moved = withNewOrder(session, next, substitute)
+      if (!moved) return
+      queryClient.setQueryData<ServiceSessionRow[]>(['service-sessions', serviceId], (rows) =>
+        rows?.map((row) => (row.id === session.id ? { ...row, assignees: moved.assignees } : row)),
+      )
+    },
     onSuccess: () => invalidate(),
-    onError: (err: unknown) => setServiceError(errorText(err, 'Could not save who is on that.')),
+    onError: (err: unknown) => {
+      setServiceError(errorText(err, 'Could not save who is on that.'))
+      // Whatever was drawn ahead of the save, the page goes back to what is kept.
+      return invalidate()
+    },
   })
 
   /*

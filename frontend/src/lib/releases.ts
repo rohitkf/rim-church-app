@@ -46,6 +46,21 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'order-the-people-on-a-session',
+    date: '2026-11-21',
+    title: 'Put the people on a session in order',
+    lead: 'Where a session has more than one person on it, their names can now be dragged into the order you want.',
+    points: [
+      'On the Service Planner, each name on a session has a grip of dots at its left. Hold the grip and drag the name to its place; the others move out of the way.',
+      'With a keyboard, focus the grip and use the arrow keys.',
+      'The order is the one everybody sees: the Dashboard, the Countdown, the Preview and the exported sheet list them the same way.',
+      'Substitutes are ordered the same way, in their own row. Moving a name notifies nobody.',
+    ],
+    link: { to: '/service-planner', label: 'Open Service Planner' },
+    page: '/service-planner',
+    holds: ['svc.sessions'],
+  },
+  {
     key: 'a-check-in-for-each-day',
     date: '2026-11-21',
     title: 'Who came on which day',

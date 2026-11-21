@@ -91,6 +91,33 @@ export function substituteNamesOn(session: { assignees?: SessionAssignee[] }): s
 }
 
 /**
+ * The session as it will be once `next` is saved, when `next` is only a
+ * new order for the people already on that list. Anything else — somebody
+ * added, somebody gone — is `null`: those rows are the database's to make.
+ *
+ * So that a new order is on the page the moment it is dropped, and so the
+ * next change is worked out from this order and not the one before it.
+ * `saveAssignees` writes only what differs from the rows it is handed, and
+ * handed stale ones it would skip a move that puts somebody back where
+ * they used to be.
+ */
+export function withNewOrder<S extends { assignees?: SessionAssignee[] }>(
+  session: S,
+  next: PersonRef[],
+  substitute = false,
+): S | null {
+  const list = substitute ? substitutesOn(session) : peopleOn(session)
+  const place = new Map(next.map((ref, index) => [keyOf(ref), index]))
+  if (list.length !== place.size || !list.every((row) => place.has(keyOf(refOf(row))))) return null
+  return {
+    ...session,
+    assignees: (session.assignees ?? []).map((row) =>
+      !!row.is_substitute === substitute ? { ...row, order_index: place.get(keyOf(refOf(row))) ?? row.order_index } : row,
+    ),
+  }
+}
+
+/**
  * Make one of the session's two lists — who is taking it, or who stands
  * in (`substitute`) — match `next`. `current` is that list's rows only.
  *

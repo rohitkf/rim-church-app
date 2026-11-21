@@ -325,3 +325,109 @@ describe('choosing a substitute (0182)', () => {
     expect(within(list).getByText('No substitute')).toBeInTheDocument()
   })
 })
+
+/*
+ * People are printed everywhere in the order they are in here, and that
+ * used to be the order somebody happened to add them in. The pointer half
+ * of dragging cannot be honestly exercised without a layout, so it is
+ * checked in a browser; this is the half that needs none.
+ */
+describe('putting the people on a session in order', () => {
+  const three = [
+    { kind: 'member', id: 'u1' },
+    { kind: 'member', id: 'u2' },
+    { kind: 'guest', id: 'g1' },
+  ] as const
+
+  it('gives each name a grip once there are two or more', () => {
+    render(<LeadPicker label="Who leads Worship" options={options} values={[...three]} onChange={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /^Move Grace Mensah\./ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Move Tunde Alabi\./ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Move Pastor Sam Varghese\./ })).toBeInTheDocument()
+  })
+
+  it('gives one name on its own no grip: there is nowhere for it to go', () => {
+    render(<LeadPicker label="Who leads Worship" options={options} values={[three[0]]} onChange={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /^Move / })).not.toBeInTheDocument()
+  })
+
+  it('moves a name a place at a time with the arrow keys, either pair', async () => {
+    const onChange = vi.fn()
+    render(<LeadPicker label="Who leads Worship" options={options} values={[...three]} onChange={onChange} />)
+
+    screen.getByRole('button', { name: /^Move Grace Mensah\./ }).focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(onChange).toHaveBeenLastCalledWith([three[1], three[0], three[2]])
+
+    // Drawn in the new order straight away, and the grip still has the keyboard.
+    const names = screen.getAllByRole('button', { name: /^Move / }).map((b) => b.getAttribute('aria-label'))
+    expect(names.map((n) => n?.replace(/^Move (.*)\. Hold.*$/, '$1'))).toEqual([
+      'Tunde Alabi',
+      'Grace Mensah',
+      'Pastor Sam Varghese',
+    ])
+    expect(screen.getByRole('button', { name: /^Move Grace Mensah\./ })).toHaveFocus()
+
+    await userEvent.keyboard('{ArrowDown}')
+    expect(onChange).toHaveBeenLastCalledWith([three[1], three[2], three[0]])
+    await userEvent.keyboard('{ArrowUp}')
+    expect(onChange).toHaveBeenLastCalledWith([three[1], three[0], three[2]])
+  })
+
+  it('does nothing at either end', async () => {
+    const onChange = vi.fn()
+    render(<LeadPicker label="Who leads Worship" options={options} values={[...three]} onChange={onChange} />)
+    screen.getByRole('button', { name: /^Move Grace Mensah\./ }).focus()
+    await userEvent.keyboard('{ArrowLeft}')
+    screen.getByRole('button', { name: /^Move Pastor Sam Varghese\./ }).focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('goes back to the order it is given once that changes', async () => {
+    const onChange = vi.fn()
+    const { rerender } = render(
+      <LeadPicker label="Who leads Worship" options={options} values={[...three]} onChange={onChange} />,
+    )
+    screen.getByRole('button', { name: /^Move Grace Mensah\./ }).focus()
+    await userEvent.keyboard('{ArrowRight}')
+
+    // Somebody else's change arrives: theirs is the order now.
+    rerender(
+      <LeadPicker
+        label="Who leads Worship"
+        options={options}
+        values={[three[2], three[1], three[0]]}
+        onChange={onChange}
+      />,
+    )
+    const names = screen.getAllByRole('button', { name: /^Move / }).map((b) => b.getAttribute('aria-label'))
+    expect(names[0]).toMatch(/^Move Pastor Sam Varghese\./)
+    expect(names[2]).toMatch(/^Move Grace Mensah\./)
+  })
+
+  it('leaves a name that is held but no longer listed where it was', async () => {
+    const onChange = vi.fn()
+    const values = [three[0], { kind: 'guest' as const, id: 'gone' }, three[1], three[2]]
+    render(<LeadPicker label="Who leads Worship" options={options} values={values} onChange={onChange} />)
+    screen.getByRole('button', { name: /^Move Pastor Sam Varghese\./ }).focus()
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(onChange).toHaveBeenLastCalledWith([three[0], { kind: 'guest', id: 'gone' }, three[2], three[1]])
+  })
+
+  it('orders the substitutes the same way', async () => {
+    const onChange = vi.fn()
+    render(
+      <LeadPicker
+        variant="substitute"
+        label="Substitute for Worship"
+        options={options}
+        values={[three[0], three[1]]}
+        onChange={onChange}
+      />,
+    )
+    screen.getByRole('button', { name: /^Move Tunde Alabi\./ }).focus()
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(onChange).toHaveBeenLastCalledWith([three[1], three[0]])
+  })
+})

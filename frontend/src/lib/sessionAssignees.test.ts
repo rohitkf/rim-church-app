@@ -8,6 +8,7 @@ import {
   saveAssignees,
   substituteNamesOn,
   substitutesOn,
+  withNewOrder,
 } from './sessionAssignees'
 import type { SessionAssignee } from './types'
 
@@ -189,6 +190,59 @@ describe('substitutes (0182)', () => {
         { session_id: 's1', user_id: 'u2', guest_id: null, order_index: 0, is_substitute: true },
         { session_id: 's1', user_id: null, guest_id: 'g1', order_index: 1, is_substitute: true },
       ],
+    ])
+  })
+})
+
+describe('a new order for the people on a session', () => {
+  const sub = (row: SessionAssignee): SessionAssignee => ({ ...row, is_substitute: true })
+  const session = {
+    id: 's1',
+    assignees: [
+      member('u1', 0, 'Grace', 'Mensah'),
+      member('u2', 1, 'Tunde', 'Alabi'),
+      guest('g1', 2, 'Sam Varghese', 'Pastor'),
+      sub(member('u3', 0, 'Kofi', 'Asante')),
+    ],
+  }
+
+  it('renumbers the same people, and leaves the substitutes alone', () => {
+    const moved = withNewOrder(session, [
+      { kind: 'guest', id: 'g1' },
+      { kind: 'member', id: 'u1' },
+      { kind: 'member', id: 'u2' },
+    ])
+    expect(moved && namesOn(moved)).toEqual(['Pastor Sam Varghese', 'Grace Mensah', 'Tunde Alabi'])
+    expect(moved && substituteNamesOn(moved)).toEqual(['Kofi Asante'])
+    expect(moved?.id).toBe('s1')
+  })
+
+  it('is not a new order when somebody was added or has gone: those are the database’s rows to make', () => {
+    expect(withNewOrder(session, [{ kind: 'member', id: 'u1' }, { kind: 'member', id: 'u2' }])).toBeNull()
+    expect(
+      withNewOrder(session, [
+        { kind: 'member', id: 'u1' },
+        { kind: 'member', id: 'u2' },
+        { kind: 'member', id: 'u9' },
+      ]),
+    ).toBeNull()
+  })
+
+  it('the next save is then worked out from the new order, so a move back is written', async () => {
+    const moved = withNewOrder(session, [
+      { kind: 'member', id: 'u2' },
+      { kind: 'member', id: 'u1' },
+      { kind: 'guest', id: 'g1' },
+    ])
+    // Back to how it began. From the rows as they first were, this would write nothing.
+    await saveAssignees('s1', peopleOn(moved!), [
+      { kind: 'member', id: 'u1' },
+      { kind: 'member', id: 'u2' },
+      { kind: 'guest', id: 'g1' },
+    ])
+    expect(updates).toEqual([
+      { patch: { order_index: 1 }, id: 'row-u2' },
+      { patch: { order_index: 0 }, id: 'row-u1' },
     ])
   })
 })

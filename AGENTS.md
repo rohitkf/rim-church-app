@@ -405,6 +405,13 @@ frontend/src/
                              and when it leaves. The church tunes it in
                              `display.callTimes` (show, days, stayMinutes, who,
                              countdown). Every team's are on the Team Rota
+  lib/useChipReorder.ts      dragging chips into order (the names on a session,
+                             components/LeadPicker): the wrapping cousin of
+                             lib/useDragReorder — a grip, pointer events, the
+                             arrow keys, nothing written until let go. Where
+                             the one in hand belongs is lib/chipOrder's, which
+                             needs no browser. Use useDragReorder for rows and
+                             this for anything that wraps
   lib/checkInDays.ts         which church days a registration was checked in
                              on (`registration_check_ins`, 0314), a day's name
                              (the event's own label, "Day 1", when it has one)
