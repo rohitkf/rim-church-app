@@ -177,3 +177,127 @@ describe('Select', () => {
     expect(screen.getByRole('combobox')).toHaveTextContent('Select…')
   })
 })
+
+/*
+ * A long list on a phone was a long scroll: typing to find needs a
+ * keyboard, and a phone has none until something asks for one.
+ */
+describe('a Select with a search box', () => {
+  const RIGHTS: SelectItem[] = [
+    {
+      label: 'Services',
+      options: [
+        { value: 'svc.view', label: 'See services and the running order' },
+        { value: 'countdown.view', label: 'See the Countdown' },
+      ],
+    },
+    {
+      label: 'People',
+      options: [
+        { value: 'people.view', label: 'See the directory' },
+        { value: 'people.edit', label: 'Edit somebody’s details', disabled: true },
+      ],
+    },
+  ]
+
+  function Searchable({ options = RIGHTS }: { options?: SelectItem[] }) {
+    const [value, setValue] = useState('')
+    return (
+      <>
+        <Select search value={value} onChange={setValue} options={options} placeholder="Give them…" aria-label="Give them" />
+        <output>{value || 'nothing'}</output>
+      </>
+    )
+  }
+  const open = async () => {
+    render(<Searchable />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox'))
+    return user
+  }
+  const offered = () => screen.getAllByRole('option').map((o) => o.textContent)
+
+  it('opens with a box to type in, which has the keyboard, and everything listed', async () => {
+    await open()
+    expect(screen.getByRole('searchbox', { name: 'Search Give them' })).toHaveFocus()
+    expect(offered()).toHaveLength(4)
+  })
+
+  it('finds by any part of the words, not only the start', async () => {
+    const user = await open()
+    await user.keyboard('count')
+    expect(offered()).toEqual(['See the Countdown'])
+    // And the heading it sits under is still said.
+    expect(within(screen.getByRole('listbox')).getByText('Services')).toBeInTheDocument()
+    expect(within(screen.getByRole('listbox')).queryByText('People')).not.toBeInTheDocument()
+  })
+
+  it('finds by several words in any order, whatever their case', async () => {
+    const user = await open()
+    await user.keyboard('ORDER see')
+    expect(offered()).toEqual(['See services and the running order'])
+  })
+
+  it('brings a whole family by its heading', async () => {
+    const user = await open()
+    await user.keyboard('people')
+    expect(offered()).toEqual(['See the directory', 'Edit somebody’s details'])
+  })
+
+  it('chooses the first match with Enter, and closes', async () => {
+    const user = await open()
+    await user.keyboard('countd{Enter}')
+    expect(screen.getByRole('status')).toHaveTextContent('countdown.view')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox')).toHaveTextContent('See the Countdown')
+  })
+
+  it('moves among the matches with the arrows', async () => {
+    const user = await open()
+    await user.keyboard('see{ArrowDown}{ArrowDown}{Enter}')
+    expect(screen.getByRole('status')).toHaveTextContent('people.view')
+  })
+
+  it('takes a space as typing, not as a choice', async () => {
+    const user = await open()
+    await user.keyboard('see the')
+    expect(screen.getByRole('status')).toHaveTextContent('nothing')
+    expect(offered()).toEqual(['See services and the running order', 'See the Countdown', 'See the directory'])
+  })
+
+  it('chooses with a tap on a match', async () => {
+    const user = await open()
+    await user.keyboard('direct')
+    await user.click(screen.getByRole('option', { name: 'See the directory' }))
+    expect(screen.getByRole('status')).toHaveTextContent('people.view')
+  })
+
+  it('says so when nothing matches, and chooses nothing on Enter', async () => {
+    const user = await open()
+    await user.keyboard('zebra{Enter}')
+    expect(screen.getByText('Nothing matches “zebra”.')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('nothing')
+  })
+
+  it('will not choose a match that is switched off', async () => {
+    const user = await open()
+    await user.keyboard('edit{Enter}')
+    expect(screen.getByRole('status')).toHaveTextContent('nothing')
+  })
+
+  it('leaves the choice alone on Escape, and starts from the whole list next time', async () => {
+    const user = await open()
+    await user.keyboard('count{Escape}')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('nothing')
+    await user.click(screen.getByRole('combobox'))
+    expect(screen.getByRole('searchbox')).toHaveValue('')
+    expect(offered()).toHaveLength(4)
+  })
+
+  it('a Select not asked to search has no box', async () => {
+    const user = show()
+    await user.click(screen.getByRole('combobox'))
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument()
+  })
+})
