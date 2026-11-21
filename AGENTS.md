@@ -455,7 +455,22 @@ frontend/src/
                              accounts until it is named there**. The app
                              says the seven days where it says the link was
                              sent (lib/unconfirmedAccounts.ts, held to the
-                             migration by a test). `looksLikeEmail`
+                             migration by a test). **Both are for accounts
+                             only. Registration and Reception are left
+                             alone** — the Owner, 21 November 2026: "If it's
+                             for registration keep their details. Don't
+                             touch registration and reception for email
+                             issues." So no domain check on the register
+                             form, a walk-in, an invitation or a corrected
+                             address, and nothing ever removes a
+                             registration for its address. (A registration
+                             belongs to no account: `registration_orders`
+                             points at people only as the staff who handled
+                             it, so removing an unconfirmed account cannot
+                             reach one.) The check those forms already had
+                             — shape, a real ending, typed twice — is the
+                             one the Owner asked for and stays; do not add
+                             to it without being asked. `looksLikeEmail`
                              (lib/emailDelivery) is only for reading an address
                              already kept. A slip that could be a real address
                              (gmial.com) is questioned, not refused

@@ -187,6 +187,58 @@ describe('a service that has not ended', () => {
 })
 
 /*
+ * "Not started" pressed by mistake. The button that takes it back used to
+ * be called "Still not started — Keeps holding", the opposite of what it
+ * did; the Owner had two sessions holding mid-service and no way he could
+ * see to clear them.
+ */
+describe('a session marked Not started', () => {
+  beforeEach(() => {
+    // Worship 10:00–10:30 is on; Sermon and Notices after it were both marked by mistake.
+    db.rows.service_sessions = [
+      session('s1', 'Worship', '10:00', 0),
+      { ...session('s2', 'Sermon', '10:30', 1), held_at: at('10:05').toISOString() },
+      { ...session('s3', 'Notices', '11:00', 2), held_at: at('10:05').toISOString() },
+    ]
+    vi.setSystemTime(at('10:10'))
+  })
+
+  it('says Holding, and its menu offers to clear it, in words that say what pressing does', async () => {
+    const user = show()
+    await screen.findByDisplayValue('Sermon')
+    expect(screen.getAllByText('Holding')).toHaveLength(2)
+    await user.click(screen.getByRole('button', { name: 'Actions for Sermon' }))
+    const item = await screen.findByRole('menuitem', { name: /Clear “Not started”/ })
+    expect(item).toHaveTextContent('Takes “Holding” off: it starts at its planned time')
+    // Nothing in the menu claims to keep holding.
+    expect(screen.queryByRole('menuitem', { name: /Still not started/ })).toBeNull()
+    expect(screen.queryByText(/Keeps holding/)).toBeNull()
+  })
+
+  it('is cleared by pressing it, one session at a time, and moves no times', async () => {
+    const user = show()
+    await screen.findByDisplayValue('Sermon')
+    await user.click(screen.getByRole('button', { name: 'Actions for Sermon' }))
+    await user.click(await screen.findByRole('menuitem', { name: /Clear “Not started”/ }))
+    await waitFor(() => expect(db.updates).toHaveLength(1))
+    expect(db.updates[0]).toEqual({ table: 'service_sessions', patch: { held_at: null } })
+    await user.click(screen.getByRole('button', { name: 'Actions for Notices' }))
+    await user.click(await screen.findByRole('menuitem', { name: /Clear “Not started”/ }))
+    await waitFor(() => expect(db.updates).toHaveLength(2))
+    expect(db.updates[1]).toEqual({ table: 'service_sessions', patch: { held_at: null } })
+  })
+
+  it('a session that is not held still offers Not started', async () => {
+    const user = show()
+    await screen.findByDisplayValue('Sermon')
+    await user.click(screen.getByRole('button', { name: 'Actions for Worship' }))
+    const item = await screen.findByRole('menuitem', { name: /^Not started/ })
+    expect(item).toHaveTextContent('Holds the start until the one before it finishes')
+    expect(screen.queryByRole('menuitem', { name: /Clear “Not started”/ })).toBeNull()
+  })
+})
+
+/*
  * When availability answers close for the service, said on its page, and
  * changed there for this one service by whoever manages services (0310).
  */
