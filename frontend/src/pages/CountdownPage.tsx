@@ -9,7 +9,7 @@ import { todayIso } from '../lib/monthGrid'
 import { useNow } from '../lib/useNow'
 import { formatTime } from '../lib/time'
 import { serviceStanding } from '../lib/serviceState'
-import { clockFace, clockTone, serviceClock, type ClockTone, type ServiceClock } from '../lib/serviceClock'
+import { clockFace, clockSize, clockTone, serviceClock, type ClockTone, type ServiceClock } from '../lib/serviceClock'
 
 /*
  * The service's clock, large, for whoever is keeping time.
@@ -133,11 +133,12 @@ export function CountdownPage() {
 
           {/* Nothing on: a blank clock, not a countdown to something else. */}
           {live.length === 0 && (
-            <Tile className="text-center">
+            <Tile className="@container text-center">
               <Eyebrow>No service running</Eyebrow>
               <p
                 aria-label="No service is running"
-                className="mt-4 font-mono tabular font-semibold leading-none tracking-tight text-[clamp(3.5rem,16vw,10rem)] text-on-surface-faint"
+                className="mt-4 whitespace-nowrap font-mono tabular font-semibold leading-none tracking-tight text-on-surface-faint"
+                style={{ fontSize: clockSize('--:--:--', 'clamp(3.5rem, 16vw, 10rem)') }}
               >
                 --:--:--
               </p>
@@ -161,7 +162,7 @@ function ClockTile({ service, clock, now }: { service: ServiceRow; clock: Servic
   const tone = clockTone(remaining, span)
 
   return (
-    <Tile as="section" className="text-center" tone={over ? 'danger' : 'plain'}>
+    <Tile as="section" className="@container text-center" tone={over ? 'danger' : 'plain'}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-left">
         <Eyebrow>{service.service_type}</Eyebrow>
         <Link to={`/service-planner/${service.id}`} className="text-body-sm text-accent-blue-soft hover:underline">
@@ -188,7 +189,9 @@ function ClockTile({ service, clock, now }: { service: ServiceRow; clock: Servic
         data-tone={tone}
         // Past zero it fades out and back, about once a second: an overrun
         // has to be seen from the stage without anybody reading it.
-        className={`mt-2 font-mono tabular font-semibold leading-none tracking-tight text-[clamp(4.5rem,22vw,13rem)] ${TONE_CLASS[tone]} ${over ? 'blink-over' : ''}`}
+        className={`mt-2 whitespace-nowrap font-mono tabular font-semibold leading-none tracking-tight ${TONE_CLASS[tone]} ${over ? 'blink-over' : ''}`}
+        // As large as the screen allows, and never wider than the card (clockSize).
+        style={{ fontSize: clockSize(clockFace(remaining), 'clamp(4.5rem, 22vw, 13rem)') }}
       >
         {clockFace(remaining)}
       </p>

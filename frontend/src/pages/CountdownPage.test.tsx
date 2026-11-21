@@ -186,3 +186,36 @@ describe('the Countdown page', () => {
     expect(timer).toHaveClass('blink-over')
   })
 })
+
+/*
+ * A session over an hour long puts an hour on the number: two characters
+ * more, which sized from the screen alone ran out of the card on a phone.
+ */
+describe('the Countdown’s number and its card', () => {
+  const sizeOf = () => screen.getByRole('timer').style.fontSize
+
+  it('is held to what its card fits', async () => {
+    vi.setSystemTime(new Date(at('10:25').getTime() + 30_000))
+    show()
+    expect(await screen.findByRole('timer')).toHaveTextContent('4:30')
+    expect(sizeOf()).toBe('min(clamp(4.5rem, 22vw, 13rem), 32cqi)')
+    expect(screen.getByRole('timer')).toHaveClass('whitespace-nowrap')
+    // The card is what it is measured against.
+    expect(screen.getByRole('timer').closest('section')).toHaveClass('@container')
+  })
+
+  it('is smaller with an hour on it', async () => {
+    db.rows.service_sessions = [session('s1', 'Message', '10:00', 120, 0), session('s2', 'Close', '12:00', 10, 1)]
+    vi.setSystemTime(new Date(at('10:25').getTime() + 30_000))
+    show()
+    expect(await screen.findByRole('timer')).toHaveTextContent('1:34:30')
+    expect(sizeOf()).toBe('min(clamp(4.5rem, 22vw, 13rem), 22.8cqi)')
+  })
+
+  it('holds the blank clock to its card too', async () => {
+    vi.setSystemTime(at('08:00'))
+    show()
+    const blank = await screen.findByLabelText('No service is running')
+    expect(blank.style.fontSize).toBe('min(clamp(3.5rem, 16vw, 10rem), 20cqi)')
+  })
+})

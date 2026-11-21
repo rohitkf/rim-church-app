@@ -138,3 +138,20 @@ export function clockFace(ms: number): string {
   const body = h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`
   return over ? `+${body}` : body
 }
+
+/**
+ * How big the number is: as big as it has always been, and never wider
+ * than its card.
+ *
+ * It was sized from the screen alone (22vw), which holds for 4:05 and
+ * 12:55 and not for 1:12:55: with an hour on it the number is two
+ * characters longer, and on a phone it ran out of the card's right-hand
+ * edge. So the card is the container, and the size is also held to what
+ * that many characters fit in: about 0.62em each, as `FitFigure` counts
+ * them (components/Surface). A face shorter than five is sized as five,
+ * so 9:59 turning to 10:00 does not change size; the number steps down
+ * only when an hour comes onto it.
+ */
+export function clockSize(face: string, widest: string): string {
+  return `min(${widest}, ${Math.floor(1600 / Math.max(face.length, 5)) / 10}cqi)`
+}
