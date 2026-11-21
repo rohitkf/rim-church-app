@@ -46,6 +46,18 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'countdown-goes-below-zero',
+    date: '2026-11-21',
+    title: 'Countdown shows an overrun with a minus',
+    lead: 'When a session runs over its time, the Countdown page now reads −2:17 where it read +2:17.',
+    points: [
+      'Only the Countdown page changes. The Service Planner and the Dashboard still show an overrun with a plus.',
+      'The line under the number still says it in words: “2 minutes over”.',
+    ],
+    link: { to: '/countdown', label: 'Open Countdown' },
+    page: '/countdown',
+  },
+  {
     key: 'registration-takes-the-address-as-typed',
     date: '2026-11-21',
     title: 'Registration and Reception take an email address as it is typed',

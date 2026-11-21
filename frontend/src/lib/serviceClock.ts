@@ -140,6 +140,26 @@ export function clockFace(ms: number): string {
 }
 
 /**
+ * The same reading as the Countdown page alone shows it: past zero with a
+ * minus, −2:17. Time left that has gone below nothing.
+ *
+ * Everywhere else an overrun keeps its plus (the Service Planner's rail,
+ * the Dashboard's glimpse, the minutes added to a session): there it is
+ * read beside a plan, as minutes on top of it. The Countdown is read from
+ * the stage as one number counting down, and a number that has counted
+ * down past zero is a negative one. The Owner, November 2026: "instead of
+ * showing +, show -. This is only for countdown page."
+ *
+ * It is the minus sign itself (U+2212) and not a hyphen: the same width
+ * as the plus it replaces, so the number does not jump as it crosses zero
+ * and `clockSize` fits it exactly as before.
+ */
+export function countdownFace(ms: number): string {
+  const face = clockFace(ms)
+  return face.startsWith('+') ? `−${face.slice(1)}` : face
+}
+
+/**
  * How big the number is: as big as it has always been, and never wider
  * than its card.
  *

@@ -9,7 +9,7 @@ import { todayIso } from '../lib/monthGrid'
 import { useNow } from '../lib/useNow'
 import { formatTime } from '../lib/time'
 import { serviceStanding } from '../lib/serviceState'
-import { clockFace, clockSize, clockTone, minutesWords, serviceClock, type ClockTone, type ServiceClock } from '../lib/serviceClock'
+import { clockFace, clockSize, clockTone, countdownFace, minutesWords, serviceClock, type ClockTone, type ServiceClock } from '../lib/serviceClock'
 
 /*
  * The service's clock, large, for whoever is keeping time.
@@ -20,8 +20,11 @@ import { clockFace, clockSize, clockTone, minutesWords, serviceClock, type Clock
  * dropped all move it the moment the planner saves them: both pages hear
  * service_sessions change (lib/liveTables) and read it again.
  *
- * Past zero it keeps counting, with a plus: the number somebody watching
- * wants then is how far over the service is running.
+ * Past zero it keeps counting, with a minus: the number somebody watching
+ * wants then is how far over the service is running, and on this page it
+ * is one number counting down, so below nothing it is a negative one
+ * (lib/serviceClock `countdownFace`). Everywhere else an overrun keeps its
+ * plus.
  *
  * The number is green while there is plenty of time, amber as the end
  * comes close and red for the last of it and past zero (clockTone). The
@@ -191,9 +194,10 @@ function ClockTile({ service, clock, now }: { service: ServiceRow; clock: Servic
         // has to be seen from the stage without anybody reading it.
         className={`mt-2 whitespace-nowrap font-mono tabular font-semibold leading-none tracking-tight ${TONE_CLASS[tone]} ${over ? 'blink-over' : ''}`}
         // As large as the screen allows, and never wider than the card (clockSize).
-        style={{ fontSize: clockSize(clockFace(remaining), 'clamp(4.5rem, 22vw, 13rem)') }}
+        style={{ fontSize: clockSize(countdownFace(remaining), 'clamp(4.5rem, 22vw, 13rem)') }}
       >
-        {clockFace(remaining)}
+        {/* Past zero with a minus, on this page only (countdownFace). */}
+        {countdownFace(remaining)}
       </p>
 
       {/* The same, as one number of minutes: what gets held up on a card

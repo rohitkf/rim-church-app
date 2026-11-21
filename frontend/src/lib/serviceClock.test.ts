@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type ClockSession, clockFace, clockMinutes, clockSize, clockTone, minutesShort, minutesWords, serviceClock } from './serviceClock'
+import { type ClockSession, clockFace, clockMinutes, clockSize, clockTone, countdownFace, minutesShort, minutesWords, serviceClock } from './serviceClock'
 import { addTimePlan, holdPlan, type RunWrite } from './sessionRunPlan'
 
 const at = (hhmm: string) => new Date(`2026-09-06T${hhmm}:00`).getTime()
@@ -90,6 +90,25 @@ describe('the clock face', () => {
   it('carries on past zero with a plus, so the overrun shows', () => {
     expect(clockFace(-137_000)).toBe('+2:17')
     expect(clockFace(-500)).toBe('+0:00')
+  })
+})
+
+describe('the clock face as the Countdown page shows it', () => {
+  it('is the same reading while there is time left', () => {
+    for (const ms of [245_000, 3_729_000, 1_000, 0]) expect(countdownFace(ms)).toBe(clockFace(ms))
+  })
+
+  it('goes past zero with a minus where everywhere else has a plus', () => {
+    expect(countdownFace(-137_000)).toBe('−2:17')
+    expect(countdownFace(-4_329_000)).toBe('−1:12:09')
+    expect(countdownFace(-500)).toBe('−0:00')
+  })
+
+  it('is as long as the face with a plus, so the number is sized the same either side of zero', () => {
+    for (const ms of [-137_000, -4_329_000, -500]) {
+      expect(countdownFace(ms)).toHaveLength(clockFace(ms).length)
+      expect(clockSize(countdownFace(ms), '13rem')).toBe(clockSize(clockFace(ms), '13rem'))
+    }
   })
 })
 
