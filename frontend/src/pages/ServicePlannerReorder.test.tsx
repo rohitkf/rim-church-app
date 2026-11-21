@@ -13,6 +13,11 @@ import { ServicePlannerPage } from './ServicePlannerPage'
 
 const SUNDAY = '2026-09-06'
 const db = vi.hoisted(() => ({ rows: {} as Record<string, unknown[]> }))
+// Which pages this person may open: the answer the menu and each page's own door give.
+const access = vi.hoisted(() => ({ settled: true, opens: [] as string[] }))
+vi.mock('../lib/usePageAccess', () => ({
+  usePageAccess: () => ({ settled: access.settled, canOpen: (path: string) => access.opens.includes(path), standing: 'team' }),
+}))
 
 // Every read: a chain that ends in the table's rows, whatever it was asked.
 vi.mock('../lib/supabaseClient', () => {
@@ -92,6 +97,8 @@ beforeEach(() => {
     services: [{ id: 'svc', date: SUNDAY, service_type: 'English', created_at: '', ended_at: null, series_id: null }],
     service_sessions: [session('s1', 'Worship', '10:00', 0), session('s2', 'Sermon', '10:30', 1)],
   }
+  access.settled = true
+  access.opens = []
 })
 afterEach(() => vi.useRealTimers())
 
@@ -116,5 +123,37 @@ describe('reordering the running order', () => {
 
     await user.click(screen.getByRole('button', { name: 'Done reordering' }))
     expect(handles()).toHaveLength(0)
+  })
+})
+
+/*
+ * The Countdown is this page's clock, large, and it already links back
+ * here. The way there is offered only to whoever may open it: a button
+ * that lands on the Dashboard is a button that lied.
+ */
+describe('the way to the Countdown', () => {
+  const link = () => screen.queryByRole('link', { name: 'Countdown' })
+  beforeEach(() => vi.setSystemTime(new Date(`${SUNDAY}T08:00:00`)))
+
+  it('is on the running order for somebody who may open the Countdown', async () => {
+    access.opens = ['/countdown']
+    show()
+    expect(await screen.findByDisplayValue('Sermon')).toBeInTheDocument()
+    expect(link()).toHaveAttribute('href', '/countdown')
+  })
+
+  it('is not there for somebody who may not', async () => {
+    access.opens = ['/service-planner']
+    show()
+    expect(await screen.findByDisplayValue('Sermon')).toBeInTheDocument()
+    expect(link()).toBeNull()
+  })
+
+  it('waits until who they are is known, and does not appear and then go', async () => {
+    access.opens = ['/countdown']
+    access.settled = false
+    show()
+    expect(await screen.findByDisplayValue('Sermon')).toBeInTheDocument()
+    expect(link()).toBeNull()
   })
 })

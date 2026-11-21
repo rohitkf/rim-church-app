@@ -28,7 +28,9 @@ import { GrowingField } from '../components/GrowingField'
 import { DateField, TimeField } from '../components/DateTimeFields'
 import { grantsOf, runsForMinutes } from '../lib/sessionLength'
 import { QueryState } from '../components/QueryState'
-import { ActionButton, Eyebrow, Overlay, Panel, Row, Tile } from '../components/Surface'
+import { ActionButton, ActionLink, Eyebrow, Overlay, Panel, Row, Tile } from '../components/Surface'
+import { TimerIcon } from '../components/icons'
+import { usePageAccess } from '../lib/usePageAccess'
 import { AssigneePill, RailCountdown, TimelineCard, TimelineRow } from '../components/Timeline'
 import { DragHandle } from '../components/DragHandle'
 import { NumberDialField } from '../components/NumberDial'
@@ -147,6 +149,11 @@ export function ServicePlannerPage() {
   // page › Service Planner, 0184). Preview drops them with the rest.
   const heldControls = usePlannerControls()
   const given = previewing ? new Set<PlannerControl>() : heldControls
+
+  // Whether the Countdown is theirs to open, once that is known: a button
+  // that appears and then goes is worse than one that arrives a moment late.
+  const { canOpen, settled: accessSettled } = usePageAccess()
+  const seesCountdown = accessSettled && canOpen('/countdown')
 
   const serviceQuery = useQuery({
     queryKey: ['service', serviceId],
@@ -1336,12 +1343,24 @@ export function ServicePlannerPage() {
           <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-12">
             <Tile as="section" className="lg:col-span-8" padded={false}>
               <div className="px-5 py-5 sm:px-7 sm:py-6">
-                <div className="flex flex-wrap items-baseline justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                   <Eyebrow>Running order</Eyebrow>
-                  <span className="font-mono text-label-sm text-on-surface-faint">
-                    {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} ·{' '}
-                    {formatDuration(totalMinutes)}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <span className="font-mono text-label-sm text-on-surface-faint">
+                      {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} ·{' '}
+                      {formatDuration(totalMinutes)}
+                    </span>
+                    {/* The same clock, large (/countdown), which already
+                        links back here. Only for whoever may open it: the
+                        answer the menu and the page's own door give
+                        (usePageAccess), a preview's included. */}
+                    {seesCountdown && (
+                      <ActionLink as={Link} to="/countdown" size="sm" tone="quiet">
+                        <TimerIcon className="h-4 w-4" />
+                        Countdown
+                      </ActionLink>
+                    )}
+                  </div>
                 </div>
 
                 <ul className="mt-5 flex flex-col">
