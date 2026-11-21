@@ -46,6 +46,21 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'every-teams-call-time-at-once',
+    date: '2026-11-21',
+    title: 'Set every team’s call time at once',
+    lead: 'When every team is due at the same time, it can now be set once for all of them instead of team by team.',
+    points: [
+      'On Team Rota, in Call times, pick the day, then a time under “Every team at once”, and press Set for every team.',
+      'It says how many teams would change before you press, and asks before it writes.',
+      'Only teams whose time changes are written, so nobody is told of a change that is not one. Each team that changes is told, as when it is set on its own.',
+      'Each team’s own box is still there for the one that differs.',
+    ],
+    link: { to: '/rota', label: 'Open Team Rota' },
+    page: '/rota',
+    holds: ['svc.call_times'],
+  },
+  {
     key: 'assign-translator-can-be-given',
     date: '2026-11-21',
     title: 'Assign translator can be given to a team or a person',
