@@ -437,7 +437,25 @@ frontend/src/
                              says it and still tries. Signing up also takes
                              the address twice and then asks
                              (components/ConfirmEmailDialog), as registering
-                             for an event does: nothing is made until Yes. `looksLikeEmail`
+                             for an event does: nothing is made until Yes.
+                             Between Sign up and that question it asks
+                             whether the address's domain takes mail at all
+                             (lib/mailDomain.ts → /api/mail-domain): **only a
+                             definite no stops anybody** — no signal, a slow
+                             answer or a host with no such function is "not
+                             known" and signing up carries on. An account
+                             whose link is still unpressed after seven days
+                             is removed by the database (0317,
+                             `delete_unconfirmed_accounts()`, daily):
+                             never an invited one, never one that has been
+                             given anything — every foreign key that points
+                             at a person is asked, bar the tables everybody
+                             is in (the profile, notifications, the tour,
+                             the location prompt), so **a new table keeps
+                             accounts until it is named there**. The app
+                             says the seven days where it says the link was
+                             sent (lib/unconfirmedAccounts.ts, held to the
+                             migration by a test). `looksLikeEmail`
                              (lib/emailDelivery) is only for reading an address
                              already kept. A slip that could be a real address
                              (gmial.com) is questioned, not refused
@@ -496,6 +514,15 @@ frontend/api/                Vercel functions. register-preview.js answers
                              (0285), which CI reads before a release.
                              ledger.js answers /api/ledger: the database's
                              record of its migrations, for the weekly check.
+                             mail-domain.js answers /api/mail-domain?domain=…:
+                             whether anything can receive email at a domain
+                             (_mailDomain.js) — its mail servers, or failing
+                             those its own address, asked of the DNS from
+                             the function itself. `accepts` is true, false,
+                             or null for "could not ask"; only a definite
+                             answer is cached. **Only ever given a domain,
+                             never an address.** Asked by sign-up through
+                             src/lib/mailDomain.ts.
                              manifest.js answers /manifest.webmanifest and
                              app-icon.js answers /app-icon/<set>/<file>.png:
                              the installed app's icon is the App Logo (see

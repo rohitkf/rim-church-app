@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'an-address-that-goes-nowhere',
+    date: '2026-11-21',
+    title: 'Signing up checks that the address can receive email',
+    lead: 'Before an account is made, the app now asks whether anything can receive email at the address’s domain, and an account that is never confirmed is removed after seven days.',
+    points: [
+      'An address at a domain that does not exist, or takes no email, is refused under the box with the reason. Only the part after the @ is looked up, by the app’s own server.',
+      'When that cannot be found out (no signal, a slow answer) signing up carries on: nobody is turned away on a guess.',
+      'An account made by signing up whose link is not pressed within seven days is removed, and the person can sign up again. Sending the link again starts the seven days over.',
+      'Nobody you invited is removed, and nobody who has been put on a team, a rota or a session, or linked to a guest.',
+    ],
+    holds: ['app.permissions'],
+  },
+  {
     key: 'a-note-on-a-session',
     date: '2026-11-21',
     title: 'A session can carry a note',

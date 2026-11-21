@@ -37,6 +37,12 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks())
 
 describe('after signing up', () => {
+  it('says how long there is to confirm, and what happens after', () => {
+    render(<CheckEmailDialog email="ada@gmail.com" onClose={() => undefined} />)
+    // The number is the database's (0317); lib/unconfirmedAccounts.test.ts holds the two together.
+    expect(screen.getByText('Confirm within 7 days. An account that is not confirmed by then is removed, and you can sign up again.')).toBeInTheDocument()
+  })
+
   it('says which address it went to, and to look in spam', () => {
     asDevice(DESKTOP)
     render(<CheckEmailDialog email="ada@gmail.com" onClose={() => {}} />)

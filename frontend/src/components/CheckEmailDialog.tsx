@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { errorMessage } from '../lib/errorMessage'
 import { deviceFrom, planFor } from '../lib/mailApp'
+import { UNCONFIRMED_ACCOUNT_DAYS } from '../lib/unconfirmedAccounts'
 import { Overlay } from './Surface'
 import { authSubmitClasses } from './AuthCard'
 
@@ -77,6 +78,11 @@ export function CheckEmailDialog({ email, onClose }: { email: string; onClose: (
         </p>
         <p className="mt-3 text-body-sm text-on-surface-variant">
           Open it and tap the link to finish. Then come back and sign in.
+        </p>
+        {/* An account whose link is never pressed is removed (0317): said
+            here, so nobody finds theirs gone without having been told. */}
+        <p className="mt-2 text-body-sm text-on-surface-variant">
+          Confirm within {UNCONFIRMED_ACCOUNT_DAYS} days. An account that is not confirmed by then is removed, and you can sign up again.
         </p>
 
         <p className="mt-4 rounded-[var(--radius-chip)] bg-[color-mix(in_oklab,var(--color-accent-orange)_14%,transparent)] px-3.5 py-3 text-body-sm text-on-surface">

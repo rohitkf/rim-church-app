@@ -8,7 +8,8 @@ import { PasswordInput } from '../components/PasswordInput'
 import { CheckEmailDialog } from '../components/CheckEmailDialog'
 import { alreadyHasAccount } from '../lib/signInWords'
 import { nameProblem, tidyName } from '../lib/personName'
-import { emailProblem } from '../lib/emailAddress'
+import { emailMeant, emailProblem } from '../lib/emailAddress'
+import { mailDomainAccepts, mailDomainProblem } from '../lib/mailDomain'
 import { sameEmail } from '../lib/emailDelivery'
 import { ConfirmEmailDialog } from '../components/ConfirmEmailDialog'
 import { passwordChecks, passwordScore, strengthColorClass, strengthLabel } from '../lib/passwordStrength'
@@ -34,6 +35,12 @@ export function SignupPage() {
   const [emailLeft, setEmailLeft] = useState<{ first?: boolean; again?: boolean }>({})
   // "Is this your email address?" is open, between Sign up and the account.
   const [confirming, setConfirming] = useState(false)
+  // The server is being asked whether the address's domain takes mail at
+  // all (lib/mailDomain), between Sign up and "Is this your email address?".
+  const [checking, setChecking] = useState(false)
+  // The address whose domain turned out to take none. Kept as the address,
+  // so that changing what is in the box takes the complaint away with it.
+  const [noMail, setNoMail] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -52,6 +59,10 @@ export function SignupPage() {
   const emailWrong = email.trim() ? emailProblem(email) : null
   const emailsDiffer = !!email.trim() && !!emailAgain.trim() && !sameEmail(email, emailAgain)
   const emailsAgree = !!emailAgain.trim() && !emailWrong && sameEmail(email, emailAgain)
+  // Can be an address, and nothing receives mail where it points: said of
+  // the address that was asked about, and of no other.
+  const domainDead = !emailWrong && !!noMail && sameEmail(noMail, email)
+  const domainMeant = domainDead ? emailMeant(email) : null
   /** Take the address they meant: in the first box, and in the second if the same slip was typed there. */
   const takeMeant = (meant: string) => {
     if (sameEmail(email, emailAgain)) setEmailAgain(meant)
@@ -83,6 +94,18 @@ export function SignupPage() {
     // boxes, where they are put right.
     setEmailLeft({ first: true, again: true })
     if (emailProblem(email) || !sameEmail(email, emailAgain)) return
+    // It can be an address. Whether mail can reach its domain at all is
+    // asked next: an account at a domain nobody owns can never be
+    // confirmed. Only a definite no stops here; not being able to ask
+    // (no signal, a slow answer) stops nobody.
+    setChecking(true)
+    const accepts = await mailDomainAccepts(email)
+    setChecking(false)
+    if (accepts === false) {
+      setNoMail(email.trim())
+      return
+    }
+    setNoMail(null)
     // Not made yet: the address is shown on its own first, and asked about.
     setConfirming(true)
   }
@@ -183,11 +206,27 @@ export function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onBlur={() => setEmailLeft((was) => ({ ...was, first: true }))}
-              aria-invalid={emailLeft.first && emailWrong ? true : undefined}
-              aria-describedby={emailLeft.first && emailWrong ? 'signup-email-problem' : undefined}
+              aria-invalid={(emailLeft.first && emailWrong) || domainDead ? true : undefined}
+              aria-describedby={emailLeft.first && emailWrong ? 'signup-email-problem' : domainDead ? 'signup-email-domain' : undefined}
               className={authInputClasses}
             />
           </label>
+          {/* The address is shaped like one, and nothing receives mail at its
+              domain: said where it is put right, like every other slip. */}
+          {domainDead && (
+            <div role="alert" id="signup-email-domain" className="-mt-2 flex flex-col gap-1 text-body-sm">
+              <p className="text-error [overflow-wrap:anywhere]">{mailDomainProblem(email)}</p>
+              {domainMeant && (
+                <p className="text-on-surface [overflow-wrap:anywhere]">
+                  Did you mean{' '}
+                  <button type="button" onClick={() => takeMeant(domainMeant)} className="tap font-semibold text-accent-blue-soft underline underline-offset-2">
+                    {domainMeant}
+                  </button>
+                  ?
+                </p>
+              )}
+            </div>
+          )}
           {/* Outside the label, like the names': why it cannot be an address, and the one they meant. */}
           {emailLeft.first && emailWrong && (
             <div role="alert" id="signup-email-problem" className="-mt-2 flex flex-col gap-1 text-body-sm">
@@ -285,10 +324,10 @@ export function SignupPage() {
           )}
           <button
             type="submit"
-            disabled={submitting || !canSubmit}
+            disabled={submitting || checking || !canSubmit}
             className={`mt-1.5 ${authSubmitClasses}`}
           >
-            {submitting ? 'Creating account…' : 'Sign up'}
+            {submitting ? 'Creating account…' : checking ? 'Checking the address…' : 'Sign up'}
           </button>
         </form>
       {/* Over the form rather than instead of it: "wrong address" is one tap
