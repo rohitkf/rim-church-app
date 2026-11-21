@@ -8,6 +8,7 @@ import { errorMessage } from '../lib/errorMessage'
 import { useAuth } from '../auth/AuthContext'
 import { whereTheyWereHeaded } from '../lib/afterSignIn'
 import { isWrongPassword } from '../lib/signInWords'
+import { emailProblem } from '../lib/emailAddress'
 import { PasswordInput } from '../components/PasswordInput'
 import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../components/AuthCard'
 
@@ -44,6 +45,9 @@ export function LoginPage() {
   if (session) {
     return <Navigate to={whereTheyWereHeaded(location.state)} replace />
   }
+
+  // Whether the address typed can be one at all (lib/emailAddress).
+  const slip = email.trim() ? emailProblem(email) : null
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -151,10 +155,29 @@ export function LoginPage() {
             {isWrongPassword(error) ? (
               <>
                 <p className="font-medium">That email and password don&rsquo;t match.</p>
-                <p className="mt-1">
-                  Check the email address first. If the password is the part you&rsquo;re not sure of,
-                  trying it again won&rsquo;t help &mdash; set a new one instead.
-                </p>
+                {/* The address itself, when it cannot be one: "…@gmail.con"
+                    will never match, whatever the password. Said, not
+                    refused: signing in is not the place to turn anybody away. */}
+                {slip ? (
+                  <p className="mt-1">
+                    {slip.text}
+                    {slip.meant && (
+                      <>
+                        {' '}
+                        Did you mean{' '}
+                        <button type="button" onClick={() => setEmail(slip.meant!)} className="font-semibold underline [overflow-wrap:anywhere]">
+                          {slip.meant}
+                        </button>
+                        ?
+                      </>
+                    )}
+                  </p>
+                ) : (
+                  <p className="mt-1">
+                    Check the email address first. If the password is the part you&rsquo;re not sure of,
+                    trying it again won&rsquo;t help &mdash; set a new one instead.
+                  </p>
+                )}
                 <Link
                   to="/forgot-password"
                   state={{ email: email.trim() }}

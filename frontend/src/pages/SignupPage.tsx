@@ -8,6 +8,7 @@ import { PasswordInput } from '../components/PasswordInput'
 import { CheckEmailDialog } from '../components/CheckEmailDialog'
 import { alreadyHasAccount } from '../lib/signInWords'
 import { nameProblem, tidyName } from '../lib/personName'
+import { emailProblem, emailProblemWords } from '../lib/emailAddress'
 import { passwordChecks, passwordScore, strengthColorClass, strengthLabel } from '../lib/passwordStrength'
 
 function CheckHint({ ok, children }: { ok: boolean; children: string }) {
@@ -58,6 +59,13 @@ export function SignupPage() {
     setLastName(last)
     setLeft({ first: true, last: true })
     if (nameProblem(first) || nameProblem(last)) return
+    // An address that cannot be one gets no confirmation email, and an
+    // account nobody can confirm: said here, with the one they meant.
+    const wrong = emailProblem(email)
+    if (wrong) {
+      setError(emailProblemWords(wrong))
+      return
+    }
     setSubmitting(true)
     try {
       const { data, error } = await supabase.auth.signUp({

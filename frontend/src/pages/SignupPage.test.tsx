@@ -80,6 +80,14 @@ describe('signing up', () => {
     expect(screen.queryByRole('dialog', { name: 'Check your email' })).toBeNull()
   })
 
+  // There is no .con: the confirmation could never arrive, and the account could never be confirmed.
+  it('makes no account for an address that cannot be one, and says the one that was meant', async () => {
+    await fillIn('ada@gmail.con')
+    expect(auth.calls).toEqual([])
+    expect(screen.getByText(/Email addresses do not end in “\.con”.*Did you mean ada@gmail\.com\?/)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Check your email' })).toBeNull()
+  })
+
   it('shows no such dialog when sign-up failed', async () => {
     auth.error = { message: 'Password is too weak' }
     await fillIn()

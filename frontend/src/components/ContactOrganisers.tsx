@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { ActionButton, Eyebrow, Overlay, inputClasses } from './Surface'
 import { ContactRefused, MESSAGE_MAX, sendRegistrationMessage } from '../lib/registrations'
 import { useErrorText } from '../lib/useErrorText'
+import { emailProblem, emailProblemWords } from '../lib/emailAddress'
 
 /**
  * "Need help?" on an event's public page and on a ticket (0287).
@@ -102,7 +103,10 @@ function ContactForm({
   const problems: { spot: Spot; text: string }[] = []
   if (!name.trim()) problems.push({ spot: 'name', text: 'Your name is missing.' })
   if (!email.trim()) problems.push({ spot: 'email', text: 'Your email address is missing — it is how they answer you.' })
-  else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) problems.push({ spot: 'email', text: 'That email address doesn’t look right. It should be like name@example.com.' })
+  else {
+    const wrong = emailProblem(email)
+    if (wrong) problems.push({ spot: 'email', text: emailProblemWords(wrong) })
+  }
   if (!message.trim()) problems.push({ spot: 'message', text: 'Your message is empty.' })
   else if (message.trim().length > MESSAGE_MAX) problems.push({ spot: 'message', text: `Your message is too long: ${MESSAGE_MAX.toLocaleString('en-GB')} characters at most.` })
 

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
-import { looksLikeEmail } from './emailDelivery'
+import { emailProblem, emailProblemWords } from './emailAddress'
 import { parsePounds, pounds } from './money'
 import { toIso } from './monthGrid'
 import { INVITE_PARAM } from './registrationLinks'
@@ -241,7 +241,10 @@ export function inviteProblems(draft: InviteDraft, now: Date = new Date()): Invi
 
   if (draft.kind === 'personal') {
     if (!draft.email.trim()) problems.push({ field: 'email', text: 'Enter their email address: only that address can use the link.' })
-    else if (!looksLikeEmail(draft.email)) problems.push({ field: 'email', text: 'That email address doesn’t look right. It should be like name@example.com.' })
+    else {
+      const wrong = emailProblem(draft.email)
+      if (wrong) problems.push({ field: 'email', text: emailProblemWords(wrong) })
+    }
   }
 
   let free = false

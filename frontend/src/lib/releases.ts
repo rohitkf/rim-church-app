@@ -46,6 +46,18 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'an-email-address-that-can-be-one',
+    date: '2026-11-21',
+    title: 'A mistyped email address is caught as it is typed',
+    lead: 'An address ending in “.con”, or any other ending that does not exist, is no longer taken: the form says so and offers the address that was meant.',
+    points: [
+      'Signing up, asking for a reset link, registering for an event, a walk-in at Reception, an invitation and a correction to a registration’s address all check it the same way.',
+      'It says why (“Email addresses do not end in .con”) and offers the right one, such as name@gmail.com, to take with one press.',
+      'A comma typed for the dot, a space, or a full stop left on the end are mended the same way.',
+      'An address that could be real but looks like a slip, such as gmial.com, is still only asked about, as before.',
+    ],
+  },
+  {
     key: 'minutes-under-the-clock',
     date: '2026-11-21',
     title: 'The minutes left, under the clock',

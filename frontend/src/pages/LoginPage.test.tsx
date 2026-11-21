@@ -60,6 +60,26 @@ describe('LoginPage', () => {
     await submit()
     expect(await screen.findByText(/couldn't reach the server/i)).toBeInTheDocument()
   })
+
+  // "…@gmail.con" will never match, whatever the password: the address is the thing to say.
+  it('says an address that cannot be one when the sign-in is refused, and offers the one meant', async () => {
+    signIn.mockResolvedValue({ error: { message: 'Invalid login credentials' } })
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+    await user.type(screen.getByLabelText('Email'), 'ada@gmail.con')
+    await user.type(document.querySelector('input[type=password]')!, 'hunter2hunter2')
+    await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+    expect(await screen.findByText(/Email addresses do not end in “\.con”/)).toBeInTheDocument()
+    // It was still tried: signing in is not the place to turn anybody away.
+    expect(signIn).toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'ada@gmail.com' }))
+    expect(screen.getByLabelText('Email')).toHaveValue('ada@gmail.com')
+    signIn.mockReset()
+  })
 })
 
 /*
