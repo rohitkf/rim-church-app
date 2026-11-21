@@ -54,7 +54,7 @@ export const RELEASES: Release[] = [
       'On the Service Planner, open a session’s menu and choose Add a note. A Note row opens on the session: type it and move on, and it is saved.',
       'To change it, type over it. To take it off, clear it. Undo puts back what it said.',
       'It is shown under the session to everybody, on the Preview, and on the exported sheet under a NOTE label.',
-      'While the session is on, its note is also on the Dashboard’s card for the service and under the clock on Countdown.',
+      'While the session is on, its note is also on the Dashboard’s card for the service.',
       'A note is not a comment: a comment is private, a note is for everyone. Writing one is for whoever plans the running order.',
     ],
     link: { to: '/service-planner', label: 'Open Service Planner' },

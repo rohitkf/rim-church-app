@@ -206,7 +206,8 @@ export const serviceSessionRowSchema = z.object({
   // Set when the clock reached this one and it had not begun.
   held_at: z.string().nullable().optional(),
   // A note about the session for everybody who reads the running order
-  // (0316): on the planner, the sheet, the Dashboard and the Countdown.
+  // (0316): on the planner, the sheet and the Dashboard's glimpse of what
+  // is on. Not on the Countdown, which is the clock and nothing else.
   // Not a comment, which is private (lib/sessionComments).
   note: z.string().nullable().optional(),
   updated_at: z.string(),
