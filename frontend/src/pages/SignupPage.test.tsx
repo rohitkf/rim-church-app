@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { SignupPage } from './SignupPage'
@@ -12,6 +12,16 @@ const auth = vi.hoisted(() => ({
   user: { identities: [{}] } as { identities: unknown[] } | null,
 }))
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ session: null }) }))
+// Whether the address's domain takes mail (lib/mailDomain): true, false, or null for "could not find out".
+const domain = vi.hoisted(() => ({ accepts: true as boolean | null, asked: [] as string[], hold: null as Promise<void> | null }))
+vi.mock('../lib/mailDomain', async (original) => ({
+  ...(await original<typeof import('../lib/mailDomain')>()),
+  mailDomainAccepts: async (address: string) => {
+    domain.asked.push(address)
+    if (domain.hold) await domain.hold
+    return domain.accepts
+  },
+}))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     auth: {
@@ -30,6 +40,9 @@ beforeEach(() => {
   auth.calls = []
   auth.error = null
   auth.user = { identities: [{}] }
+  domain.accepts = true
+  domain.asked = []
+  domain.hold = null
 })
 
 /**
@@ -53,6 +66,8 @@ async function fillIn(email = '  ada@gmail.com ', name: [string, string] = ['Ada
   await user.type(passwords[0] as HTMLElement, 'Sunday-Rota-9')
   await user.type(passwords[1] as HTMLElement, 'Sunday-Rota-9')
   await user.click(screen.getByRole('button', { name: 'Sign up' }))
+  // The domain is asked about first, where the form got that far.
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Checking the address…' })).toBeNull())
   const asked = screen.queryByRole('dialog', { name: 'Is this your email address?' })
   if (confirm && asked) await user.click(await screen.findByRole('button', { name: 'Yes, it’s right — Sign up' }))
   return user
@@ -186,5 +201,88 @@ describe('signing up', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('already an account for ada@gmail.com')
     expect(screen.queryByRole('dialog', { name: 'Check your email' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Reset my password' })).toHaveAttribute('href', '/forgot-password')
+  })
+})
+
+describe('an address whose domain takes no mail', () => {
+  it('is asked about with the address as typed, before anything else happens', async () => {
+    await fillIn('ada@gmail.com', undefined, { confirm: false })
+    expect(domain.asked).toEqual(['ada@gmail.com'])
+    expect(screen.getByRole('dialog', { name: 'Is this your email address?' })).toBeInTheDocument()
+  })
+
+  it('is refused under the box, names the domain, and makes no account', async () => {
+    domain.accepts = false
+    await fillIn('ada@gmaill-nobody.com', undefined, { confirm: false })
+    const said = await screen.findByText('Nothing can receive email at “gmaill-nobody.com”. Check the part after the @.')
+    expect(said.closest('[role="alert"]')).not.toBeNull()
+    expect(screen.getByRole('textbox', { name: 'Email' })).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.queryByRole('dialog', { name: 'Is this your email address?' })).toBeNull()
+    expect(auth.calls).toEqual([])
+  })
+
+  it('stops being said the moment the address is changed, and is asked about again', async () => {
+    domain.accepts = false
+    const user = await fillIn('ada@gmaill-nobody.com', undefined, { confirm: false })
+    await screen.findByText(/Nothing can receive email/)
+    const box = screen.getByRole('textbox', { name: 'Email' })
+    await user.clear(box)
+    await user.type(box, 'ada@gmail.com')
+    expect(screen.queryByText(/Nothing can receive email/)).toBeNull()
+    expect(box).not.toHaveAttribute('aria-invalid')
+    const again = screen.getByRole('textbox', { name: 'Confirm email' })
+    await user.clear(again)
+    await user.type(again, 'ada@gmail.com')
+    domain.accepts = true
+    await user.click(screen.getByRole('button', { name: 'Sign up' }))
+    expect(await screen.findByRole('dialog', { name: 'Is this your email address?' })).toBeInTheDocument()
+    expect(domain.asked).toEqual(['ada@gmaill-nobody.com', 'ada@gmail.com'])
+  })
+
+  it('offers the well-known domain it was probably meant to be, for both boxes', async () => {
+    domain.accepts = false
+    const user = await fillIn('ada@gmial.com', undefined, { confirm: false })
+    await screen.findByText(/Nothing can receive email at “gmial.com”/)
+    await user.click(screen.getByRole('button', { name: 'ada@gmail.com' }))
+    expect(screen.getByRole('textbox', { name: 'Email' })).toHaveValue('ada@gmail.com')
+    expect(screen.getByRole('textbox', { name: 'Confirm email' })).toHaveValue('ada@gmail.com')
+    expect(screen.queryByText(/Nothing can receive email/)).toBeNull()
+  })
+
+  it('stops nobody when it could not be found out', async () => {
+    domain.accepts = null
+    await fillIn('ada@gmail.com')
+    expect(await screen.findByRole('dialog', { name: 'Check your email' })).toBeInTheDocument()
+    expect(auth.calls[0].email).toBe('ada@gmail.com')
+  })
+
+  it('is not asked about an address that cannot be one, or two that differ', async () => {
+    await fillIn('ada@gmail.con', undefined, { confirm: false })
+    expect(domain.asked).toEqual([])
+  })
+
+  it('says it is checking, and holds the button, while it asks', async () => {
+    let release = () => {}
+    domain.hold = new Promise<void>((done) => (release = done))
+    render(
+      <MemoryRouter>
+        <SignupPage />
+      </MemoryRouter>,
+    )
+    const user = userEvent.setup()
+    const [first, last] = screen.getAllByRole('textbox')
+    await user.type(first, 'Ada')
+    await user.type(last, 'Grace')
+    await user.type(screen.getByRole('textbox', { name: 'Email' }), 'ada@gmail.com')
+    await user.type(screen.getByRole('textbox', { name: 'Confirm email' }), 'ada@gmail.com')
+    const passwords = document.querySelectorAll('input[type="password"]')
+    await user.type(passwords[0] as HTMLElement, 'Sunday-Rota-9')
+    await user.type(passwords[1] as HTMLElement, 'Sunday-Rota-9')
+    await user.click(screen.getByRole('button', { name: 'Sign up' }))
+    const busy = await screen.findByRole('button', { name: 'Checking the address…' })
+    expect(busy).toBeDisabled()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    release()
+    expect(await screen.findByRole('dialog', { name: 'Is this your email address?' })).toBeInTheDocument()
   })
 })
