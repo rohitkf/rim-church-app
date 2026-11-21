@@ -211,11 +211,14 @@ export function TimelineCard({
 export function AssigneePill({
   name,
   initials,
+  note,
   tone = 'neutral',
   substitute = false,
 }: {
   name: ReactNode
   initials: string
+  /** What is kept about a guest, said under their name: "Note: pastor from Harlow". */
+  note?: string | null
   tone?: 'neutral' | 'blue' | 'green' | 'indigo'
   /** Somebody standing in, not taking it (0182): a dashed amber pill with a Sub mark. */
   substitute?: boolean
@@ -244,7 +247,10 @@ export function AssigneePill({
       >
         {initials}
       </span>
-      <span className="min-w-0 break-words text-label-md text-on-surface">{name}</span>
+      <span className="min-w-0 break-words text-label-md text-on-surface">
+        {name}
+        {note?.trim() && <span className="block text-label-sm font-normal text-on-surface-variant">Note: {note.trim()}</span>}
+      </span>
       {substitute && (
         <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-orange-soft">
           Sub

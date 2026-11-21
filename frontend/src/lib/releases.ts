@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'a-guests-note-under-their-name',
+    date: '2026-11-21',
+    title: 'A guest’s note shows under their name',
+    lead: 'On the Service Planner, what was written about a guest is now said under their name on the session.',
+    points: [
+      'A guest with a note reads as two lines: their name, then “Note: pastor from Harlow”.',
+      'It shows for everybody who opens the running order, and for a guest named as a substitute too.',
+      'The note is the one kept on the guest list on Volunteers; a guest with no note looks as before.',
+    ],
+    link: { to: '/service-planner', label: 'Open Service Planner' },
+    page: '/service-planner',
+  },
+  {
     key: 'type-to-find-in-long-lists',
     date: '2026-11-21',
     title: 'Type to find a person or a right',
