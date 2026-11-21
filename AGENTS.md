@@ -419,6 +419,20 @@ frontend/src/
                              the one in hand belongs is lib/chipOrder's, which
                              needs no browser. Use useDragReorder for rows and
                              this for anything that wraps
+  lib/authLinks.ts           where the link in an account's email lands:
+                             `confirmationLanding()` is this site's /login,
+                             named by sign-up and by "Send it again" every
+                             time, so no setting outside the code decides
+                             it. The project's "Site URL" had been saved as
+                             `https://…/**` (an allow-list pattern in the
+                             wrong box) and a confirmation link then opened
+                             "Page not found"; the setting was put right in
+                             November 2026 and **must stay a plain address**.
+                             `linkProblem(hash)` is what LoginPage says when
+                             a link arrives expired. A reset link and an
+                             invitation name /reset-password themselves
+                             (ForgotPasswordPage; the `invite` function's
+                             SITE_URL secret)
   lib/sessionNote.ts         a session's note (`service_sessions.note`, 0316):
                              `noteOf` (what a session carries, or null),
                              `tidyNote` (what was typed as it is kept: one

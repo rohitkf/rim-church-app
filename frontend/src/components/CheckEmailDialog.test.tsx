@@ -103,7 +103,10 @@ describe('sending it again', () => {
     await act(async () => {
       ready.click()
     })
-    await waitFor(() => expect(auth.resends).toEqual([{ type: 'signup', email: 'ada@gmail.com' }]))
+    // And where its link lands is named, not left to a setting: the sign-in page (lib/authLinks).
+    await waitFor(() =>
+      expect(auth.resends).toEqual([{ type: 'signup', email: 'ada@gmail.com', options: { emailRedirectTo: `${window.location.origin}/login` } }]),
+    )
     expect(await screen.findByText(/Sent again/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Send it again \(60s\)/ })).toBeDisabled()
     vi.useRealTimers()

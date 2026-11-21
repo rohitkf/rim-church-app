@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import { errorMessage } from '../lib/errorMessage'
 import { deviceFrom, planFor } from '../lib/mailApp'
 import { UNCONFIRMED_ACCOUNT_DAYS } from '../lib/unconfirmedAccounts'
+import { confirmationLanding } from '../lib/authLinks'
 import { Overlay } from './Surface'
 import { authSubmitClasses } from './AuthCard'
 
@@ -42,7 +43,8 @@ export function CheckEmailDialog({ email, onClose }: { email: string; onClose: (
     setSending(true)
     setNote(null)
     try {
-      const { error } = await supabase.auth.resend({ type: 'signup', email })
+      // The same landing page the first one named (lib/authLinks).
+      const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: confirmationLanding() } })
       if (error) {
         setNote({ tone: 'error', text: error.message })
         return
