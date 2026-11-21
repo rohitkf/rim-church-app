@@ -6,7 +6,7 @@ import { SignupPage } from './SignupPage'
 import { setConfirmEmailWaitForTests } from '../lib/emailDelivery'
 
 const auth = vi.hoisted(() => ({
-  calls: [] as { email: string; data: unknown }[],
+  calls: [] as { email: string; data: unknown; landing?: string }[],
   error: null as { message: string } | null,
   // What the service hands back: a new account has an identity, an existing one has none.
   user: { identities: [{}] } as { identities: unknown[] } | null,
@@ -25,8 +25,8 @@ vi.mock('../lib/mailDomain', async (original) => ({
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     auth: {
-      signUp: (a: { email: string; options: { data: unknown } }) => {
-        auth.calls.push({ email: a.email, data: a.options.data })
+      signUp: (a: { email: string; options: { data: unknown; emailRedirectTo?: string } }) => {
+        auth.calls.push({ email: a.email, data: a.options.data, landing: a.options.emailRedirectTo })
         return Promise.resolve({ data: { user: auth.error ? null : auth.user }, error: auth.error })
       },
       resend: () => Promise.resolve({ error: null }),
@@ -80,6 +80,19 @@ describe('signing up', () => {
     expect(auth.calls[0].email).toBe('ada@gmail.com')
     expect(screen.getByText('ada@gmail.com')).toBeInTheDocument()
     expect(screen.getByText(/spam or junk/)).toBeInTheDocument()
+  })
+
+  /*
+   * The link in the email used to land wherever the project's "Site URL"
+   * said, which had been saved as a pattern ending in /**: the account was
+   * confirmed and the person shown "Page not found". The app names the
+   * page itself now.
+   */
+  it('says where the confirmation link lands: the sign-in page of this site', async () => {
+    await fillIn()
+    await screen.findByRole('dialog', { name: 'Check your email' })
+    expect(auth.calls[0].landing).toBe(`${window.location.origin}/login`)
+    expect(auth.calls[0].landing).not.toContain('*')
   })
 
   it('goes back to the form, with what they typed, when the address was wrong', async () => {

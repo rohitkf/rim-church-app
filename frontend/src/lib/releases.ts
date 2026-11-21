@@ -46,6 +46,17 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'a-confirmation-link-lands-on-sign-in',
+    date: '2026-11-21',
+    title: 'The link in a confirmation email opens the app',
+    lead: 'Pressing the link in a sign-up email confirmed the account and then opened “Page not found”. It now opens the app, signed in.',
+    points: [
+      'The cause was a setting saved with a stray pattern on the end; it has been put right, and the app now names the page itself so no setting decides it.',
+      'A link pressed after it has expired opens the sign-in page, which says so and says what to do.',
+    ],
+    holds: ['app.permissions'],
+  },
+  {
     key: 'every-teams-call-time-at-once',
     date: '2026-11-21',
     title: 'Set every team’s call time at once',

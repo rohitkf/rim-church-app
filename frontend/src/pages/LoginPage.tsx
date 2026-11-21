@@ -9,6 +9,7 @@ import { useAuth } from '../auth/AuthContext'
 import { whereTheyWereHeaded } from '../lib/afterSignIn'
 import { isWrongPassword } from '../lib/signInWords'
 import { emailProblem } from '../lib/emailAddress'
+import { linkProblem } from '../lib/authLinks'
 import { PasswordInput } from '../components/PasswordInput'
 import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../components/AuthCard'
 
@@ -41,6 +42,9 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [advice, setAdvice] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // A confirmation link pressed too late lands here with the reason in its
+  // address (lib/authLinks). Read once, as the page opens.
+  const [linkSaid] = useState(() => linkProblem(window.location.hash, window.location.search))
 
   if (session) {
     return <Navigate to={whereTheyWereHeaded(location.state)} replace />
@@ -119,6 +123,12 @@ export function LoginPage() {
       {removed && (
         <div className="mb-4 rounded-[var(--radius-chip)] bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
           <p>Your account is no longer active. Speak to a church Admin if you think that is wrong.</p>
+        </div>
+      )}
+
+      {linkSaid && !removed && (
+        <div role="status" className="mb-4 rounded-[var(--radius-chip)] bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
+          <p>{linkSaid}</p>
         </div>
       )}
 

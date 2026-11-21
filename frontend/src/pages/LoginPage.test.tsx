@@ -178,3 +178,44 @@ describe('after signing in', () => {
     expect(whereTheyWereHeaded({ from: '/login?removed=1' })).toBe('/')
   })
 })
+
+/*
+ * A confirmation link lands on this page (lib/authLinks). Pressed in time
+ * it signs them in and the page sends them on; pressed too late it brings
+ * the reason in its address, and the page says what to do about it.
+ */
+describe('arriving from a link in an email', () => {
+  const arrive = (hash: string) => {
+    window.history.replaceState(null, '', `/login${hash}`)
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+  }
+
+  it('says a link that has expired has, and what to do, above the form', () => {
+    arrive('#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired')
+    const said = screen.getByRole('status')
+    expect(said).toHaveTextContent('That link has expired, or has already been used.')
+    expect(said).toHaveTextContent('sign up again with the same address')
+    expect(screen.queryByText(/Email link is invalid/)).toBeNull()
+    // The form is still there to sign in with.
+    expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('says nothing when the address carries no such thing', () => {
+    arrive('')
+    expect(screen.queryByRole('status')).toBeNull()
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('goes straight on when the link signed them in', () => {
+    who.session = { user: { id: 'u1' } }
+    arrive('')
+    expect(screen.queryByRole('button', { name: /^sign in$/i })).toBeNull()
+    who.session = null
+    window.history.replaceState(null, '', '/')
+  })
+})

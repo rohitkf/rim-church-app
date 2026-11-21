@@ -10,6 +10,7 @@ import { alreadyHasAccount } from '../lib/signInWords'
 import { nameProblem, tidyName } from '../lib/personName'
 import { emailMeant, emailProblem } from '../lib/emailAddress'
 import { mailDomainAccepts, mailDomainProblem } from '../lib/mailDomain'
+import { confirmationLanding } from '../lib/authLinks'
 import { sameEmail } from '../lib/emailDelivery'
 import { ConfirmEmailDialog } from '../components/ConfirmEmailDialog'
 import { passwordChecks, passwordScore, strengthColorClass, strengthLabel } from '../lib/passwordStrength'
@@ -119,7 +120,8 @@ export function SignupPage() {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { data: { first_name: first, last_name: last } },
+        // Where the link in the email lands is said here, not left to a setting (lib/authLinks).
+        options: { emailRedirectTo: confirmationLanding(), data: { first_name: first, last_name: last } },
       })
       if (error) {
         setError(error.message)
