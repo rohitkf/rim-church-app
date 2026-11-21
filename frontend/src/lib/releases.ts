@@ -46,6 +46,22 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'a-note-on-a-session',
+    date: '2026-11-21',
+    title: 'A session can carry a note',
+    lead: 'What a session’s name, time and people do not say can now be written on it as a note, which everybody who opens the running order reads.',
+    points: [
+      'On the Service Planner, open a session’s menu and choose Add a note. A Note row opens on the session: type it and move on, and it is saved.',
+      'To change it, type over it. To take it off, clear it. Undo puts back what it said.',
+      'It is shown under the session to everybody, on the Preview, and on the exported sheet under a NOTE label.',
+      'While the session is on, its note is also on the Dashboard’s card for the service and under the clock on Countdown.',
+      'A note is not a comment: a comment is private, a note is for everyone. Writing one is for whoever plans the running order.',
+    ],
+    link: { to: '/service-planner', label: 'Open Service Planner' },
+    page: '/service-planner',
+    holds: ['svc.sessions'],
+  },
+  {
     key: 'sign-up-confirms-the-address',
     date: '2026-11-21',
     title: 'Signing up confirms the email address, as registering does',

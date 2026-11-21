@@ -58,4 +58,39 @@ describe('GrowingField', () => {
     expect(onCommit).not.toHaveBeenCalled()
     expect((field as HTMLTextAreaElement).value).toBe(LONG)
   })
+
+  describe('a field that may be left empty', () => {
+    function note(value: string) {
+      const onCommit = vi.fn()
+      const onRest = vi.fn()
+      render(
+        <GrowingField value={value} label="Note" onCommit={onCommit} onRest={onRest} allowEmpty maxLength={500} placeholder="For everyone" autoFocus={!value} />,
+      )
+      return { onCommit, onRest, user: userEvent.setup(), field: screen.getByLabelText('Note') as HTMLTextAreaElement }
+    }
+
+    it('commits the empty string when it is cleared', async () => {
+      const { onCommit, onRest, user, field } = note('Two songs only.')
+      await user.clear(field)
+      await user.tab()
+      expect(onCommit).toHaveBeenCalledWith('')
+      expect(onRest).not.toHaveBeenCalled()
+    })
+
+    it('says it was left alone, and commits nothing, when it is empty and stays so', async () => {
+      const { onCommit, onRest, user, field } = note('')
+      expect(field).toHaveFocus()
+      expect(field).toHaveAttribute('placeholder', 'For everyone')
+      expect(field).toHaveAttribute('maxlength', '500')
+      await user.tab()
+      expect(onCommit).not.toHaveBeenCalled()
+      expect(onRest).toHaveBeenCalledTimes(1)
+    })
+
+    it('still commits what is typed', async () => {
+      const { onCommit, user, field } = note('')
+      await user.type(field, 'Reading first{Enter}')
+      expect(onCommit).toHaveBeenCalledWith('Reading first')
+    })
+  })
 })

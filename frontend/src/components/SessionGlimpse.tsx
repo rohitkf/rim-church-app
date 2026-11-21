@@ -86,6 +86,14 @@ export function SessionGlimpse({
         </span>
       </div>
       {glimpse.current && <p className="mt-1 text-body-sm text-on-surface-variant">{peopleLine(glimpse.current.people)}</p>}
+      {/* What the session on now carries as a note (0316): the same words
+          as on its card in the running order. */}
+      {glimpse.current?.note && (
+        <p className="mt-1.5 text-body-sm text-on-surface [overflow-wrap:anywhere]">
+          <span className="mr-2 font-mono text-label-sm text-accent-teal-soft">Note</span>
+          {glimpse.current.note}
+        </p>
+      )}
       <p className="mt-2 text-label-md text-on-surface-faint">
         {glimpse.next ? (
           <>

@@ -99,6 +99,7 @@ const dashboardSessionSchema = z.object({
   added_minutes: z.number().nullable().optional(),
   skipped_at: z.string().nullable().optional(),
   held_at: z.string().nullable().optional(),
+  note: z.string().nullable().optional(),
   assignees: z.array(sessionAssigneeSchema).optional(),
 })
 type DashboardSession = z.infer<typeof dashboardSessionSchema>
@@ -252,7 +253,7 @@ export function DashboardPage() {
       const { data, error } = await supabase
         .from('service_sessions')
         .select(
-          'id, service_id, order_index, session_name, start_time, duration_minutes, added_minutes, skipped_at, held_at, assignees:service_session_assignees(id, user_id, guest_id, order_index, is_substitute, is_translator, profile:profiles(id, first_name, last_name), guest:guests(id, name, title, note))',
+          'id, service_id, order_index, session_name, start_time, duration_minutes, added_minutes, skipped_at, held_at, note, assignees:service_session_assignees(id, user_id, guest_id, order_index, is_substitute, is_translator, profile:profiles(id, first_name, last_name), guest:guests(id, name, title, note))',
         )
         .in('service_id', listedIds)
         .order('start_time')

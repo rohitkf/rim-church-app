@@ -10,15 +10,18 @@
  */
 import { clockTone, serviceClock, type ClockSession, type ClockTone } from './serviceClock'
 import { namesOn } from './sessionAssignees'
+import { noteOf } from './sessionNote'
 import type { SessionAssignee } from './types'
 
 export interface GlimpseSession extends ClockSession {
   assignees?: SessionAssignee[]
+  /** The session's note (0316), where the read asked for it. */
+  note?: string | null
 }
 
 export interface SessionGlimpse {
   /** The session on now; null in a planned gap between two. */
-  current: { name: string; people: string[] } | null
+  current: { name: string; people: string[]; note: string | null } | null
   /** What follows, and when it is due; null when the service's end is what follows. */
   next: { name: string; at: number } | null
   /** Milliseconds to the moment being counted to; negative once it has passed. */
@@ -48,7 +51,9 @@ export function sessionGlimpse(
   const remainingMs = clock.target - now
   const span = clock.current ? clock.target - new Date(clock.current.start_time).getTime() : null
   return {
-    current: clock.current ? { name: clock.current.session_name, people: namesOn(clock.current) } : null,
+    current: clock.current
+      ? { name: clock.current.session_name, people: namesOn(clock.current), note: noteOf(clock.current) }
+      : null,
     next: clock.next ? { name: clock.next.session_name, at: new Date(clock.next.start_time).getTime() } : null,
     remainingMs,
     over: remainingMs < 0,

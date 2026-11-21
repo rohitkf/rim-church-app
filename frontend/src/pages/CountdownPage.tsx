@@ -9,6 +9,7 @@ import { todayIso } from '../lib/monthGrid'
 import { useNow } from '../lib/useNow'
 import { formatTime } from '../lib/time'
 import { serviceStanding } from '../lib/serviceState'
+import { noteOf } from '../lib/sessionNote'
 import { clockFace, clockSize, clockTone, minutesWords, serviceClock, type ClockTone, type ServiceClock } from '../lib/serviceClock'
 
 /*
@@ -57,6 +58,8 @@ const sessionRowSchema = z.object({
   added_minutes: z.number().nullable().optional(),
   skipped_at: z.string().nullable().optional(),
   held_at: z.string().nullable().optional(),
+  /** The session's note (0316): said under the clock while it is on. */
+  note: z.string().nullable().optional(),
 })
 type SessionRow = z.infer<typeof sessionRowSchema>
 
@@ -73,7 +76,7 @@ async function fetchSessionsFor(serviceIds: string[]): Promise<SessionRow[]> {
   if (serviceIds.length === 0) return []
   const { data, error } = await supabase
     .from('service_sessions')
-    .select('id, service_id, order_index, session_name, start_time, duration_minutes, added_minutes, skipped_at, held_at')
+    .select('id, service_id, order_index, session_name, start_time, duration_minutes, added_minutes, skipped_at, held_at, note')
     .in('service_id', serviceIds)
     .order('order_index')
   if (error) throw error
@@ -160,6 +163,7 @@ function ClockTile({ service, clock, now }: { service: ServiceRow; clock: Servic
   // is no session, and the colour goes by minutes alone.
   const span = clock.current ? clock.target - new Date(clock.current.start_time).getTime() : null
   const tone = clockTone(remaining, span)
+  const note = clock.current ? noteOf(clock.current) : null
 
   return (
     <Tile as="section" className="@container text-center" tone={over ? 'danger' : 'plain'}>
@@ -214,6 +218,14 @@ function ClockTile({ service, clock, now }: { service: ServiceRow; clock: Servic
       )}
       {!over && tone !== 'plenty' && (
         <p className="mt-2 text-body-sm text-on-surface-variant">{tone === 'out' ? 'Time is nearly up.' : 'Coming to the end.'}</p>
+      )}
+      {/* What the session on now carries as a note (0316), last: the clock
+          is what this page is for, and a note never pushes it down. */}
+      {note && (
+        <p className="mx-auto mt-4 max-w-2xl text-body-md text-on-surface [overflow-wrap:anywhere]">
+          <span className="mr-2 font-mono text-label-sm text-accent-teal-soft">Note</span>
+          {note}
+        </p>
       )}
     </Tile>
   )

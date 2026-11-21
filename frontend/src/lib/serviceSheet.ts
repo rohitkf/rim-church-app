@@ -32,6 +32,12 @@ export interface SheetSession {
    * a TRANSLATOR label in indigo: neither taking it nor standing by.
    */
   translators?: string[]
+  /**
+   * What the session's note says (0316), drawn last under a NOTE label in
+   * teal: for everybody who reads the running order, so it is on the sheet
+   * as it is on the page. Nothing at all when there is none.
+   */
+  note?: string | null
 }
 
 export interface ServiceSheet {
@@ -98,6 +104,8 @@ interface Palette {
   trPill: string
   trDisc: string
   trLabel: string
+  /** The label above a session's note (0316); the note itself is in the sheet's ink. */
+  noteLabel: string
   /** The small tag under each time that says how long the session runs. */
   chip: string
 }
@@ -126,6 +134,7 @@ const PALETTES: Record<SheetTheme, Palette> = {
     trPill: '#23234a',
     trDisc: '#44428f',
     trLabel: '#a5a3ff',
+    noteLabel: '#40c8e0',
     chip: '#2e2e37',
   },
   light: {
@@ -153,6 +162,7 @@ const PALETTES: Record<SheetTheme, Palette> = {
     trPill: '#e7e7fb',
     trDisc: '#c5c4f4',
     trLabel: '#4340b5',
+    noteLabel: '#0b7285',
     chip: '#e3e3ea',
   },
 }
@@ -239,6 +249,10 @@ const PILL_ROW_GAP = 6
 const SUB_GAP = 10
 /** The label's own line, above the substitutes' pills. */
 const SUB_LABEL_H = 16
+
+/** A session's note, as prose under its people: smaller than a name, larger than a label. */
+const NOTE_SIZE = 12.5
+const NOTE_LINE = 16.5
 
 /** Pills laid out in lines across `innerW`, side by side while they fit. */
 function pillLines(pills: Pill[], innerW: number): { rows: Pill[][]; heights: number[]; total: number } {
@@ -357,6 +371,7 @@ export function serviceSheetPage(
     trPill: TR_PILL,
     trDisc: TR_DISC,
     trLabel: TR_LABEL,
+    noteLabel: NOTE_LABEL,
     chip: CHIP,
   } = PALETTES[theme]
 
@@ -481,8 +496,14 @@ export function serviceSheetPage(
     const subs = apart(session.substitutes)
     // And whoever translates, the same way under theirs (0315).
     const trs = apart(session.translators)
+    // And what its note says, under its own label: wrapped to the row,
+    // every word of it, the way a name is.
+    const noteLines = session.note?.trim() ? wrapText(session.note.trim(), NOTE_SIZE, innerW, false) : null
     const pillsH =
-      leads.total + (subs ? SUB_GAP + SUB_LABEL_H + subs.total : 0) + (trs ? SUB_GAP + SUB_LABEL_H + trs.total : 0)
+      leads.total +
+      (subs ? SUB_GAP + SUB_LABEL_H + subs.total : 0) +
+      (trs ? SUB_GAP + SUB_LABEL_H + trs.total : 0) +
+      (noteLines ? SUB_GAP + SUB_LABEL_H + noteLines.length * NOTE_LINE - (NOTE_LINE - NOTE_SIZE) : 0)
 
     // What the row hangs from: the first line of the name, so the clock
     // beside it and the dot on the rail line up with the words rather
@@ -614,6 +635,16 @@ export function serviceSheetPage(
     }
     if (subs) drawApart(subs, 'substitute')
     if (trs) drawApart(trs, 'translator')
+    if (noteLines) {
+      pillY += SUB_GAP - PILL_ROW_GAP
+      texts.push({ x: ROW_X + ROW_PAD_X, y: pillY + EYEBROW_SIZE, size: EYEBROW_SIZE, text: 'NOTE', bold: true, color: NOTE_LABEL })
+      pillY += SUB_LABEL_H
+      let noteY = pillY + NOTE_SIZE * 0.86
+      for (const line of noteLines) {
+        texts.push({ x: ROW_X + ROW_PAD_X, y: noteY, size: NOTE_SIZE, text: line, color: INK })
+        noteY += NOTE_LINE
+      }
+    }
 
     y = top + rowH + ROW_GAP
   })
