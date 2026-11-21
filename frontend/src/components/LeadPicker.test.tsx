@@ -303,7 +303,8 @@ describe('choosing a substitute (0182)', () => {
         onChange={vi.fn()}
       />,
     )
-    expect(screen.getByText('Tunde Alabi').parentElement).toHaveTextContent('Sub')
+    // No mark on the name: the row it is in says Substitute (the Owner had "Sub" taken off).
+    expect(screen.getByText('Tunde Alabi').parentElement).not.toHaveTextContent('Sub')
     expect(screen.getByRole('button', { name: 'Substitute for Message' })).toHaveTextContent('Add a substitute')
   })
 
@@ -536,7 +537,7 @@ describe('choosing a translator (0315)', () => {
         onChange={vi.fn()}
       />,
     )
-    expect(screen.getByText('Tunde Alabi').parentElement).toHaveTextContent('Sub')
+    expect(screen.getByText('Tunde Alabi').parentElement).not.toHaveTextContent('Sub')
     expect(screen.getByText('Tunde Alabi').parentElement).not.toHaveTextContent('Trans')
   })
 })

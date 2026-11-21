@@ -272,3 +272,67 @@ describe('a service that is over', () => {
     expect(row.queryByRole('textbox')).toBeNull()
   })
 })
+
+/*
+ * Naming a translator is one of the planner's buttons that can be given
+ * (0318), as naming a substitute has been since 0184: each on its own.
+ */
+describe('somebody given the Assign translator button', () => {
+  const translating = (name: string) => screen.queryByRole('group', { name: `Translator for ${name}` })
+
+  it('has it in a session’s menu, and with it names a translator', async () => {
+    db.rights = ['planner.translator']
+    const user = show()
+    await screen.findByRole('button', { name: 'Actions for Worship' })
+    const menu = await menuOf(user, 'Worship')
+    expect(menu.getAllByRole('menuitem').map((item) => (item.textContent ?? '').replace(/Names.*/, ''))).toEqual(['Assign translator'])
+    await user.click(menu.getByRole('menuitem', { name: /Assign translator/ }))
+    expect(translating('Worship')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Translator for Worship' })).toHaveTextContent('No translator')
+  })
+
+  it('has no Assign substitute, and somebody given that one has no Assign translator', async () => {
+    db.rights = ['planner.substitute']
+    const user = show()
+    await screen.findByRole('button', { name: 'Actions for Worship' })
+    const menu = await menuOf(user, 'Worship')
+    expect(menu.getByRole('menuitem', { name: /Assign substitute/ })).toBeInTheDocument()
+    expect(menu.queryByRole('menuitem', { name: /Assign translator/ })).toBeNull()
+  })
+
+  it('changes a translator who is already there', async () => {
+    const withOne = () => [
+      {
+        ...session('s1', 'Worship', '10:00', 0),
+        assignees: [{ id: 'a1', user_id: 'u2', guest_id: null, order_index: 0, is_substitute: false, is_translator: true, profile: { id: 'u2', first_name: 'Rose', last_name: 'Sam' }, guest: null }],
+      },
+      session('s2', 'Sermon', '10:30', 1),
+    ]
+    db.rows.service_sessions = withOne()
+    // The picker names people from the list of everybody with an account.
+    db.rows.profiles = [{ id: 'u2', first_name: 'Rose', last_name: 'Sam' }]
+    db.rights = ['planner.translator']
+    show()
+    expect(await screen.findByRole('button', { name: 'Translator for Worship' })).toBeInTheDocument()
+    expect(await within(translating('Worship')!).findByText('Rose Sam')).toBeInTheDocument()
+    // The way to take them off is there, which is what tells it from the read-only row.
+    expect(within(translating('Worship')!).getByRole('button', { name: /Remove Rose Sam/ })).toBeInTheDocument()
+  })
+
+  it('is read, and not changed, by somebody given the substitute button instead', async () => {
+    db.rows.service_sessions = [
+      {
+        ...session('s1', 'Worship', '10:00', 0),
+        assignees: [{ id: 'a1', user_id: 'u2', guest_id: null, order_index: 0, is_substitute: false, is_translator: true, profile: { id: 'u2', first_name: 'Rose', last_name: 'Sam' }, guest: null }],
+      },
+      session('s2', 'Sermon', '10:30', 1),
+    ]
+    db.rights = ['planner.substitute']
+    show()
+    const row = within(await screen.findByRole('group', { name: 'Translator for Worship' }))
+    expect(row.getByText('Rose Sam')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Translator for Worship' })).toBeNull()
+    // No mark on the name: the row says Translator.
+    expect(row.queryByText('Trans')).toBeNull()
+  })
+})

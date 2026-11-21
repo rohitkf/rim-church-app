@@ -15,13 +15,11 @@ import { GUESTS_KEY, addGuest, fetchGuests, guestLabel, pickable } from '../lib/
 import {
   assigneeInitials,
   assigneeName,
-  namesOn,
   peopleOn,
   refOf,
   saveAssignees,
-  substituteNamesOn,
+  sheetPeople,
   substitutesOn,
-  translatorNamesOn,
   translatorsOn,
   withNewOrder,
   type PersonRef,
@@ -172,7 +170,7 @@ export function ServicePlannerPage() {
   const profilesQuery = useQuery({
     queryKey: ['profile-options'],
     queryFn: fetchProfileOptions,
-    enabled: mayPlan || given.has('substitute'),
+    enabled: mayPlan || given.has('substitute') || given.has('translator'),
   })
 
   // Asked for only by somebody who writes comments or reads them: nobody
@@ -757,9 +755,10 @@ export function ServicePlannerPage() {
         time: formatTime(session.start_time),
         minutes: runsForMinutes(session),
         name: session.session_name,
-        leads: namesOn(session),
-        substitutes: substituteNamesOn(session),
-        translators: translatorNamesOn(session),
+        // A guest's note goes with their name, on each of the three lists.
+        leads: sheetPeople(peopleOn(session)),
+        substitutes: sheetPeople(substitutesOn(session)),
+        translators: sheetPeople(translatorsOn(session)),
         note: noteOf(session),
       })),
       totalLabel: formatDuration(totalMinutes),
@@ -1549,6 +1548,17 @@ export function ServicePlannerPage() {
                                   setSubstituteOpen((open) => new Set(open).add(session.id)),
                               },
                             ],
+                            // Naming a translator (0315) is a button that can
+                            // be given too, as the one above it is (0318).
+                            [
+                              'translator',
+                              {
+                                label: 'Assign translator',
+                                hint: 'Names who translates it as it is taken',
+                                onSelect: () =>
+                                  setTranslatorOpen((open) => new Set(open).add(session.id)),
+                              },
+                            ],
                             [
                               'add_below',
                               {
@@ -1577,19 +1587,6 @@ export function ServicePlannerPage() {
                       // the church gave them (0184), until the lock.
                       .filter(([control]) => mayControl(control))
                       .map(([, action]) => action)
-                    // Assign translator (0315), under Assign substitute. Not one
-                    // of the buttons somebody can be given (0184): it is for
-                    // whoever plans the running order, which is who the
-                    // database lets write the row.
-                    if (canEdit && !skipped) {
-                      const after = sessionActions.findIndex((a) => a.label === 'Assign substitute')
-                      const removes = sessionActions.findIndex((a) => a.tone === 'danger')
-                      sessionActions.splice(after >= 0 ? after + 1 : removes < 0 ? sessionActions.length : removes, 0, {
-                        label: 'Assign translator',
-                        hint: 'Names who translates it as it is taken',
-                        onSelect: () => setTranslatorOpen((open) => new Set(open).add(session.id)),
-                      })
-                    }
                     // Add a note (0316), under those: part of the plan, so it
                     // is for whoever plans the running order, and not one of
                     // the buttons somebody can be given. A session that has
@@ -1851,7 +1848,7 @@ export function ServicePlannerPage() {
                                   (0315): a row of its own again, in indigo,
                                   so they are read as neither taking the
                                   session nor standing by to. */}
-                              {(translators.length > 0 || (canEdit && translatorOpen.has(session.id))) && (
+                              {(translators.length > 0 || (mayControl('translator') && translatorOpen.has(session.id))) && (
                                 <div
                                   className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2"
                                   aria-label={`Translator for ${session.session_name}`}
@@ -1860,7 +1857,7 @@ export function ServicePlannerPage() {
                                   <span className="font-mono text-label-sm text-accent-indigo-soft">
                                     Translator
                                   </span>
-                                  {canEdit ? (
+                                  {mayControl('translator') ? (
                                     <LeadPicker
                                       variant="translator"
                                       label={`Translator for ${session.session_name}`}

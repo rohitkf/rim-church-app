@@ -99,6 +99,18 @@ export function translatorsOn(session: { assignees?: SessionAssignee[] }): Sessi
 const named = (people: SessionAssignee[]) =>
   people.map(assigneeName).filter((name): name is string => !!name)
 
+/**
+ * People as the exported sheet takes them: the name, and for a guest what
+ * is kept about them ("pastor from Harlow"), which the sheet says under
+ * the name as the planner does. A member has no note.
+ */
+export function sheetPeople(people: SessionAssignee[]): { name: string; note: string | null }[] {
+  return people.flatMap((person) => {
+    const name = assigneeName(person)
+    return name ? [{ name, note: person.guest?.note?.trim() || null }] : []
+  })
+}
+
 /** The people taking it, as names ready to print. */
 export function namesOn(session: { assignees?: SessionAssignee[] }): string[] {
   return named(peopleOn(session))

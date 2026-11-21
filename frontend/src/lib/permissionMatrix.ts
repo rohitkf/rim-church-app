@@ -928,6 +928,12 @@ export const PERMISSIONS: PermissionArea[] = [
         can: granted('planner.substitute'),
       },
       {
+        action: 'Name a translator for a session',
+        key: 'planner.translator',
+        short: 'Name a translator for a sess',
+        can: granted('planner.translator'),
+      },
+      {
         action: 'Add a session below another',
         key: 'planner.add_below',
         short: 'Add a session below another',
