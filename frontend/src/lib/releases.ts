@@ -46,6 +46,20 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'a-check-in-for-each-day',
+    date: '2026-11-21',
+    title: 'Who came on which day',
+    lead: 'An event of several days now keeps each day’s check-in, instead of only the latest.',
+    points: [
+      'On an event’s page, “Who has registered” counts each day separately, and each registration shows every day it was checked in on.',
+      'The export has a column for each day, and the sums count each day.',
+      'Reception is unchanged: somebody checked in on an earlier day is still offered a check-in again today.',
+      'Undoing today’s check-in no longer loses an earlier day’s.',
+    ],
+    link: { to: '/registrations', label: 'Open Registrations' },
+    page: '/registrations',
+  },
+  {
     key: 'payment-reference-not-a-qr-code',
     date: '2026-11-21',
     title: 'An unpaid registration shows a payment reference, not a QR code',

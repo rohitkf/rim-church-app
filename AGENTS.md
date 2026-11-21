@@ -405,6 +405,12 @@ frontend/src/
                              and when it leaves. The church tunes it in
                              `display.callTimes` (show, days, stayMinutes, who,
                              countdown). Every team's are on the Team Rota
+  lib/checkInDays.ts         which church days a registration was checked in
+                             on (`registration_check_ins`, 0314), a day's name
+                             (the event's own label, "Day 1", when it has one)
+                             and the count for each day: the event's page, its
+                             table and its export read these. Reception does
+                             not — it still asks only about today
   lib/notificationLink.ts    every notification type: its label and its link
   lib/sessionGlimpse.ts      a running service at a glance, for its Dashboard
                              card: the session that is on, who is taking it,

@@ -23,6 +23,7 @@ import { useConfirmAction } from '../components/ConfirmAction'
 import { OrderEmailDialog } from '../components/OrderEmailDialog'
 import { deliveryOf, emailWantsDoing } from '../lib/emailDelivery'
 import { useRegistrationRights, type RegistrationRights } from '../lib/registrationRights'
+import { checkInCounts, checkInDayName, checkInsOf, everCheckedIn } from '../lib/checkInDays'
 import { ACTION_DONE, orderActions, paidCash, refundWhere, withUndo } from '../lib/orderActions'
 import { useErrorText } from '../lib/useErrorText'
 import { showToast } from '../lib/toast'
@@ -354,7 +355,10 @@ export function RegistrationEventPage() {
   const sharing = rows.filter((o) => sharesAnEmail(o, dupes)).length
   // The event's codes that could go on a registration made without one (0298).
   const codes = usablePromos(full.data.promoCodes)
-  const checkedIn = confirmed.filter((o) => o.checked_in_at).length
+  // Anybody who came on any day: `checked_in_at` alone is only the latest, and is empty again once today's is undone.
+  const checkedIn = confirmed.filter(everCheckedIn).length
+  // Who came on which day (0314), for an event checked in on more than one.
+  const dayCounts = checkInCounts(confirmed)
   const soldOf = (typeId: string) => confirmed.reduce((n, o) => n + o.tickets.filter((t) => t.ticket_type_id === typeId).length, 0)
   const canPublish = dates.length > 0 && ticketTypes.length > 0
   const shown = rows.filter((o) => orderMatches(o, filters, query, dupes))
@@ -705,7 +709,13 @@ export function RegistrationEventPage() {
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <h2 className="flex flex-wrap items-center gap-2 text-headline-md text-on-surface">
             Who has registered
-            {checkedIn > 0 && <Pill tone="blue">{checkedIn} checked in</Pill>}
+            {dayCounts.length > 1
+              ? dayCounts.map((c) => (
+                  <Pill key={c.day} tone="blue">
+                    {checkInDayName(c.day, dates)}: {c.registrations} checked in
+                  </Pill>
+                ))
+              : checkedIn > 0 && <Pill tone="blue">{checkedIn} checked in</Pill>}
           </h2>
           <div className="flex flex-wrap items-center gap-2">
             {event.status !== 'draft' && !cancelled && rows.length > 0 && rights.checkIn && (
@@ -1104,7 +1114,16 @@ function OrderLine({
             )}
             {order.refund_status && <Pill tone={order.refund_status === 'owed' ? 'orange' : 'green'}>{order.refund_status === 'owed' ? 'Refund owed' : 'Refunded'}</Pill>}
             {/* The day too when it was not today: on the second day of an event a time alone reads as this morning's door. */}
-            {live && order.checked_in_at && <Pill tone="green">{checkedInWords(order.checked_in_at)}</Pill>}
+            {/* Each day they came (0314), where more than one is kept; otherwise the latest, as before. */}
+            {live && checkInsOf(order).length > 1
+              ? checkInsOf(order).map((c) => (
+                  <Pill key={c.on_date} tone="green">
+                    {checkedInWords(c.checked_in_at)}
+                  </Pill>
+                ))
+              : live && (order.checked_in_at ?? checkInsOf(order)[0]?.checked_in_at) && (
+                  <Pill tone="green">{checkedInWords((order.checked_in_at ?? checkInsOf(order)[0]?.checked_in_at)!)}</Pill>
+                )}
             {order.source === 'walk_in' && <Pill tone="neutral">Walk-in</Pill>}
             {invitedBy && <Pill tone="indigo">Invited: {invitedBy}</Pill>}
             {sharesEmail && <Pill tone="orange">Same email as another</Pill>}
