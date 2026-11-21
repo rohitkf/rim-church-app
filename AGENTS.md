@@ -858,7 +858,12 @@ skipped. How each is done safely:
 - **The frontend is live** when the site's service worker carries main's
   commit: `curl -s https://rim-church-app.vercel.app/sw.js | grep BUILD_ID`
   equals `git rev-parse --short=12 origin/main` (main's squash-merge
-  commit, not develop's).
+  commit, not develop's). Ask a few times, not in a tight loop: Vercel
+  starts refusing a machine that polls it (an empty answer, then `403
+  Forbidden` with an id like `cle1::…`, on every path). That is this
+  machine being throttled, not the site being down — check with the Vercel
+  connector instead (`web_fetch_vercel_url` on `/sw.js`, or
+  `list_deployments` with `target: production`).
 
 The traps:
 
