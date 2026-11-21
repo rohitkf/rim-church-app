@@ -1495,9 +1495,18 @@ export function ServicePlannerPage() {
                             [
                               'hold',
                               {
-                                label: held ? 'Still not started' : 'Not started',
+                                // On a session being held this takes the
+                                // hold off, and has to say so. It used to
+                                // read "Still not started — Keeps holding",
+                                // which is the opposite of what pressing it
+                                // did, so somebody who had marked two
+                                // sessions by mistake could find no way back
+                                // (the Owner, mid-service, November 2026).
+                                // Worded as its twin on the last session is:
+                                // Clear “Not ended”.
+                                label: held ? 'Clear “Not started”' : 'Not started',
                                 hint: held
-                                  ? 'Keeps holding: the one before it is still running'
+                                  ? 'Takes “Holding” off: it starts at its planned time'
                                   : 'Holds the start until the one before it finishes',
                                 disabled: runPlan.isPending,
                                 onSelect: () =>

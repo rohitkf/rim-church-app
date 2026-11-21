@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'clear-not-started',
+    date: '2026-11-21',
+    title: 'Taking back “Not started” is now called what it does',
+    lead: 'A session marked Not started by mistake is cleared from its own menu, with a button that now says so: Clear “Not started”.',
+    points: [
+      'It used to read “Still not started”, which sounded like it kept the hold. Pressing it always took the hold off; only the name was wrong.',
+      'Open the menu of each session that shows Holding and press Clear “Not started”. No times move.',
+    ],
+    link: { to: '/service-planner', label: 'Open Service Planner' },
+    page: '/service-planner',
+    holds: ['svc.sessions'],
+  },
+  {
     key: 'an-address-that-goes-nowhere',
     date: '2026-11-21',
     title: 'Signing up checks that the address can receive email',
