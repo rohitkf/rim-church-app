@@ -46,6 +46,21 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'assign-translator-can-be-given',
+    date: '2026-11-21',
+    title: 'Assign translator can be given to a team or a person',
+    lead: 'Naming a session’s translator is now one of the Service Planner’s buttons that can be given on its own, as Assign substitute is.',
+    points: [
+      'Give it in Settings › Page by Page › Service Planner, to a team or to named people, or by role under Access and privileges.',
+      'Whoever holds it names, orders and removes translators, and nothing else: not who takes the session, not its substitute, not its name or time.',
+      'The “Sub” mark has gone from a substitute’s name, as “Trans” did: the row already says Substitute.',
+      'A guest’s note is now on the exported sheet too, under their name.',
+    ],
+    link: { to: '/service-planner', label: 'Open Service Planner' },
+    page: '/service-planner',
+    holds: ['svc.sessions'],
+  },
+  {
     key: 'countdown-goes-below-zero',
     date: '2026-11-21',
     title: 'Countdown shows an overrun with a minus',

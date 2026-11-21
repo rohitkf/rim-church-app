@@ -222,7 +222,7 @@ export function AssigneePill({
   /** What is kept about a guest, said under their name: "Note: pastor from Harlow". */
   note?: string | null
   tone?: 'neutral' | 'blue' | 'green' | 'indigo'
-  /** Somebody standing in, not taking it (0182): a dashed amber pill with a Sub mark. */
+  /** Somebody standing in, not taking it (0182): a dashed amber pill, and no mark — its row says Substitute. */
   substitute?: boolean
   /** Somebody translating it as it is taken (0315): a dashed indigo pill, and no mark — its row says Translator. */
   translator?: boolean
@@ -259,11 +259,6 @@ export function AssigneePill({
         {name}
         {note?.trim() && <span className="block text-label-sm font-normal text-on-surface-variant">Note: {note.trim()}</span>}
       </span>
-      {substitute && (
-        <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-orange-soft">
-          Sub
-        </span>
-      )}
     </span>
   )
 }

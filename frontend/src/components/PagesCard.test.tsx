@@ -304,7 +304,7 @@ describe('Page by Page', () => {
     const sent = db.rpc.find((c) => c.fn === 'set_permission_grants')!.args as { p_changes: unknown[] }
     expect(sent.p_changes).toEqual([
       ...['start', 'hold', 'add_time', 'end'].map((c) => ({ capability: `planner.${c}`, team: 'd1', reach: 'all' })),
-      ...['start', 'hold', 'add_time', 'skip', 'substitute', 'add_below', 'remove', 'end'].map((c) => ({
+      ...['start', 'hold', 'add_time', 'skip', 'substitute', 'translator', 'add_below', 'remove', 'end'].map((c) => ({
         capability: `planner.${c}`,
         person: 'p1',
         reach: 'all',

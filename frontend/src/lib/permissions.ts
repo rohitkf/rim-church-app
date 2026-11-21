@@ -388,6 +388,7 @@ export const CATALOG = {
   'planner.add_time': PLANNER_RULE,
   'planner.skip': PLANNER_RULE,
   'planner.substitute': PLANNER_RULE,
+  'planner.translator': PLANNER_RULE,
   'planner.add_below': PLANNER_RULE,
   'planner.remove': PLANNER_RULE,
   'planner.end': PLANNER_RULE,

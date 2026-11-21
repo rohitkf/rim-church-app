@@ -3,7 +3,8 @@ import { supabase } from './supabaseClient'
 import type { PermissionGrant } from './permissions'
 
 /**
- * The Service Planner's buttons, given to a team or a person (0184).
+ * The Service Planner's buttons, given to a team or a person (0184; naming
+ * a translator joined them in 0318).
  *
  * Whoever may plan the running order (`svc.sessions`) or run the service
  * (`svc.manage`) has every button, as before. The church can also give
@@ -22,6 +23,7 @@ export const PLANNER_CONTROLS = [
   { key: 'add_time', label: 'Add time', hint: 'Grants extra minutes and moves the rest down' },
   { key: 'skip', label: 'Skip', hint: 'Takes a session out of the order, and puts it back' },
   { key: 'substitute', label: 'Assign substitute', hint: 'Names who steps in for a session' },
+  { key: 'translator', label: 'Assign translator', hint: 'Names who translates a session' },
   { key: 'add_below', label: 'Add a session below', hint: 'A new session under one already there' },
   { key: 'remove', label: 'Remove a session', hint: 'Deletes it; the ones after move up' },
   { key: 'end', label: 'End service', hint: 'Records when it finished, and reopens it' },

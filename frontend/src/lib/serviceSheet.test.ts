@@ -207,6 +207,88 @@ describe('serviceSheetPage', () => {
     })
   })
 
+  describe('a guest’s note, under their name', () => {
+    const GUEST = { name: 'Ps Saju Wigan', note: 'pastor from Harlow' }
+    const withGuest = sheet({
+      sessions: [
+        { time: '09:30 AM', minutes: 40, name: 'Message', leads: [GUEST, 'Ama Serwaa'], substitutes: [{ name: 'Br Joel', note: 'from Reading' }], translators: [{ name: 'Rose Sam', note: null }] },
+        { time: '10:10 AM', minutes: 25, name: 'Worship Set', leads: ['Grace Mensah'] },
+      ],
+    })
+
+    it('says the note on the sheet for a guest on any of the three lists, and nothing for anybody without one', () => {
+      const said = words(serviceSheetPage(withGuest))
+      expect(said).toContain('Note: pastor from Harlow')
+      expect(said).toContain('Note: from Reading')
+      expect(said.filter((t) => t.startsWith('Note:'))).toHaveLength(2)
+      // A name given as plain text, as it always could be, has none.
+      expect(words(serviceSheetPage(sheet())).some((t) => t.startsWith('Note:'))).toBe(false)
+    })
+
+    it('puts it under the name and inside the same pill, smaller and quieter than the name', () => {
+      const page = serviceSheetPage(withGuest, 'content')
+      const name = page.texts.find((t) => t.text === 'Ps Saju Wigan')!
+      const note = page.texts.find((t) => t.text === 'Note: pastor from Harlow')!
+      expect(note.y).toBeGreaterThan(name.y)
+      expect(note.x).toBe(name.x)
+      expect(note.size).toBeLessThan(name.size)
+      expect(note.bold ?? false).toBe(false)
+      const pill = page.rects
+        .filter((r) => name.x >= r.x && name.x <= r.x + r.w && name.y >= r.y && name.y <= r.y + r.h)
+        .sort((a, b) => a.w * a.h - b.w * b.h)[0]
+      expect(note.y).toBeLessThan(pill.y + pill.h - 4)
+      expect(note.x + textWidth(note.text, note.size, false)).toBeLessThanOrEqual(pill.x + pill.w - 8)
+      // The pill grew to hold it: taller than the one beside it with only a name.
+      const plain = page.texts.find((t) => t.text === 'Ama Serwaa')!
+      const plainPill = page.rects
+        .filter((r) => plain.x >= r.x && plain.x <= r.x + r.w && plain.y >= r.y && plain.y <= r.y + r.h)
+        .sort((a, b) => a.w * a.h - b.w * b.h)[0]
+      expect(pill.h).toBeGreaterThan(plainPill.h)
+    })
+
+    it('wraps a long note inside its pill, every word of it, and the next session starts under it', () => {
+      const long = 'senior pastor of the Harlow fellowship, visiting with his family for both days of the conference and speaking twice'
+      const page = serviceSheetPage(
+        sheet({
+          sessions: [
+            { time: '09:30 AM', minutes: 40, name: 'Message', leads: [{ name: 'Ps Saju Wigan', note: long }] },
+            { time: '10:10 AM', minutes: 25, name: 'Worship Set', leads: ['Grace Mensah'] },
+          ],
+        }),
+        'content',
+      )
+      const name = page.texts.find((t) => t.text === 'Ps Saju Wigan')!
+      const next = page.texts.find((t) => t.text === 'Worship Set')!
+      const lines = page.texts.filter((t) => t.size === 10.5 && t.x === name.x && t.y > name.y && t.y < next.y)
+      expect(lines.length).toBeGreaterThan(1)
+      expect(lines.map((t) => t.text).join(' ')).toBe(`Note: ${long}`)
+      const pill = page.rects
+        .filter((r) => name.x >= r.x && name.x <= r.x + r.w && name.y >= r.y && name.y <= r.y + r.h)
+        .sort((a, b) => a.w * a.h - b.w * b.h)[0]
+      for (const line of lines) {
+        expect(line.x + textWidth(line.text, line.size, false)).toBeLessThanOrEqual(pill.x + pill.w - 8)
+        expect(line.y).toBeLessThan(pill.y + pill.h - 2)
+      }
+      expect(next.y).toBeGreaterThan(pill.y + pill.h)
+    })
+
+    for (const theme of ['dark', 'light'] as const) {
+      it(`reads against its pill on each of the three lists, in ${theme}`, () => {
+        const three = sheet({
+          sessions: [{ time: '09:30 AM', minutes: 40, name: 'Message', leads: [{ name: 'A One', note: 'lead note' }], substitutes: [{ name: 'B Two', note: 'sub note' }], translators: [{ name: 'C Three', note: 'tr note' }] }],
+        })
+        const page = serviceSheetPage(three, 'content', theme)
+        for (const text of ['Note: lead note', 'Note: sub note', 'Note: tr note']) {
+          const t = page.texts.find((x) => x.text === text)!
+          const pill = page.rects
+            .filter((r) => t.x >= r.x && t.x <= r.x + r.w && t.y >= r.y && t.y <= r.y + r.h)
+            .sort((a, b) => a.w * a.h - b.w * b.h)[0]
+          expect(contrastRatio(t.color!, pill.color!)).toBeGreaterThanOrEqual(4.5)
+        }
+      })
+    }
+  })
+
   describe('a session’s note (0316)', () => {
     const NOTE = 'Communion follows. Elements on the table by 10:40.'
     const noted = sheet({

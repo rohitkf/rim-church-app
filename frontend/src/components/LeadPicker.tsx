@@ -21,16 +21,16 @@ export type LeadValue = PersonRef
  * its own words for nobody and for one more, and for the two that are not
  * the people taking it, a dashed pill in a colour of its own — amber for
  * whoever stands in (0182), indigo for whoever translates (0315) — so
- * neither is ever read as one more person taking it. A substitute also
- * carries a Sub mark. A translator carries none: the Owner had the Trans
- * mark taken off, the row being labelled Translator already.
+ * neither is ever read as one more person taking it. Neither carries a
+ * mark on the name: the Owner had "Trans" taken off and then "Sub", each
+ * row being labelled already (Substitute, Translator).
  */
 const KINDS = {
   lead: { none: 'Unassigned', add: 'Add someone', mark: null, pill: 'bg-raised-strong hairline', markTone: '' },
   substitute: {
     none: 'No substitute',
     add: 'Add a substitute',
-    mark: 'Sub',
+    mark: null,
     pill: 'border border-dashed border-accent-orange bg-[color-mix(in_oklab,var(--color-accent-orange)_10%,transparent)]',
     markTone: 'bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] text-accent-orange-soft',
   },
@@ -89,8 +89,8 @@ export function LeadPicker({
   label: string
   /**
    * `substitute` is the same picker for whoever stands in (0182): each
-   * chip is drawn apart — a dashed amber edge and a Sub mark — so it is
-   * never read as one more person taking the session.
+   * chip is drawn apart — a dashed amber edge, under a row labelled
+   * Substitute — so it is never read as one more person taking the session.
    */
   variant?: keyof typeof KINDS
   /**
@@ -338,7 +338,7 @@ export function LeadPicker({
               </button>
             )}
             {/* The name and its marks, which go under it when there is no
-                room beside: a grip, a name, Sub, Guest and a way off, in
+                room beside: a grip, a name, Guest and a way off, in
                 a line, are wider than a session's card on a small phone,
                 and what ran off the edge was the way off. The name keeps
                 four rems to itself, so it narrows a word at a time and

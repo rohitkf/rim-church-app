@@ -16,22 +16,33 @@ import { textWidth, wrapText, wrapToLines } from './helveticaMetrics'
  * and they would have to read it twice to trust it.
  */
 
+/**
+ * Somebody on a session: their name, or their name and what is kept about
+ * them. A guest's note ("pastor from Harlow") is said under their name on
+ * the planner; the sheet says it in the same place, inside their pill.
+ */
+export type SheetPerson = string | { name: string; note?: string | null }
+
+/** A person as the sheet draws them: the name, and the note or none. */
+const personOf = (person: SheetPerson): { name: string; note: string | null } =>
+  typeof person === 'string' ? { name: person, note: null } : { name: person.name, note: person.note?.trim() || null }
+
 export interface SheetSession {
   time: string
   minutes: number
   name: string
   /** Everybody taking it, in the order the planner has them. */
-  leads: string[]
+  leads: SheetPerson[]
   /**
    * Whoever steps in if they cannot (0182), drawn apart under a
    * SUBSTITUTE label in amber, so the two are never confused.
    */
-  substitutes?: string[]
+  substitutes?: SheetPerson[]
   /**
    * Whoever translates it as it is taken (0315), drawn apart again under
    * a TRANSLATOR label in indigo: neither taking it nor standing by.
    */
-  translators?: string[]
+  translators?: SheetPerson[]
   /**
    * What the session's note says (0316), drawn last under a NOTE label in
    * teal: for everybody who reads the running order, so it is on the sheet
@@ -250,6 +261,10 @@ const SUB_GAP = 10
 /** The label's own line, above the substitutes' pills. */
 const SUB_LABEL_H = 16
 
+/** A guest's note inside their pill, under the name: a size down from it, and not bold. */
+const PILL_NOTE_SIZE = 10.5
+const PILL_NOTE_LINE = 13.5
+
 /** A session's note, as prose under its people: smaller than a name, larger than a label. */
 const NOTE_SIZE = 12.5
 const NOTE_LINE = 16.5
@@ -281,6 +296,8 @@ interface Pill {
   /** The name, or null for the one that says nobody is on this. */
   lead: string | null
   lines: string[]
+  /** What is kept about them, wrapped to the pill: empty for most people. */
+  noteLines: string[]
   w: number
   h: number
   padLeft: number
@@ -294,16 +311,23 @@ interface Pill {
  * words in it starts at the text's own padding. Both end at the text's
  * padding, so the words are never crowded against the edge.
  */
-function measurePill(lead: string | null, innerW: number): Pill {
+function measurePill(lead: string | null, innerW: number, note: string | null = null): Pill {
   const padLeft = lead ? AVATAR_INSET : PILL_PAD
   const discW = lead ? AVATAR * 2 + PILL_GAP : 0
-  const lines = wrapText(lead ?? 'Nobody assigned', LEAD_SIZE, Math.max(innerW - padLeft - PILL_PAD - discW, 60), true)
-  const textW = Math.max(...lines.map((line) => textWidth(line, LEAD_SIZE, true)))
+  const room = Math.max(innerW - padLeft - PILL_PAD - discW, 60)
+  const lines = wrapText(lead ?? 'Nobody assigned', LEAD_SIZE, room, true)
+  // A guest's note, under the name and inside the same pill, every word of it.
+  const noteLines = lead && note ? wrapText(`Note: ${note}`, PILL_NOTE_SIZE, room, false) : []
+  const textW = Math.max(
+    ...lines.map((line) => textWidth(line, LEAD_SIZE, true)),
+    ...noteLines.map((line) => textWidth(line, PILL_NOTE_SIZE, false)),
+  )
   return {
     lead,
     lines,
+    noteLines,
     w: padLeft + discW + textW + PILL_PAD,
-    h: Math.max(AVATAR * 2 + AVATAR_INSET * 2, lines.length * LEAD_LINE + 12),
+    h: Math.max(AVATAR * 2 + AVATAR_INSET * 2, lines.length * LEAD_LINE + noteLines.length * PILL_NOTE_LINE + 12),
     padLeft,
     discW,
   }
@@ -486,13 +510,17 @@ export function serviceSheetPage(
      * a single very long name wraps inside its own pill instead.
      */
     const leads = pillLines(
-      (session.leads.length > 0 ? session.leads : [null]).map((lead) => measurePill(lead, innerW)),
+      session.leads.length > 0
+        ? session.leads.map(personOf).map((person) => measurePill(person.name, innerW, person.note))
+        : [measurePill(null, innerW)],
       innerW,
     )
     // And whoever stands in, under their own label — nothing at all when
     // nobody does.
-    const apart = (names: string[] | undefined) =>
-      names && names.length > 0 ? pillLines(names.map((name) => measurePill(name, innerW)), innerW) : null
+    const apart = (people: SheetPerson[] | undefined) =>
+      people && people.length > 0
+        ? pillLines(people.map(personOf).map((person) => measurePill(person.name, innerW, person.note)), innerW)
+        : null
     const subs = apart(session.substitutes)
     // And whoever translates, the same way under theirs (0315).
     const trs = apart(session.translators)
@@ -602,7 +630,9 @@ export function serviceSheetPage(
             color: AVATAR_INK,
           })
         }
-        let leadY = pillMid - ((pill.lines.length - 1) * LEAD_LINE) / 2 + 4.5
+        // The name and, under it, the note: the two together sit in the
+        // middle of the pill, as the name alone always has.
+        let leadY = pillMid - ((pill.lines.length - 1) * LEAD_LINE + pill.noteLines.length * PILL_NOTE_LINE) / 2 + 4.5
         for (const textLine of pill.lines) {
           texts.push({
             x: pillX + pill.padLeft + pill.discW,
@@ -613,6 +643,11 @@ export function serviceSheetPage(
             color: pill.lead ? INK : WARN,
           })
           leadY += LEAD_LINE
+        }
+        let noteLineY = leadY - LEAD_LINE + PILL_NOTE_LINE
+        for (const textLine of pill.noteLines) {
+          texts.push({ x: pillX + pill.padLeft + pill.discW, y: noteLineY, size: PILL_NOTE_SIZE, text: textLine, color: MUTED })
+          noteLineY += PILL_NOTE_LINE
         }
         pillX += pill.w + PILL_GAP
       }
