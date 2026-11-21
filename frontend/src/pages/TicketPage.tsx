@@ -96,6 +96,8 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
   const now = useNow(true, 30_000)
   const [showBank, setShowBank] = useState(false)
   const [copied, setCopied] = useState(false)
+  /** Not paid yet: the QR code is brought up for Reception, by them, at the door — not shown to somebody who has only just registered. */
+  const [showCode, setShowCode] = useState(false)
   const [mailed, setMailed] = useState<string | null>(null)
   /** The address they have just put right, after a bounce: where the ticket is going now. */
   const [fixedTo, setFixedTo] = useState<string | null>(null)
@@ -230,7 +232,10 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
       </div>
       <h1 className="mt-2 text-headline-xl text-on-surface">{event.title}</h1>
       <p className="text-body-md text-on-surface-variant">
-        {order.quantity} {order.quantity === 1 ? 'ticket' : 'tickets'} for {order.name}
+        {/* "1 ticket for Ama" over an unpaid order was one more thing saying it was done. */}
+        {paid || cancelled || eventOff
+          ? `${order.quantity} ${order.quantity === 1 ? 'ticket' : 'tickets'} for ${order.name}`
+          : `${order.quantity} ${order.quantity === 1 ? 'place' : 'places'} held for ${order.name}`}
       </p>
       {stepsView && <Steps steps={stepsView.steps} caption={stepsView.caption} label="Your registration, step by step" className="mt-4" />}
       {eventOff && (
@@ -439,30 +444,57 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
         </section>
       )}
       {/*
-        Not paid: no ticket to show, so no ticket-shaped card. The big QR
-        code under a green "Registered" was read as the ticket itself. The
-        code stays, as the payment reference; the QR is kept small and
-        labelled, only where reception can use it — to take the payment, or
-        to find a receipt that is being checked.
+        Not paid: no ticket to show, so no ticket-shaped card — and, since
+        November 2026, no QR code in sight either. A small one marked "this
+        is not a ticket" still lost to the picture: people registered, saw a
+        QR code and stopped (the Owner, twice). So the code is what it is to
+        somebody who has still to pay — the payment reference — and the QR
+        code is one tap away for whoever is standing at Reception, where it
+        is scanned to bring the registration up, whatever way they meant to
+        pay. Somebody whose receipt is being checked has done their part:
+        their QR code stays in sight, for Reception to find the receipt by.
       */}
       {!cancelled && !eventOff && !paid && (
         <section aria-label="Your registration" className="mt-5 rounded-[var(--radius-card)] bg-surface-lowest p-5 text-center hairline">
-          <p className="font-mono text-label-sm font-semibold text-accent-orange-soft">
-            {order.payment_status === 'reported' ? 'Not a ticket yet — payment being checked' : 'Not a ticket — not paid'}
-          </p>
-          <p className="mt-2 text-label-md text-on-surface-variant">Registration code</p>
-          <p className="font-mono text-headline-sm tracking-[0.2em] text-on-surface">{order.code}</p>
-          {(order.payment_status === 'reported' || event.allow_pay_at_reception) && (
-            <div className="mt-3">
-              <div className="mx-auto w-fit rounded-[var(--radius-chip)] bg-white p-2">
-                <QrCode text={ticketUrl(order.code)} label={`Registration ${order.code}`} className="h-28 w-28" />
+          {order.payment_status === 'reported' ? (
+            <>
+              <p className="font-mono text-label-sm font-semibold text-accent-orange-soft">Not a ticket yet — payment being checked</p>
+              <p className="mt-2 text-label-md text-on-surface-variant">Registration code</p>
+              <p className="font-mono text-headline-sm tracking-[0.2em] text-on-surface">{order.code}</p>
+              <div className="mt-3">
+                <div className="mx-auto w-fit rounded-[var(--radius-chip)] bg-white p-2">
+                  <QrCode text={ticketUrl(order.code)} label={`Registration ${order.code}`} className="h-28 w-28" />
+                </div>
+                <p className="mx-auto mt-2 max-w-xs text-label-md text-on-surface-variant">
+                  This is not a ticket. Once the church matches your payment it becomes one, and you will get an email to say so.
+                </p>
               </div>
+            </>
+          ) : (
+            <>
+              <p className="text-label-md text-on-surface-variant">Payment reference</p>
+              <p className="font-mono text-headline-sm tracking-[0.2em] text-on-surface">{order.code}</p>
               <p className="mx-auto mt-2 max-w-xs text-label-md text-on-surface-variant">
-                {order.payment_status === 'reported'
-                  ? 'This is not a ticket. Once the church matches your payment it becomes one, and you will get an email to say so.'
-                  : 'This is not a ticket. Reception scans it to take your payment.'}
+                Use this as the reference when you pay{event.allow_pay_at_reception ? ', or give it at Reception' : ''}.
               </p>
-            </div>
+              {showCode ? (
+                <div className="mt-3">
+                  <div className="mx-auto w-fit rounded-[var(--radius-chip)] bg-white p-2">
+                    <QrCode text={ticketUrl(order.code)} label={`Registration ${order.code}`} className="h-28 w-28" />
+                  </div>
+                  <p className="mx-auto mt-2 max-w-xs text-label-md text-on-surface-variant">
+                    Reception scans this to find your registration. It is not a ticket until it is paid.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3">
+                  {/* A button that looks like one: at the door it is what Reception points to. */}
+                  <ActionButton tone="quiet" size="sm" onClick={() => setShowCode(true)}>
+                    At the event? Show my code
+                  </ActionButton>
+                </div>
+              )}
+            </>
           )}
           {emailButton(false)}
         </section>

@@ -248,7 +248,9 @@ describe('the ticket page', () => {
     expect(screen.getByText('Not a ticket yet')).toBeInTheDocument()
     expect(screen.queryByText('Registered')).toBeNull()
     expect(screen.getByText('Awaiting payment')).toBeInTheDocument()
-    expect(screen.getByText('Not a ticket — not paid')).toBeInTheDocument()
+    // Places held, not tickets: nothing above the pay panel says it is done.
+    expect(screen.getByText('2 places held for Ama Owusu')).toBeInTheDocument()
+    expect(screen.queryByText(/tickets? for Ama Owusu/)).toBeNull()
     // Paying comes before the code, not under everything else.
     const paying = screen.getByRole('region', { name: 'Paying' })
     const registration = screen.getByRole('region', { name: 'Your registration' })
@@ -398,19 +400,47 @@ describe('the ticket page', () => {
     expect(screen.queryByRole('list', { name: 'Your registration, step by step' })).toBeNull()
   })
 
-  it('keeps a small QR code for reception to take the payment, marked as not a ticket', async () => {
+  /*
+   * A small QR code marked "this is not a ticket" still lost to the picture:
+   * people registered, saw a QR code and stopped (the Owner, November 2026).
+   * So somebody who has still to pay sees a payment reference and no QR code,
+   * and the QR code is one tap away at the door, where Reception scans it.
+   */
+  it('shows somebody still to pay a payment reference, and no QR code', async () => {
     show()
-    const qr = await screen.findByRole('img', { name: 'Registration ABCDEFGHJKMN' })
-    expect(qr).toHaveAttribute('data-text', 'https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
-    expect(screen.getByText('This is not a ticket. Reception scans it to take your payment.')).toBeInTheDocument()
+    const registration = await screen.findByRole('region', { name: 'Your registration' })
+    expect(within(registration).getByText('Payment reference')).toBeInTheDocument()
+    expect(within(registration).getByText('ABCDEFGHJKMN')).toBeInTheDocument()
+    expect(within(registration).getByText('Use this as the reference when you pay, or give it at Reception.')).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /ABCDEFGHJKMN/ })).toBeNull()
+    expect(screen.queryByText(/Not a ticket — not paid/)).toBeNull()
   })
 
-  it('shows no QR code at all on an unpaid order when the event takes no payment at reception', async () => {
+  it('brings the QR code up for Reception on a tap, saying it is not a ticket until it is paid', async () => {
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'At the event? Show my code' }))
+    const qr = await screen.findByRole('img', { name: 'Registration ABCDEFGHJKMN' })
+    // The same address a ticket's QR code holds: Reception's scanner brings the registration up from it.
+    expect(qr).toHaveAttribute('data-text', 'https://rim-church-app.vercel.app/ticket/ABCDEFGHJKMN')
+    expect(screen.getByText('Reception scans this to find your registration. It is not a ticket until it is paid.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'At the event? Show my code' })).toBeNull()
+  })
+
+  it('offers the QR code the same way where the event takes no payment at Reception: they may still turn up', async () => {
     state.order = order({ event: { ...order().event, allow_pay_at_reception: false } })
-    show()
-    expect(await screen.findByText('Not a ticket — not paid')).toBeInTheDocument()
+    const user = show()
+    const registration = await screen.findByRole('region', { name: 'Your registration' })
+    expect(within(registration).getByText('Use this as the reference when you pay.')).toBeInTheDocument()
     expect(screen.queryByRole('img', { name: /ABCDEFGHJKMN/ })).toBeNull()
-    expect(screen.getAllByText('ABCDEFGHJKMN').length).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: 'At the event? Show my code' }))
+    expect(await screen.findByRole('img', { name: 'Registration ABCDEFGHJKMN' })).toBeInTheDocument()
+  })
+
+  it('says tickets, not places held, once it is paid', async () => {
+    state.order = order({ payment_status: 'received' })
+    show()
+    expect(await screen.findByText('2 tickets for Ama Owusu')).toBeInTheDocument()
+    expect(screen.queryByText(/places? held/)).toBeNull()
   })
 
   it('asks, on coming back from the payment link, whether it went through', async () => {
@@ -483,7 +513,10 @@ describe('the ticket page', () => {
     const user = show()
     expect(await screen.findByRole('heading', { name: 'Thank you — your receipt is being checked' })).toBeInTheDocument()
     expect(screen.getByText(/You said you paid by bank transfer, reference TR-77/)).toBeInTheDocument()
+    // Their part is done: the QR code stays in sight, for Reception to find the receipt by.
     expect(screen.getByRole('img', { name: 'Registration ABCDEFGHJKMN' })).toBeInTheDocument()
+    expect(screen.getByText('Not a ticket yet — payment being checked')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'At the event? Show my code' })).toBeNull()
     expect(screen.queryByRole('link', { name: /Pay with PayPal/ })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Send another receipt' }))
     expect(screen.getByRole('dialog', { name: 'Your receipt' })).toBeInTheDocument()
@@ -537,7 +570,7 @@ describe('the ticket page', () => {
     const o = order()
     state.order = { ...o, event: { ...o.event, image_path: 'events/x.jpg', image_focus: { x: 20, y: 80 } } }
     show()
-    await screen.findByRole('img', { name: 'Registration ABCDEFGHJKMN' })
+    await screen.findByRole('region', { name: 'Your registration' })
     expect(document.querySelector('img[src="https://public/events/x.jpg"]')).toHaveStyle({ objectPosition: '20% 80%' })
   })
 
@@ -922,6 +955,8 @@ describe('the agenda on a ticket', () => {
 
   it('still shows the ticket when the agenda cannot be read, and says nothing is wrong', async () => {
     state.eventPage = new Error('offline')
+    // A ticket: paid, so its QR code is the thing to show.
+    state.order = order({ payment_status: 'received' })
     show()
     expect(await screen.findByRole('heading', { level: 1, name: 'Pastors & Leaders 2026' })).toBeInTheDocument()
     await waitFor(() => expect(state.eventAsked.length).toBeGreaterThan(0))
