@@ -7,7 +7,10 @@ import {
   refOf,
   saveAssignees,
   substituteNamesOn,
+  partOf,
   substitutesOn,
+  translatorNamesOn,
+  translatorsOn,
   withNewOrder,
 } from './sessionAssignees'
 import type { SessionAssignee } from './types'
@@ -184,7 +187,7 @@ describe('substitutes (0182)', () => {
   })
 
   it('writes a substitute as a substitute, numbered within the substitutes', async () => {
-    await saveAssignees('s1', [], [{ kind: 'member', id: 'u2' }, { kind: 'guest', id: 'g1' }], true)
+    await saveAssignees('s1', [], [{ kind: 'member', id: 'u2' }, { kind: 'guest', id: 'g1' }], 'substitute')
     expect(inserts).toEqual([
       [
         { session_id: 's1', user_id: 'u2', guest_id: null, order_index: 0, is_substitute: true },
@@ -244,5 +247,64 @@ describe('a new order for the people on a session', () => {
       { patch: { order_index: 1 }, id: 'row-u2' },
       { patch: { order_index: 0 }, id: 'row-u1' },
     ])
+  })
+})
+
+/*
+ * Whoever says the message again in another language is neither taking
+ * the session nor standing by to (0315): a third list, with the same
+ * arithmetic as the other two.
+ */
+describe('a translator', () => {
+  const sub = (row: SessionAssignee): SessionAssignee => ({ ...row, is_substitute: true })
+  const translating = (row: SessionAssignee): SessionAssignee => ({ ...row, is_translator: true })
+  const session = {
+    assignees: [
+      translating(guest('g1', 1, 'Saju Wigan', 'Ps')),
+      member('u1', 0, 'Grace', 'Mensah'),
+      sub(member('u2', 0, 'Tunde', 'Alabi')),
+      translating(member('u3', 0, 'Kofi', 'Asante')),
+    ],
+  }
+
+  it('is in a list of their own, in its own order, and in neither of the others', () => {
+    expect(namesOn(session)).toEqual(['Grace Mensah'])
+    expect(substituteNamesOn(session)).toEqual(['Tunde Alabi'])
+    expect(translatorNamesOn(session)).toEqual(['Kofi Asante', 'Ps Saju Wigan'])
+    expect(translatorsOn(session).map(partOf)).toEqual(['translator', 'translator'])
+  })
+
+  it('counts a session with only a translator as nobody taking it', () => {
+    expect(peopleOn({ assignees: [translating(member('u1', 0, 'Grace', 'Mensah'))] })).toEqual([])
+  })
+
+  it('reads a row that says nothing of translating as somebody taking it, as every row before 0315 was', () => {
+    expect(partOf(member('u1', 0, 'Grace', 'Mensah'))).toBe('lead')
+    expect(partOf(sub(member('u1', 0, 'Grace', 'Mensah')))).toBe('substitute')
+  })
+
+  it('is written as a translator, numbered within the translators', async () => {
+    await saveAssignees('s1', [], [{ kind: 'member', id: 'u2' }, { kind: 'guest', id: 'g1' }], 'translator')
+    expect(inserts).toEqual([
+      [
+        { session_id: 's1', user_id: 'u2', guest_id: null, order_index: 0, is_substitute: false, is_translator: true },
+        { session_id: 's1', user_id: null, guest_id: 'g1', order_index: 1, is_substitute: false, is_translator: true },
+      ],
+    ])
+  })
+
+  it('leaves the column unsaid for anybody else, so the row reads the same to an app a release behind', async () => {
+    await saveAssignees('s1', [], [{ kind: 'member', id: 'u2' }])
+    await saveAssignees('s1', [], [{ kind: 'member', id: 'u3' }], 'substitute')
+    expect(inserts.flat().every((row) => !('is_translator' in (row as object)))).toBe(true)
+  })
+
+  it('reorders the translators and nobody else', () => {
+    const moved = withNewOrder(session, [{ kind: 'guest', id: 'g1' }, { kind: 'member', id: 'u3' }], 'translator')
+    expect(moved && translatorNamesOn(moved)).toEqual(['Ps Saju Wigan', 'Kofi Asante'])
+    expect(moved && namesOn(moved)).toEqual(['Grace Mensah'])
+    expect(moved && substituteNamesOn(moved)).toEqual(['Tunde Alabi'])
+    // The people taking it are a different list: this is not a new order for them.
+    expect(withNewOrder(session, [{ kind: 'guest', id: 'g1' }, { kind: 'member', id: 'u3' }])).toBeNull()
   })
 })

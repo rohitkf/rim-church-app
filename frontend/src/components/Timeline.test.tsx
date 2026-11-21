@@ -131,6 +131,18 @@ describe('AssigneePill', () => {
     expect(screen.getByText('GM')).toHaveAttribute('aria-hidden', 'true')
   })
 
+  it('marks a translator Trans, a substitute Sub, and somebody taking it neither', () => {
+    const { rerender } = render(<AssigneePill name="Rose Sam" initials="RS" translator />)
+    expect(screen.getByText('Trans')).toBeInTheDocument()
+    expect(screen.queryByText('Sub')).not.toBeInTheDocument()
+    rerender(<AssigneePill name="Rose Sam" initials="RS" substitute />)
+    expect(screen.getByText('Sub')).toBeInTheDocument()
+    expect(screen.queryByText('Trans')).not.toBeInTheDocument()
+    rerender(<AssigneePill name="Rose Sam" initials="RS" />)
+    expect(screen.queryByText('Sub')).not.toBeInTheDocument()
+    expect(screen.queryByText('Trans')).not.toBeInTheDocument()
+  })
+
   it('says a guest’s note under their name, and nothing when there is none', () => {
     const { rerender } = render(<AssigneePill name="Ps Saju Wigan" initials="SW" note="pastor from Harlow" />)
     expect(screen.getByText('Note: pastor from Harlow')).toBeInTheDocument()

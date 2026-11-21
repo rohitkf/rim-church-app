@@ -27,6 +27,11 @@ export interface SheetSession {
    * SUBSTITUTE label in amber, so the two are never confused.
    */
   substitutes?: string[]
+  /**
+   * Whoever translates it as it is taken (0315), drawn apart again under
+   * a TRANSLATOR label in indigo: neither taking it nor standing by.
+   */
+  translators?: string[]
 }
 
 export interface ServiceSheet {
@@ -89,6 +94,10 @@ interface Palette {
   subPill: string
   subDisc: string
   subLabel: string
+  /** A translator's, the same three (0315). */
+  trPill: string
+  trDisc: string
+  trLabel: string
   /** The small tag under each time that says how long the session runs. */
   chip: string
 }
@@ -114,6 +123,9 @@ const PALETTES: Record<SheetTheme, Palette> = {
     subPill: '#33261a',
     subDisc: '#6b4a1c',
     subLabel: '#ff9f0a',
+    trPill: '#23234a',
+    trDisc: '#44428f',
+    trLabel: '#a5a3ff',
     chip: '#2e2e37',
   },
   light: {
@@ -138,6 +150,9 @@ const PALETTES: Record<SheetTheme, Palette> = {
     subPill: '#fbe9cf',
     subDisc: '#f0c98f',
     subLabel: '#8a5200',
+    trPill: '#e7e7fb',
+    trDisc: '#c5c4f4',
+    trLabel: '#4340b5',
     chip: '#e3e3ea',
   },
 }
@@ -339,6 +354,9 @@ export function serviceSheetPage(
     subPill: SUB_PILL,
     subDisc: SUB_DISC,
     subLabel: SUB_LABEL,
+    trPill: TR_PILL,
+    trDisc: TR_DISC,
+    trLabel: TR_LABEL,
     chip: CHIP,
   } = PALETTES[theme]
 
@@ -458,9 +476,13 @@ export function serviceSheetPage(
     )
     // And whoever stands in, under their own label — nothing at all when
     // nobody does.
-    const subNames = session.substitutes ?? []
-    const subs = subNames.length > 0 ? pillLines(subNames.map((name) => measurePill(name, innerW)), innerW) : null
-    const pillsH = leads.total + (subs ? SUB_GAP + SUB_LABEL_H + subs.total : 0)
+    const apart = (names: string[] | undefined) =>
+      names && names.length > 0 ? pillLines(names.map((name) => measurePill(name, innerW)), innerW) : null
+    const subs = apart(session.substitutes)
+    // And whoever translates, the same way under theirs (0315).
+    const trs = apart(session.translators)
+    const pillsH =
+      leads.total + (subs ? SUB_GAP + SUB_LABEL_H + subs.total : 0) + (trs ? SUB_GAP + SUB_LABEL_H + trs.total : 0)
 
     // What the row hangs from: the first line of the name, so the clock
     // beside it and the dot on the rail line up with the words rather
@@ -526,9 +548,10 @@ export function serviceSheetPage(
 
     // Who is doing it, on its own line beneath — or the gap, named,
     // because that is what a planner is scanning for. Then, if anybody
-    // stands in, the SUBSTITUTE label and their pills in amber.
+    // stands in, the SUBSTITUTE label and their pills in amber; and if
+    // anybody translates, the TRANSLATOR label and theirs in indigo.
     let pillY = pillTop
-    const drawPills = (lines: ReturnType<typeof pillLines>, substitute: boolean) =>
+    const drawPills = (lines: ReturnType<typeof pillLines>, part: 'lead' | 'substitute' | 'translator') =>
       lines.rows.forEach((row, rowIndex) => {
       let pillX = ROW_X + ROW_PAD_X
       for (const pill of row) {
@@ -537,7 +560,7 @@ export function serviceSheetPage(
           y: pillY,
           w: pill.w,
           h: pill.h,
-          color: substitute ? SUB_PILL : pill.lead ? PILL : PILL_EMPTY,
+          color: part === 'substitute' ? SUB_PILL : part === 'translator' ? TR_PILL : pill.lead ? PILL : PILL_EMPTY,
           radius: Math.min(17, pill.h / 2),
         })
         const pillMid = pillY + pill.h / 2
@@ -546,7 +569,7 @@ export function serviceSheetPage(
             cx: pillX + pill.padLeft + AVATAR,
             cy: pillMid,
             r: AVATAR,
-            color: substitute ? SUB_DISC : AVATAR_DISC,
+            color: part === 'substitute' ? SUB_DISC : part === 'translator' ? TR_DISC : AVATAR_DISC,
           })
           const ini = initialsOf(pill.lead)
           texts.push({
@@ -574,21 +597,23 @@ export function serviceSheetPage(
       }
       pillY += lines.heights[rowIndex] + PILL_ROW_GAP
     })
-    drawPills(leads, false)
-    if (subs) {
-      // pillY has stepped one gap past the last line of leads.
+    drawPills(leads, 'lead')
+    const drawApart = (lines: ReturnType<typeof pillLines>, part: 'substitute' | 'translator') => {
+      // pillY has stepped one gap past the last line above.
       pillY += SUB_GAP - PILL_ROW_GAP
       texts.push({
         x: ROW_X + ROW_PAD_X,
         y: pillY + EYEBROW_SIZE,
         size: EYEBROW_SIZE,
-        text: 'SUBSTITUTE',
+        text: part === 'substitute' ? 'SUBSTITUTE' : 'TRANSLATOR',
         bold: true,
-        color: SUB_LABEL,
+        color: part === 'substitute' ? SUB_LABEL : TR_LABEL,
       })
       pillY += SUB_LABEL_H
-      drawPills(subs, true)
+      drawPills(lines, part)
     }
+    if (subs) drawApart(subs, 'substitute')
+    if (trs) drawApart(trs, 'translator')
 
     y = top + rowH + ROW_GAP
   })

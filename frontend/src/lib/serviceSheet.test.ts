@@ -147,6 +147,66 @@ describe('serviceSheetPage', () => {
     })
   })
 
+  describe('translators (0315)', () => {
+    const withBoth = sheet({
+      sessions: [
+        {
+          time: '09:30 AM',
+          minutes: 40,
+          name: 'Message',
+          leads: ['Ama Serwaa'],
+          substitutes: ['Kofi Asante'],
+          translators: ['Ps Saju Wigan', 'Rose Sam'],
+        },
+        { time: '10:10 AM', minutes: 25, name: 'Worship Set', leads: ['Grace Mensah'] },
+      ],
+    })
+
+    it('names whoever translates under a TRANSLATOR label, once, only where somebody does', () => {
+      const said = words(serviceSheetPage(withBoth))
+      expect(said.filter((t) => t === 'TRANSLATOR')).toHaveLength(1)
+      expect(said).toContain('Ps Saju Wigan')
+      expect(said).toContain('Rose Sam')
+      expect(words(serviceSheetPage(sheet()))).not.toContain('TRANSLATOR')
+    })
+
+    it('puts them under the substitutes, who are under the people taking it', () => {
+      const page = serviceSheetPage(withBoth, 'content')
+      const y = (text: string) => page.texts.find((t) => t.text === text)!.y
+      expect(y('Ama Serwaa')).toBeLessThan(y('SUBSTITUTE'))
+      expect(y('SUBSTITUTE')).toBeLessThan(y('Kofi Asante'))
+      expect(y('Kofi Asante')).toBeLessThan(y('TRANSLATOR'))
+      expect(y('TRANSLATOR')).toBeLessThan(y('Ps Saju Wigan'))
+      // And the next session starts under all of it.
+      expect(y('Rose Sam')).toBeLessThan(y('Worship Set'))
+    })
+
+    for (const theme of ['dark', 'light'] as const) {
+      it(`draws a translator's pill in a colour of its own, readable, in ${theme}`, () => {
+        const page = serviceSheetPage(withBoth, 'content', theme)
+        const textAt = (name: string) => page.texts.find((t) => t.text === name)!
+        const under = (name: string) => {
+          const t = textAt(name)
+          return page.rects
+            .filter((r) => t.x >= r.x && t.x <= r.x + r.w && t.y >= r.y && t.y <= r.y + r.h)
+            .sort((a, b) => a.w * a.h - b.w * b.h)[0]
+        }
+        const translator = under('Ps Saju Wigan')
+        expect(translator.color).not.toBe(under('Ama Serwaa').color)
+        expect(translator.color).not.toBe(under('Kofi Asante').color)
+        expect(contrastRatio(textAt('Ps Saju Wigan').color!, translator.color!)).toBeGreaterThanOrEqual(4.5)
+        expect(contrastRatio(textAt('TRANSLATOR').color!, under('TRANSLATOR').color!)).toBeGreaterThanOrEqual(4.5)
+      })
+    }
+
+    it('makes the row tall enough to hold them', () => {
+      const without = serviceSheetPage(sheet({ sessions: withBoth.sessions.map((s) => ({ ...s, translators: [] })) }), 'content')
+      const withThem = serviceSheetPage(withBoth, 'content')
+      const yOf = (page: ReturnType<typeof serviceSheetPage>) => page.texts.find((t) => t.text === 'Worship Set')!.y
+      expect(yOf(withThem)).toBeGreaterThan(yOf(without))
+    })
+  })
+
   it('says so plainly when nothing is planned yet', () => {
     const said = words(serviceSheetPage(sheet({ sessions: [] })))
     expect(said).toContain('No sessions planned yet.')

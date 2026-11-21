@@ -21,8 +21,11 @@ import {
   saveAssignees,
   substituteNamesOn,
   substitutesOn,
+  translatorNamesOn,
+  translatorsOn,
   withNewOrder,
   type PersonRef,
+  type SessionPart,
 } from '../lib/sessionAssignees'
 import { GrowingField } from '../components/GrowingField'
 import { DateField, TimeField } from '../components/DateTimeFields'
@@ -92,7 +95,7 @@ async function fetchSessions(serviceId: string): Promise<ServiceSessionRow[]> {
   const { data, error } = await supabase
     .from('service_sessions')
     .select(
-      '*, assignees:service_session_assignees(id, user_id, guest_id, order_index, is_substitute, profile:profiles(id, first_name, last_name), guest:guests(id, name, title, note))',
+      '*, assignees:service_session_assignees(id, user_id, guest_id, order_index, is_substitute, is_translator, profile:profiles(id, first_name, last_name), guest:guests(id, name, title, note))',
     )
     .eq('service_id', serviceId)
     .order('order_index')
@@ -196,6 +199,8 @@ export function ServicePlannerPage() {
   // Sessions whose substitute row was opened from the menu but has nobody
   // on it yet. One with a substitute always shows its row.
   const [substituteOpen, setSubstituteOpen] = useState<Set<string>>(() => new Set())
+  // The same for a translator's row (0315).
+  const [translatorOpen, setTranslatorOpen] = useState<Set<string>>(() => new Set())
   // Sessions whose box for a new comment is open, from the menu or from
   // "Add a comment" under the ones already there.
   const [commentOpen, setCommentOpen] = useState<Set<string>>(() => new Set())
@@ -251,16 +256,22 @@ export function ServicePlannerPage() {
     mutationFn: ({
       session,
       next,
-      substitute = false,
+      part = 'lead',
     }: {
       session: ServiceSessionRow
       next: PersonRef[]
-      substitute?: boolean
+      /** Which of the session's three lists this is: who takes it, stands in or translates. */
+      part?: SessionPart
     }) =>
-      saveAssignees(session.id, substitute ? substitutesOn(session) : peopleOn(session), next, substitute),
+      saveAssignees(
+        session.id,
+        part === 'translator' ? translatorsOn(session) : part === 'substitute' ? substitutesOn(session) : peopleOn(session),
+        next,
+        part,
+      ),
     // A new order for the same people is drawn at once (lib/sessionAssignees).
-    onMutate: ({ session, next, substitute = false }) => {
-      const moved = withNewOrder(session, next, substitute)
+    onMutate: ({ session, next, part = 'lead' }) => {
+      const moved = withNewOrder(session, next, part)
       if (!moved) return
       queryClient.setQueryData<ServiceSessionRow[]>(['service-sessions', serviceId], (rows) =>
         rows?.map((row) => (row.id === session.id ? { ...row, assignees: moved.assignees } : row)),
@@ -656,6 +667,16 @@ export function ServicePlannerPage() {
     [sessionOrder, sessionById],
   )
 
+  // A name typed into a picker that nobody has heard of goes on the guest
+  // roll, for whoever may add one: the same for all three of a session's lists.
+  const addTypedGuest = mayGuests
+    ? async (name: string): Promise<PersonRef> => {
+        const made = await addGuest({ name })
+        await queryClient.invalidateQueries({ queryKey: GUESTS_KEY })
+        return { kind: 'guest', id: made.id }
+      }
+    : undefined
+
   // Everyone who could take a session: the people with accounts, then
   // this service's guests.
   const leadOptions: LeadOption[] = useMemo(
@@ -727,6 +748,7 @@ export function ServicePlannerPage() {
         name: session.session_name,
         leads: namesOn(session),
         substitutes: substituteNamesOn(session),
+        translators: translatorNamesOn(session),
       })),
       totalLabel: formatDuration(totalMinutes),
       windowLabel:
@@ -1419,6 +1441,7 @@ export function ServicePlannerPage() {
                      * a session nobody may edit simply has none.
                      */
                     const substitutes = substitutesOn(session)
+                    const translators = translatorsOn(session)
                     const sessionActions: MenuAction[] = (
                       skipped
                         ? ([
@@ -1533,6 +1556,19 @@ export function ServicePlannerPage() {
                       // the church gave them (0184), until the lock.
                       .filter(([control]) => mayControl(control))
                       .map(([, action]) => action)
+                    // Assign translator (0315), under Assign substitute. Not one
+                    // of the buttons somebody can be given (0184): it is for
+                    // whoever plans the running order, which is who the
+                    // database lets write the row.
+                    if (canEdit && !skipped) {
+                      const after = sessionActions.findIndex((a) => a.label === 'Assign substitute')
+                      const removes = sessionActions.findIndex((a) => a.tone === 'danger')
+                      sessionActions.splice(after >= 0 ? after + 1 : removes < 0 ? sessionActions.length : removes, 0, {
+                        label: 'Assign translator',
+                        hint: 'Names who translates it as it is taken',
+                        onSelect: () => setTranslatorOpen((open) => new Set(open).add(session.id)),
+                      })
+                    }
                     // Not a planner button: its own right (svc.comment), on
                     // every session — a skipped one and a finished service
                     // included, since "that ran long" is said afterwards.
@@ -1692,18 +1728,8 @@ export function ServicePlannerPage() {
                                     label={`Who leads ${session.session_name}`}
                                     options={leadOptions}
                                     values={peopleOn(session).map(refOf)}
-                                    exclude={substitutes.map(refOf)}
-                                    onAddGuest={
-                                      mayGuests
-                                        ? async (name) => {
-                                            const made = await addGuest({ name })
-                                            await queryClient.invalidateQueries({
-                                              queryKey: GUESTS_KEY,
-                                            })
-                                            return { kind: 'guest', id: made.id }
-                                          }
-                                        : undefined
-                                    }
+                                    exclude={[...substitutes, ...translators].map(refOf)}
+                                    onAddGuest={addTypedGuest}
                                     onChange={(next) =>
                                       setPeople.mutate({ session, next })
                                     }
@@ -1758,18 +1784,8 @@ export function ServicePlannerPage() {
                                       label={`Substitute for ${session.session_name}`}
                                       options={leadOptions}
                                       values={substitutes.map(refOf)}
-                                      exclude={peopleOn(session).map(refOf)}
-                                      onAddGuest={
-                                        mayGuests
-                                          ? async (name) => {
-                                              const made = await addGuest({ name })
-                                              await queryClient.invalidateQueries({
-                                                queryKey: GUESTS_KEY,
-                                              })
-                                              return { kind: 'guest', id: made.id }
-                                            }
-                                          : undefined
-                                      }
+                                      exclude={[...peopleOn(session), ...translators].map(refOf)}
+                                      onAddGuest={addTypedGuest}
                                       onChange={(next) => {
                                         if (next.length === 0)
                                           setSubstituteOpen((open) => {
@@ -1777,7 +1793,7 @@ export function ServicePlannerPage() {
                                             left.delete(session.id)
                                             return left
                                           })
-                                        setPeople.mutate({ session, next, substitute: true })
+                                        setPeople.mutate({ session, next, part: 'substitute' })
                                       }}
                                     />
                                   ) : (
@@ -1790,6 +1806,54 @@ export function ServicePlannerPage() {
                                           initials={assigneeInitials(person)}
                                           note={person.guest?.note}
                                           substitute
+                                        />
+                                      ) : null
+                                    })
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Whoever translates it as it is taken
+                                  (0315): a row of its own again, in indigo,
+                                  so they are read as neither taking the
+                                  session nor standing by to. */}
+                              {(translators.length > 0 || (canEdit && translatorOpen.has(session.id))) && (
+                                <div
+                                  className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2"
+                                  aria-label={`Translator for ${session.session_name}`}
+                                  role="group"
+                                >
+                                  <span className="font-mono text-label-sm text-accent-indigo-soft">
+                                    Translator
+                                  </span>
+                                  {canEdit ? (
+                                    <LeadPicker
+                                      variant="translator"
+                                      label={`Translator for ${session.session_name}`}
+                                      options={leadOptions}
+                                      values={translators.map(refOf)}
+                                      exclude={[...peopleOn(session), ...substitutes].map(refOf)}
+                                      onAddGuest={addTypedGuest}
+                                      onChange={(next) => {
+                                        if (next.length === 0)
+                                          setTranslatorOpen((open) => {
+                                            const left = new Set(open)
+                                            left.delete(session.id)
+                                            return left
+                                          })
+                                        setPeople.mutate({ session, next, part: 'translator' })
+                                      }}
+                                    />
+                                  ) : (
+                                    translators.map((person) => {
+                                      const name = assigneeName(person)
+                                      return name ? (
+                                        <AssigneePill
+                                          key={person.id}
+                                          name={name}
+                                          initials={assigneeInitials(person)}
+                                          note={person.guest?.note}
+                                          translator
                                         />
                                       ) : null
                                     })

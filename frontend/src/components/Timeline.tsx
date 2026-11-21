@@ -214,6 +214,7 @@ export function AssigneePill({
   note,
   tone = 'neutral',
   substitute = false,
+  translator = false,
 }: {
   name: ReactNode
   initials: string
@@ -222,6 +223,8 @@ export function AssigneePill({
   tone?: 'neutral' | 'blue' | 'green' | 'indigo'
   /** Somebody standing in, not taking it (0182): a dashed amber pill with a Sub mark. */
   substitute?: boolean
+  /** Somebody translating it as it is taken (0315): a dashed indigo pill with a Trans mark. */
+  translator?: boolean
 }) {
   const tones = {
     neutral: 'bg-raised-strong text-on-surface-variant',
@@ -234,7 +237,9 @@ export function AssigneePill({
       className={`inline-flex max-w-full shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3.5 ${
         substitute
           ? 'border border-dashed border-accent-orange bg-[color-mix(in_oklab,var(--color-accent-orange)_10%,transparent)]'
-          : 'bg-raised-strong'
+          : translator
+            ? 'border border-dashed border-accent-indigo bg-[color-mix(in_oklab,var(--color-accent-indigo)_12%,transparent)]'
+            : 'bg-raised-strong'
       }`}
     >
       <span
@@ -242,7 +247,9 @@ export function AssigneePill({
         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[0.6875rem] ${
           substitute
             ? 'bg-[color-mix(in_oklab,var(--color-accent-orange)_24%,transparent)] text-accent-orange-soft'
-            : tones[tone]
+            : translator
+              ? tones.indigo
+              : tones[tone]
         }`}
       >
         {initials}
@@ -254,6 +261,11 @@ export function AssigneePill({
       {substitute && (
         <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-orange)_22%,transparent)] px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-orange-soft">
           Sub
+        </span>
+      )}
+      {translator && !substitute && (
+        <span className="shrink-0 rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_24%,transparent)] px-1.5 py-0.5 font-mono text-[0.75rem] font-medium text-accent-indigo-soft">
+          Trans
         </span>
       )}
     </span>

@@ -157,3 +157,56 @@ describe('the way to the Countdown', () => {
     expect(link()).toBeNull()
   })
 })
+
+/*
+ * Whoever translates a session as it is taken (0315): named from the
+ * session's menu, under Assign substitute, in a row of their own.
+ */
+describe('a session’s translator', () => {
+  beforeEach(() => vi.setSystemTime(new Date(`${SUNDAY}T08:00:00`)))
+  const person = (id: string, first: string, last: string, order: number, mark: object = {}) => ({
+    id: `a-${id}`,
+    user_id: id,
+    guest_id: null,
+    order_index: order,
+    is_substitute: false,
+    profile: { id, first_name: first, last_name: last },
+    guest: null,
+    ...mark,
+  })
+
+  it('is offered in a session’s menu, under Assign substitute, and opens a row that says No translator', async () => {
+    const user = show()
+    expect(await screen.findByDisplayValue('Sermon')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Translator for Sermon' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Actions for Sermon' }))
+    const items = (await screen.findAllByRole('menuitem')).map((item) => item.textContent ?? '')
+    const substitute = items.findIndex((text) => text.startsWith('Assign substitute'))
+    expect(items[substitute + 1]).toMatch(/^Assign translator/)
+
+    await user.click(screen.getByRole('menuitem', { name: /Assign translator/ }))
+    const row = screen.getByRole('group', { name: 'Translator for Sermon' })
+    expect(row).toHaveTextContent('Translator')
+    expect(screen.getByRole('button', { name: 'Translator for Sermon' })).toHaveTextContent('No translator')
+    // Only the session it was asked for.
+    expect(screen.queryByRole('group', { name: 'Translator for Worship' })).toBeNull()
+  })
+
+  it('shows a session’s translator in their own row, apart from who is taking it', async () => {
+    db.rows.service_sessions = [
+      {
+        ...session('s1', 'Worship', '10:00', 0),
+        assignees: [person('u1', 'Grace', 'Mensah', 0), person('u2', 'Rose', 'Sam', 0, { is_translator: true })],
+      },
+      session('s2', 'Sermon', '10:30', 1),
+    ]
+    show()
+    expect(await screen.findByDisplayValue('Sermon')).toBeInTheDocument()
+    const row = screen.getByRole('group', { name: 'Translator for Worship' })
+    expect(row).toHaveTextContent('Translator')
+    expect(screen.getByRole('button', { name: 'Translator for Worship' })).toBeInTheDocument()
+    // The row is there without being asked for, and only on the session that has one.
+    expect(screen.queryByRole('group', { name: 'Translator for Sermon' })).toBeNull()
+  })
+})
