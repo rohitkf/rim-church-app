@@ -506,8 +506,14 @@ function Adder({
   )
 }
 
-/** A person written in by hand. A child carries a little more. */
-function PersonForm({
+/**
+ * A person written in by hand. A child carries a little more.
+ *
+ * Also the form whoever links families writes somebody in with
+ * (FamilyLinksDialog, 0320): the same questions, so a person written in
+ * for a family reads as one the family wrote.
+ */
+export function PersonForm({
   kind,
   initial,
   busy,

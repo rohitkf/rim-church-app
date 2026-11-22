@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
-import type { Relation } from './family'
+import { dobWithAge, type PersonDraft, type Relation } from './family'
+import { nameToSave } from './personName'
 
 /*
  * Linking a family for them (0319).
@@ -11,10 +12,14 @@ import type { Relation } from './family'
  * for any two accounts, from the person's card on Volunteers: husband and
  * wife, or a child and their parents. Nobody is asked; both are told.
  *
+ * Somebody with no account is written in by hand (0320), as the family
+ * can on their own profile, until they join: then their account is linked
+ * and takes the entry's place.
+ *
  * The database does all of it. `family_of()` hands back the accounts
- * linked to one person and a count of the people written in by hand —
- * not who those are, not an address, not a date of birth: a household is
- * its family's and `people.contacts`' to read. `link_family()` and
+ * linked to one person and the people written in by hand with what is
+ * written about them — whoever may change it has to read it — and never
+ * the address: that is the family's and `people.contacts`' to read. `link_family()` and
  * `unlink_family()` make and take the link, and refuse in words what
  * cannot be meant (a second husband, a child with two unlinked parents).
  *
@@ -27,14 +32,32 @@ import type { Relation } from './family'
 const linkedSchema = z.object({ id: z.string(), first_name: z.string(), last_name: z.string() })
 export type LinkedPerson = z.infer<typeof linkedSchema>
 
+/** Somebody with no account, written in by hand: by the family on their profile, or for them here (0320). */
+const writtenSchema = z.object({
+  id: z.string(),
+  first_name: z.string().nullable().transform((v) => v ?? ''),
+  last_name: z.string().nullable().transform((v) => v ?? ''),
+  dob: z.string().nullable().optional(),
+  gender: z.enum(['male', 'female']).nullable().optional(),
+  school: z.string().nullable().optional(),
+  year_group: z.string().nullable().optional(),
+})
+export type WrittenPerson = z.infer<typeof writtenSchema>
+
+const NOBODY_WRITTEN = { spouse: [], children: [], parents: [] }
+
 const familyOfSchema = z.object({
   spouse: z.array(linkedSchema).default([]),
   children: z.array(linkedSchema).default([]),
   parents: z.array(linkedSchema).default([]),
-  /** People written in by hand on the family's own profiles: how many, never who. */
-  written: z
-    .object({ spouse: z.number().default(0), children: z.number().default(0), parents: z.number().default(0) })
-    .default({ spouse: 0, children: 0, parents: 0 }),
+  /** The people written in by hand, to be changed or taken off. */
+  written_people: z
+    .object({
+      spouse: z.array(writtenSchema).default([]),
+      children: z.array(writtenSchema).default([]),
+      parents: z.array(writtenSchema).default([]),
+    })
+    .default(NOBODY_WRITTEN),
 })
 export type FamilyOf = z.infer<typeof familyOfSchema>
 
@@ -72,12 +95,54 @@ export const FAMILY_WORDS: Record<Relation, { heading: string; one: string }> = 
   parent: { heading: 'Parents', one: 'parent' },
 }
 
-/** "2 children written in by hand, with no account", or nothing when there are none. */
-export function writtenWords(relation: Relation, count: number): string | null {
-  if (count <= 0) return null
-  if (relation === 'spouse') return 'A husband or wife is written in by hand on their profile, with no account. Linking an account here takes its place.'
-  const what = relation === 'child' ? (count === 1 ? 'child is' : 'children are') : count === 1 ? 'parent is' : 'parents are'
-  return `${count} ${what} written in by hand on their profile, with no account.`
+/** Which of a family's three lists a relation is: the key `family_of()` files people under. */
+export const LIST_OF: Record<Relation, 'spouse' | 'children' | 'parents'> = { spouse: 'spouse', child: 'children', parent: 'parents' }
+
+/** Write somebody with no account into a person's family, or (with `id`) change what is written. */
+export async function saveFamilyPerson(input: {
+  personId: string
+  relation: Relation
+  id: string | null
+  draft: PersonDraft
+}): Promise<void> {
+  const { draft } = input
+  const { error } = await supabase.rpc('save_family_person', {
+    p_person: input.personId,
+    p_relation: input.relation,
+    p_id: input.id,
+    p_first: nameToSave(draft.first_name, 'First name'),
+    p_last: nameToSave(draft.last_name, 'Last name'),
+    p_dob: draft.dob || null,
+    p_gender: draft.gender || null,
+    p_school: draft.school,
+    p_year: draft.year_group,
+  })
+  if (error) throw error
+}
+
+/** Take somebody written in by hand off a person's family. An account is unlinked, not removed. */
+export async function removeFamilyPerson(personId: string, id: string): Promise<void> {
+  const { error } = await supabase.rpc('remove_family_person', { p_person: personId, p_id: id })
+  if (error) throw error
+}
+
+/** What is written about somebody, as the form takes it. */
+export function draftOf(p: WrittenPerson): PersonDraft {
+  return {
+    first_name: p.first_name,
+    last_name: p.last_name,
+    dob: p.dob ?? '',
+    gender: p.gender ?? '',
+    school: p.school ?? '',
+    year_group: p.year_group ?? '',
+  }
+}
+
+/** "7 Jun 2015 (11) · Girl · Year 6 · Hill Primary": what is written about somebody besides their name. */
+export function writtenDetails(p: WrittenPerson, today: Date = new Date()): string {
+  return [dobWithAge(p.dob, today), p.gender ? (p.gender === 'male' ? 'Boy' : 'Girl') : '', p.year_group ?? '', p.school ?? '']
+    .filter(Boolean)
+    .join(' · ')
 }
 
 /** What unlinking these two takes away, said before it is done. */

@@ -1,10 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import migration from '../../../supabase/migrations/0319_whoever_runs_the_church_can_link_a_family.sql?raw'
+import writtenIn from '../../../supabase/migrations/0320_a_family_member_with_no_account_can_be_written_in.sql?raw'
 
 const rpc = vi.hoisted(() => vi.fn())
 vi.mock('./supabaseClient', () => ({ supabase: { rpc } }))
 
-import { FAMILY_RELATIONS, FAMILY_WORDS, fetchFamilyOf, familyOfKey, linkFamily, unlinkFamily, unlinkWords, writtenWords } from './familyLinks'
+import {
+  FAMILY_RELATIONS,
+  FAMILY_WORDS,
+  LIST_OF,
+  draftOf,
+  fetchFamilyOf,
+  familyOfKey,
+  linkFamily,
+  removeFamilyPerson,
+  saveFamilyPerson,
+  unlinkFamily,
+  unlinkWords,
+  writtenDetails,
+} from './familyLinks'
 
 const anna = { id: 'a', first_name: 'Anna', last_name: 'Thomas' }
 const ben = { id: 'b', first_name: 'Ben', last_name: 'Thomas' }
@@ -14,17 +28,32 @@ beforeEach(() => rpc.mockReset())
 
 describe('reading who is linked to somebody', () => {
   it('asks the database for that one person and reads back the three lists', async () => {
-    rpc.mockResolvedValue({ data: { spouse: [ben], children: [cara], parents: [], written: { spouse: 0, children: 2, parents: 0 } }, error: null })
+    rpc.mockResolvedValue({
+      data: {
+        spouse: [ben],
+        children: [cara],
+        parents: [],
+        written: { spouse: 0, children: 1, parents: 0 },
+        written_people: { spouse: [], children: [{ id: 'w1', first_name: 'Zak', last_name: null, dob: '2018-01-02', gender: 'male', school: 'Hill Primary', year_group: 'Year 3' }], parents: [] },
+      },
+      error: null,
+    })
     const family = await fetchFamilyOf('a')
     expect(rpc).toHaveBeenCalledWith('family_of', { p_person: 'a' })
     expect(family.spouse).toEqual([ben])
     expect(family.children).toEqual([cara])
-    expect(family.written.children).toBe(2)
+    // Somebody written in, with what is written; a last name left out reads as none.
+    expect(family.written_people.children).toEqual([{ id: 'w1', first_name: 'Zak', last_name: '', dob: '2018-01-02', gender: 'male', school: 'Hill Primary', year_group: 'Year 3' }])
   })
 
-  it('reads an answer with nothing in it as nobody linked', async () => {
+  it('reads an answer with nothing in it as nobody linked and nobody written in', async () => {
     rpc.mockResolvedValue({ data: {}, error: null })
-    expect(await fetchFamilyOf('a')).toEqual({ spouse: [], children: [], parents: [], written: { spouse: 0, children: 0, parents: 0 } })
+    expect(await fetchFamilyOf('a')).toEqual({ spouse: [], children: [], parents: [], written_people: { spouse: [], children: [], parents: [] } })
+  })
+
+  it('reads a database that only counts the people written in (0319) as none to show', async () => {
+    rpc.mockResolvedValue({ data: { spouse: [], children: [], parents: [], written: { spouse: 1, children: 2, parents: 0 } }, error: null })
+    expect((await fetchFamilyOf('a')).written_people).toEqual({ spouse: [], children: [], parents: [] })
   })
 
   it('passes a refusal on', async () => {
@@ -63,14 +92,6 @@ describe('the words', () => {
     expect(Object.keys(FAMILY_WORDS).sort()).toEqual([...FAMILY_RELATIONS].sort())
   })
 
-  it('says how many are written in by hand, and nothing when none are', () => {
-    expect(writtenWords('child', 0)).toBeNull()
-    expect(writtenWords('child', 1)).toBe('1 child is written in by hand on their profile, with no account.')
-    expect(writtenWords('child', 2)).toBe('2 children are written in by hand on their profile, with no account.')
-    expect(writtenWords('parent', 2)).toBe('2 parents are written in by hand on their profile, with no account.')
-    expect(writtenWords('spouse', 1)).toMatch(/takes its place/)
-  })
-
   it('says what unlinking a husband or wife leaves where', () => {
     expect(unlinkWords(anna, ben, 'spouse', { spouse: [ben], parents: [] })).toBe('Ben leaves Anna’s household. The address and any children on it stay with Anna.')
   })
@@ -83,6 +104,89 @@ describe('the words', () => {
   it('says the same from the child’s side', () => {
     expect(unlinkWords(cara, anna, 'parent', { spouse: [], parents: [anna, ben] })).toBe('Cara stops being linked as the child of Anna and of Ben: parents share one household.')
     expect(unlinkWords(cara, anna, 'parent', { spouse: [], parents: [anna] })).toBe('Cara stops being linked as Anna’s child.')
+  })
+})
+
+describe('somebody with no account, written in', () => {
+  const draft = { first_name: 'zak', last_name: 'THOMAS', dob: '2018-01-02', gender: 'male' as const, school: 'Hill Primary', year_group: 'Year 3' }
+
+  it('is written into one person’s family as what they are to them, the name written like a name', async () => {
+    rpc.mockResolvedValue({ error: null })
+    await saveFamilyPerson({ personId: 'a', relation: 'child', id: null, draft })
+    expect(rpc).toHaveBeenCalledWith('save_family_person', {
+      p_person: 'a',
+      p_relation: 'child',
+      p_id: null,
+      p_first: 'Zak',
+      p_last: 'Thomas',
+      p_dob: '2018-01-02',
+      p_gender: 'male',
+      p_school: 'Hill Primary',
+      p_year: 'Year 3',
+    })
+  })
+
+  it('sends nothing for a date or a gender left blank', async () => {
+    rpc.mockResolvedValue({ error: null })
+    await saveFamilyPerson({ personId: 'a', relation: 'spouse', id: 'w9', draft: { ...draft, dob: '', gender: '' } })
+    expect(rpc.mock.calls[0][1]).toMatchObject({ p_id: 'w9', p_dob: null, p_gender: null })
+  })
+
+  it('refuses something that is not a name before asking the database', async () => {
+    await expect(saveFamilyPerson({ personId: 'a', relation: 'child', id: null, draft: { ...draft, first_name: 'y@cht_234' } })).rejects.toThrow()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('is taken off by the person whose family it is and the entry', async () => {
+    rpc.mockResolvedValue({ error: null })
+    await removeFamilyPerson('a', 'w1')
+    expect(rpc).toHaveBeenCalledWith('remove_family_person', { p_person: 'a', p_id: 'w1' })
+  })
+
+  it('says what is written about them besides the name', () => {
+    const today = new Date('2026-11-22T12:00:00')
+    const zak = { id: 'w1', first_name: 'Zak', last_name: '', dob: '2018-01-02', gender: 'male' as const, school: 'Hill Primary', year_group: 'Year 3' }
+    expect(writtenDetails(zak, today)).toMatch(/2018 \(8\) · Boy · Year 3 · Hill Primary$/)
+    expect(writtenDetails({ id: 'w2', first_name: 'Ravi', last_name: 'Kumar' }, today)).toBe('')
+    expect(writtenDetails({ id: 'w3', first_name: 'Lily', last_name: '', gender: 'female' }, today)).toBe('Girl')
+  })
+
+  it('hands the form what is written, blanks as blanks', () => {
+    expect(draftOf({ id: 'w2', first_name: 'Ravi', last_name: 'Kumar', dob: null, gender: null, school: null, year_group: null })).toEqual({
+      first_name: 'Ravi',
+      last_name: 'Kumar',
+      dob: '',
+      gender: '',
+      school: '',
+      year_group: '',
+    })
+  })
+
+  it('files each relation under the list the database files it under', () => {
+    expect(LIST_OF).toEqual({ spouse: 'spouse', child: 'children', parent: 'parents' })
+    for (const key of Object.values(LIST_OF)) expect(writtenIn).toContain(`'${key}', coalesce(jsonb_agg(who order by name)`)
+  })
+})
+
+describe('writing somebody in, in the database (0320)', () => {
+  it('is the same right as linking, asked by every function that reads or writes a family', () => {
+    expect(writtenIn.match(/public\.may\((?:auth\.uid\(\)|me), 'people\.family'\)/g)).toHaveLength(3)
+    expect(writtenIn).toContain('revoke all on function public.save_family_person(uuid, text, uuid, text, text, date, text, text, text) from public, anon')
+    expect(writtenIn).toContain('revoke all on function public.remove_family_person(uuid, uuid) from public, anon')
+  })
+
+  it('removes only somebody written in: an account is unlinked', () => {
+    expect(writtenIn).toContain('select household_id into hh from public.household_members where id = p_id and user_id is null;')
+  })
+
+  it('hands back what is written and never the address', () => {
+    expect(writtenIn).toContain("'written_people', written")
+    const fn = writtenIn.slice(writtenIn.indexOf('create or replace function public.family_of'), writtenIn.indexOf('The sentence, wide enough'))
+    expect(fn).not.toMatch(/address|postcode|town/)
+  })
+
+  it('tells the family in a sentence with no name in it', () => {
+    expect(writtenIn.match(/'A church Admin has updated[^']*'/)?.[0]).toBe("'A church Admin has updated your family in the app. Open your profile to see.'")
   })
 })
 

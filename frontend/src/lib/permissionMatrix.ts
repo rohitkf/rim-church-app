@@ -891,11 +891,11 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'A blocked person can still sign in, and meets a page saying the account is blocked and to speak to an Admin; nothing of theirs is removed, and unblocking puts everything back (0279). Only the Owner can block or unblock another Admin. Nobody can block the Owner.',
       },
       {
-        action: 'Link two people as family, and unlink them',
+        action: 'Link two people as family, write in family who have no account, and undo either',
         key: 'people.family',
         short: 'Link families',
         can: granted('people.family'),
-        note: 'Husband and wife, or a child and their parents, for any two accounts, from the Family button on a person’s card (0319). Nobody is asked to confirm and both are told. It shows who is linked to whom, never a family’s address or the people they wrote in by hand. Families can still link themselves from their own profiles, and that is where somebody links their own: linking yourself here is refused unless you can already see everybody’s contact details.',
+        note: 'Husband and wife, or a child and their parents, for any two accounts, from the Family button on a person’s card (0319). Nobody is asked to confirm and both are told. Somebody not on the app is written in by hand, with a date of birth and a child’s school and year, until they join (0320). It shows who is linked and who is written in with those details, never a family’s address. Families can still link themselves from their own profiles, and that is where somebody links their own: linking yourself here is refused unless you can already see everybody’s contact details.',
       },
     ],
   },
