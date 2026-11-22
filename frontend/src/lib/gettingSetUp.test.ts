@@ -197,9 +197,10 @@ describe('the database’s copy of the joining form’s rule', () => {
     expect(functionText('function public.my_profile_gaps_for(p_form integer)')).toContain('least(coalesce(p_form, 1), public.joining_form())')
     // Every question added after the first form is asked only of an app that has it, and none is asked of a form the database does not know.
     const formOf = Object.fromEntries(
-      [...body.matchAll(/case when p_form >= (\d+) and [^\n]* then '([A-Za-z0-9]+)' end/g)].map((m) => [m[2], Number(m[1])]),
+      [...body.matchAll(/when p_form >= (\d+) and [^\n]* then '([A-Za-z0-9]+)' end/g)].map((m) => [m[2], Number(m[1])]),
     )
-    expect(formOf).toEqual({ addressLine1: 2, town: 2, postcode: 2, emergencyName: 2, emergencyPhone: 2, emergencyRelation: 3 })
+    // Form 4 (0321) asks nothing new: a date of birth that cannot be theirs is asked for again.
+    expect(formOf).toEqual({ addressLine1: 2, town: 2, postcode: 2, emergencyName: 2, emergencyPhone: 2, emergencyRelation: 3, dob: 4 })
     expect(Math.max(...Object.values(formOf))).toBe(newest)
   })
 

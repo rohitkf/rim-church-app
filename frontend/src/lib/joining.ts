@@ -13,7 +13,7 @@
  */
 
 import { nameProblem, tidyName } from './personName'
-import { ageFrom } from './celebrations'
+import { ownDobProblem } from './ownAge'
 
 export const MARITAL_STATUSES = [
   { value: 'single', label: 'Single' },
@@ -170,8 +170,11 @@ export function emergencyRelationLabel(value: string | null | undefined): string
  * existed is never told about it — told, it would show a form with no box
  * for the answer and no way past. Add a question here and in
  * `profile_gaps()`, and this number goes up with it.
+ *
+ * Form 4 (0321) asks nothing new: its date of birth has to be one that
+ * can be theirs, so somebody who left the picker on today is asked again.
  */
-export const JOINING_FORM = 3
+export const JOINING_FORM = 4
 
 /**
  * What is still missing, in the order the form asks for it.
@@ -269,10 +272,9 @@ export function invalidAnswers(
   const year = (iso: string) => Number(iso.slice(0, 4))
   const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
-  if (answers.dob) {
-    if (answers.dob > todayIso) bad.dob = 'Your date of birth can’t be in the future.'
-    else if (ageFrom(answers.dob, today) === null) bad.dob = 'That date doesn’t look right.'
-  }
+  // A date of birth has to be one that can be theirs (0321): not today, not this year, not 1850.
+  const dobProblem = ownDobProblem(answers.dob, today)
+  if (dobProblem) bad.dob = dobProblem
   if (answers.maritalStatus === 'married' && answers.anniversary) {
     if (answers.anniversary > todayIso) bad.anniversary = 'The anniversary can’t be in the future.'
     else if (answers.dob && year(answers.anniversary) < year(answers.dob) + 14) {

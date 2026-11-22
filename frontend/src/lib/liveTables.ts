@@ -167,6 +167,8 @@ export const LIVE_TABLES: LiveTable[] = [
     table: 'profiles',
     keys: [
       'volunteers',
+      // Who is under 18 follows a date of birth (0321).
+      'minors',
       'profile-options',
       'mentionable-people',
       'announcement-people',
