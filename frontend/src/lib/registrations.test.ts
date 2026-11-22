@@ -461,6 +461,7 @@ describe('what the door works (0247)', () => {
     owed: 0,
     first_starts_at: null,
     last_ends_at: null,
+    anonymised: false,
     ...over,
   })
   const now = new Date(2026, 10, 21, 10, 0)

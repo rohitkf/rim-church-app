@@ -184,6 +184,8 @@ export interface EventSummary extends RegistrationEvent {
   first_starts_at: string | null
   /** When its last date ends (or starts, with no end): the door works an event until then. */
   last_ends_at: string | null
+  /** Whether the nightly clear-up has already taken people's details off its registrations (lib/registrationClearing). */
+  anonymised: boolean
 }
 
 const orderStatSchema = z.object({
@@ -193,12 +195,13 @@ const orderStatSchema = z.object({
   total_pence: z.number(),
   payment_status: z.enum(['not_needed', 'awaiting', 'reported', 'received', 'waived']),
   refund_status: z.enum(['owed', 'refunded']).nullable().optional(),
+  anonymised_at: z.string().nullable().optional(),
 })
 
 export async function fetchRegistrationEvents(): Promise<EventSummary[]> {
   const [events, orders, dates] = await Promise.all([
     supabase.from('registration_events').select(EVENT_COLUMNS).order('created_at', { ascending: false }),
-    supabase.from('registration_orders').select('event_id, status, quantity, total_pence, payment_status, refund_status'),
+    supabase.from('registration_orders').select('event_id, status, quantity, total_pence, payment_status, refund_status, anonymised_at'),
     supabase.from('registration_event_dates').select('event_id, starts_at, ends_at').order('starts_at'),
   ])
   if (events.error) throw events.error
@@ -230,6 +233,7 @@ export async function fetchRegistrationEvents(): Promise<EventSummary[]> {
         owed: stats.filter((o) => o.event_id === event.id && o.refund_status === 'owed').length,
         first_starts_at: firstDate.get(event.id) ?? null,
         last_ends_at: lastEnd.get(event.id) ?? null,
+        anonymised: stats.some((o) => o.event_id === event.id && !!o.anonymised_at),
       }
     })
 }

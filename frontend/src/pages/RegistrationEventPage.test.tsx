@@ -1617,3 +1617,18 @@ describe('registrations made without the code, twice, or waived', () => {
     expect(screen.queryByText(/waived$/)).toBeNull()
   })
 })
+
+/*
+ * A finished event (this one ended on 21 November 2026) says when people's
+ * details come off its registrations: counting down, or that it is
+ * tonight, depending on the day the test runs. Never that the event goes.
+ */
+describe('a finished event’s page', () => {
+  it('says when names and contact details are removed, and that the event stays', async () => {
+    show()
+    const notice = await screen.findByRole('region', { name: 'When people’s details are removed' })
+    expect(notice).toHaveTextContent(/Names and contact details are removed (in|tonight)/)
+    expect(notice).toHaveTextContent(/The orders, their ticket codes and the sums stay, and so does the event, until somebody deletes it\./)
+  })
+})
+

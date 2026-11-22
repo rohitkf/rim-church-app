@@ -159,6 +159,7 @@ const summary = (over: Partial<EventSummary>): EventSummary => ({
   owed: 0,
   first_starts_at: today(18, 30),
   last_ends_at: today(21, 0),
+  anonymised: false,
   ...over,
 })
 

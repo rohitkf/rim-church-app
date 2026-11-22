@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ClearingNotice } from '../components/RegistrationClearing'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActionButton, ActionLink, Field, FitFigure, Overlay, PageHeader, Pill, SegmentedControl, StackedBar, Statistic, Tile, inputClasses } from '../components/Surface'
@@ -526,6 +527,11 @@ export function RegistrationEventPage() {
           {error}
         </p>
       )}
+      {/* Finished: a countdown to the night people's details are taken off its registrations. */}
+      <ClearingNotice
+        lastEndsAt={dates.reduce<string | null>((last, d) => ((d.ends_at ?? d.starts_at) > (last ?? '') ? (d.ends_at ?? d.starts_at) : last), null)}
+        anonymised={rows.some((o) => !!o.anonymised_at)}
+      />
       {cancelled && (
         <section aria-label="Cancelled" className="mb-4 rounded-[var(--radius-card)] bg-error-container px-4 py-3 text-on-error-container">
           <p className="text-body-md font-medium">Cancelled {new Date(event.cancelled_at!).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</p>
