@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('./supabaseClient', () => ({ supabase: {} }))
 
-import { buildFullRegistrationWorkbook, type RegistrationExportExtras } from './registrationExport'
+import { accountsSheets, buildFullRegistrationWorkbook, chargedPerTicket, orderLedger, type RegistrationExportExtras } from './registrationExport'
 import { buildRegistrationWorkbook, type OrderRow, type RegistrationEventFull } from './registrations'
 import { sheetMoment, type ExportSheet } from './volunteerExport'
 import type { Invite } from './registrationInvites'
@@ -324,6 +324,237 @@ describe('its promo codes, invitations, agenda and messages', () => {
   it('leaves out a sheet there is nothing for', () => {
     const bare = full({ promoCodes: [], agenda: [] })
     const names = build({}, bare, [row()]).map((s) => s.name)
-    expect(names).toEqual(['Orders', 'Tickets', 'Summary', 'Event', 'Dates', 'Ticket types'])
+    // The money sheets are always there; Taken by, Outstanding and Refunds only with something in them.
+    expect(names).toEqual(['Orders', 'Tickets', 'Summary', 'Money', 'Accounts', 'Money by day', 'Income by ticket type', 'Outstanding', 'Event', 'Dates', 'Ticket types'])
   })
 })
+
+/*
+ * For whoever keeps the church's books (the Owner: "Does the export in
+ * registration have useful information for accountants of church ?? If
+ * not, add such info too"). The money worked out: the cash position, a
+ * ledger, what came in each day, who took it, income by ticket type, who
+ * still owes, and the refunds.
+ */
+describe('the money, for the books', () => {
+  const types: RegistrationEventFull['ticketTypes'] = [
+    { id: 't1', event_id: 'e1', name: 'Adult', description: null, kind: 'paid', price_pence: 2000, min_donation_pence: null, quantity: null, sort_order: 0 },
+    { id: 't2', event_id: 'e1', name: 'Child', description: null, kind: 'paid', price_pence: 1000, min_donation_pence: null, quantity: null, sort_order: 1 },
+  ]
+  const event = full({ ticketTypes: types })
+  const order = (id: string, over: Partial<OrderRow>): OrderRow =>
+    row({ id, code: id.toUpperCase(), name: id, quantity: 1, subtotal_pence: 2000, discount_pence: 0, total_pence: 2000, promo_code: null, tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }], created_at: at(2026, 11, 1, 10, 0), ...over })
+  const rohit = { first_name: 'Rohit', last_name: 'F' }
+  const grace = { first_name: 'Grace', last_name: 'Mensah' }
+  const books = [
+    // Paid by bank, verified.
+    order('bank', { payment_status: 'received', payment_method: 'bank', received_at: at(2026, 11, 3, 9, 0), receiver: rohit, payment_verified_at: at(2026, 11, 4, 9, 0), verifier: grace, proof_reference: 'REF-1' }),
+    // Paid in cash at the door, not verified; two tickets with £5 off.
+    order('door', {
+      payment_status: 'received', payment_method: 'reception', received_at: at(2026, 11, 20, 18, 40), receiver: grace, quantity: 2, subtotal_pence: 3000, discount_pence: 500, total_pence: 2500, promo_code: 'EARLY',
+      tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }, { ticket_type_id: 't2', attendee_name: null, unit_price_pence: 1000 }],
+    }),
+    // Not paid yet.
+    order('owes', { payment_status: 'awaiting', created_at: at(2026, 11, 10, 10, 0) }),
+    // Says they paid; nobody has confirmed it.
+    order('says', { payment_status: 'reported', payment_method: 'bank', proof_reference: 'REF-2', proof_at: at(2026, 11, 12, 8, 0), created_at: at(2026, 11, 11, 10, 0) }),
+    // Let go.
+    order('waived', { payment_status: 'waived' }),
+    // Free.
+    order('free', { payment_status: 'not_needed', subtotal_pence: 0, total_pence: 0, tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 0 }] }),
+    // Paid, then cancelled: the refund is still owed.
+    order('owed', { status: 'cancelled', payment_status: 'received', payment_method: 'paypal', received_at: at(2026, 11, 3, 15, 0), refund_status: 'owed' }),
+    // Paid, cancelled, and refunded.
+    order('back', { status: 'cancelled', payment_status: 'received', payment_method: 'bank', received_at: at(2026, 11, 5, 9, 0), receiver: rohit, refund_status: 'refunded', refund_at: at(2026, 11, 8, 9, 0), refunder: rohit }),
+    // Reported, never confirmed, cancelled: a refund is owed on money nobody has seen.
+    order('unsure', { status: 'cancelled', payment_status: 'reported', payment_method: 'bank', refund_status: 'owed' }),
+  ]
+  const now = new Date(2026, 10, 22, 9, 0)
+  const sheets = accountsSheets(event, books, now)
+  const named = (name: string) => sheets.find((s) => s.name === name)!
+  const figure = (label: string) => named('Money').rows.find((r) => String(r[0]).trim() === label)?.[1]
+
+  it('comes straight after the accounts’ three sheets, before anything about the event', () => {
+    const all = buildFullRegistrationWorkbook(event, books, {}, { now }).map((s) => s.name)
+    expect(all.slice(0, 11)).toEqual(['Orders', 'Tickets', 'Summary', 'Money', 'Accounts', 'Money by day', 'Taken by', 'Income by ticket type', 'Outstanding', 'Refunds', 'Event'])
+  })
+
+  it('keeps every row as wide as its headings', () => {
+    for (const s of sheets) for (const r of s.rows) expect(r, s.name).toHaveLength(s.columns.length)
+  })
+
+  describe('one order’s money', () => {
+    it('is received whether the order is live or was cancelled since', () => {
+      expect(orderLedger(books[0])).toMatchObject({ charged: 2000, received: 2000, held: 2000, income: 2000, outstanding: 0 })
+      expect(orderLedger(books[6])).toMatchObject({ charged: 0, received: 2000, refundOwed: 2000, held: 2000, income: 0 })
+    })
+    it('is nothing held once it has been given back', () => {
+      expect(orderLedger(books[7])).toMatchObject({ received: 2000, refunded: 2000, held: 0, income: 0, note: '' })
+    })
+    it('is owed while unpaid or only reported, and never both owed and received', () => {
+      expect(orderLedger(books[2])).toMatchObject({ outstanding: 2000, received: 0 })
+      expect(orderLedger(books[3])).toMatchObject({ outstanding: 2000, received: 0 })
+    })
+    it('is neither owed nor received when waived or free', () => {
+      expect(orderLedger(books[4])).toMatchObject({ waived: 2000, outstanding: 0, received: 0, held: 0 })
+      expect(orderLedger(books[5])).toMatchObject({ charged: 0, waived: 0, outstanding: 0, received: 0 })
+    })
+    it('says so where a refund is owed on money nobody confirmed', () => {
+      expect(orderLedger(books[8])).toMatchObject({ received: 0, refundOwed: 2000, held: 0, note: 'A refund is owed on a payment that was reported but never confirmed' })
+      expect(orderLedger({ status: 'cancelled', total_pence: 2000, payment_status: 'reported', refund_status: 'refunded' }).note).toBe('Refunded, but the payment was never marked received')
+    })
+  })
+
+  describe('the cash position', () => {
+    it('tells live money apart: received, still to come and waived add up to what was charged', () => {
+      expect(figure('Value before discounts')).toBe(110)
+      expect(figure('Discounts given')).toBe(5)
+      expect(figure('Charged')).toBe(105)
+      expect(figure('Received')).toBe(45)
+      expect(figure('Still to come')).toBe(40)
+      expect(figure('Waived')).toBe(20)
+      expect(Number(figure('Received')) + Number(figure('Still to come')) + Number(figure('Waived'))).toBe(figure('Charged'))
+      expect(figure('of Still to come: receipt sent, being checked')).toBe(20)
+    })
+
+    it('counts what came in on registrations since cancelled, what went back and what is still owed back', () => {
+      expect(figure('Received on registrations since cancelled')).toBe(40)
+      expect(figure('Refunded')).toBe(20)
+      expect(figure('Refunds still owed')).toBe(40)
+      expect(figure('of which on money marked received')).toBe(20)
+      expect(figure('of which on a payment only reported')).toBe(20)
+    })
+
+    it('says what should be in the bank and the cash box, and what stays once refunds are paid', () => {
+      expect(figure('Total received, every registration')).toBe(85)
+      expect(figure('Less refunded')).toBe(20)
+      expect(figure('Money held now')).toBe(65)
+      expect(figure('Less refunds still owed on money received')).toBe(20)
+      expect(figure('Income to keep')).toBe(45)
+      // Income to keep is exactly what was received on live registrations.
+      expect(figure('Income to keep')).toBe(figure('Received'))
+    })
+
+    it('splits what was received by whether it was checked against the bank, and by way of paying', () => {
+      expect(figure('Received and verified')).toBe(20)
+      expect(figure('Received, not yet verified')).toBe(65)
+      expect(figure('Bank transfer')).toBe(40)
+      expect(figure('Online link')).toBe(20)
+      expect(figure('At reception')).toBe(25)
+      expect(figure('No way recorded')).toBe(0)
+      expect(Number(figure('Bank transfer')) + Number(figure('Online link')) + Number(figure('At reception'))).toBe(figure('Total received, every registration'))
+    })
+  })
+
+  describe('the ledger', () => {
+    const ledger = named('Accounts')
+    const col = (label: string) => ledger.columns.findIndex((c) => c.label === label)
+    const of = (code: string) => ledger.rows.find((r) => r[0] === code)!
+
+    it('has a row for every order, in the order the money came in, the unpaid after', () => {
+      expect(ledger.rows).toHaveLength(books.length)
+      expect(ledger.rows.slice(0, 4).map((r) => r[0])).toEqual(['BANK', 'OWED', 'BACK', 'DOOR'])
+    })
+
+    it('carries each order’s money as numbers and its dates so that they sort', () => {
+      const bank = of('BANK')
+      expect(bank[col('Paid on')]).toBe('2026-11-03')
+      expect(bank[col('Received (£)')]).toBe(20)
+      expect(bank[col('Taken by')]).toBe('Rohit F')
+      expect(bank[col('Reference')]).toBe('REF-1')
+      expect(bank[col('Verified')]).toBe('Yes')
+      expect(bank[col('Verified on')]).toBe('2026-11-04')
+      expect(bank[col('Verified by')]).toBe('Grace Mensah')
+      expect(of('DOOR')[col('Verified')]).toBe('No')
+      // Unpaid: nothing to verify, so nothing said.
+      expect(of('OWES')[col('Verified')]).toBe('')
+      expect(of('OWES')[col('Still to come (£)')]).toBe(20)
+    })
+
+    it('adds up to the cash position, column by column', () => {
+      const sum = (label: string) => ledger.rows.reduce((n, r) => n + Number(r[col(label)]), 0)
+      expect(sum('Received (£)')).toBe(figure('Total received, every registration'))
+      expect(sum('Refunded (£)')).toBe(figure('Refunded'))
+      expect(sum('Refund owed (£)')).toBe(figure('Refunds still owed'))
+      expect(sum('Money held (£)')).toBe(figure('Money held now'))
+      expect(sum('Income to keep (£)')).toBe(figure('Income to keep'))
+      expect(sum('Still to come (£)')).toBe(figure('Still to come'))
+      expect(sum('Waived (£)')).toBe(figure('Waived'))
+    })
+
+    it('points at what the books should look at twice', () => {
+      expect(of('UNSURE')[col('To look at')]).toBe('A refund is owed on a payment that was reported but never confirmed')
+      expect(of('BANK')[col('To look at')]).toBe('')
+    })
+  })
+
+  it('says what came in and went back each day, by way of paying, to lay beside a bank statement', () => {
+    const d = named('Money by day')
+    expect(d.columns.map((c) => c.label)).toEqual(['Day', 'Bank transfer (£)', 'Online link (£)', 'At reception (£)', 'No way recorded (£)', 'Received (£)', 'Payments', 'Refunded (£)', 'Refunds', 'Net (£)'])
+    expect(d.rows).toEqual([
+      ['2026-11-03', 20, 20, 0, 0, 40, 2, 0, 0, 40],
+      ['2026-11-05', 20, 0, 0, 0, 20, 1, 0, 0, 20],
+      ['2026-11-08', 0, 0, 0, 0, 0, 0, 20, 1, -20],
+      ['2026-11-20', 0, 0, 25, 0, 25, 1, 0, 0, 25],
+    ])
+    // The days add up to the money held.
+    expect(d.rows.reduce((n, r) => n + Number(r[9]), 0)).toBe(figure('Money held now'))
+  })
+
+  it('names who took the money, by which way', () => {
+    expect(named('Taken by').rows).toEqual([
+      ['Grace Mensah', 'At reception', 1, 25],
+      ['Nobody named', 'Online link', 1, 20],
+      ['Rohit F', 'Bank transfer', 2, 40],
+    ])
+  })
+
+  it('gives income by ticket type, an order’s discount shared across its tickets by price', () => {
+    const t = named('Income by ticket type')
+    // Adult: bank, door (£20 of £30, so £16.67 of the £25), owes, says, waived, free. Child: door (£8.33).
+    expect(t.rows).toEqual([
+      ['Adult', 6, 100, 3.33, 96.67, 36.67, 40, 20],
+      ['Child', 1, 10, 1.67, 8.33, 8.33, 0, 0],
+    ])
+    const sum = (i: number) => Math.round(t.rows.reduce((n, r) => n + Number(r[i]) * 100, 0)) / 100
+    expect(sum(4)).toBe(figure('Charged'))
+    expect(sum(5)).toBe(figure('Received'))
+    expect(sum(6)).toBe(figure('Still to come'))
+    expect(sum(7)).toBe(figure('Waived'))
+    expect(sum(3)).toBe(figure('Discounts given'))
+  })
+
+  it('shares an order’s total across its tickets to the penny', () => {
+    expect(chargedPerTicket({ total_pence: 2500, tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 2000 }, { ticket_type_id: 't2', attendee_name: null, unit_price_pence: 1000 }] })).toEqual([1667, 833])
+    // Three alike and a total that does not divide: the odd penny goes somewhere, and nothing is lost.
+    const three = chargedPerTicket({ total_pence: 1000, tickets: [1, 2, 3].map(() => ({ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 500 })) })
+    expect(three.reduce((a, b) => a + b, 0)).toBe(1000)
+    expect(three).toEqual([334, 333, 333])
+    expect(chargedPerTicket({ total_pence: 0, tickets: [{ ticket_type_id: 't1', attendee_name: null, unit_price_pence: 0 }] })).toEqual([0])
+    expect(chargedPerTicket({ total_pence: 0, tickets: [] })).toEqual([])
+  })
+
+  it('lists who still owes, the longest owed first, with how to reach them', () => {
+    const o = named('Outstanding')
+    expect(o.rows.map((r) => [r[0], r[4], r[5], r[6], r[7], r[8], r[9], r[10]])).toEqual([
+      ['OWES', '2026-11-10', 12, 20, 'Awaiting payment', 'Not chosen', '', ''],
+      ['SAYS', '2026-11-11', 11, 20, 'Receipt sent — being checked', 'Bank transfer', 'REF-2', '2026-11-12'],
+    ])
+    expect(o.rows[0][2]).toBe('ama@example.org')
+  })
+
+  it('lists the refunds, what is still to do first', () => {
+    const r = named('Refunds')
+    expect(r.rows.map((x) => [x[0], x[3], x[4], x[5], x[6], x[9], x[10], x[11]])).toEqual([
+      ['OWED', 20, 'Owed', 'Online link', '2026-11-03', '', '', ''],
+      ['UNSURE', 20, 'Owed', 'Bank transfer', '', '', '', 'A refund is owed on a payment that was reported but never confirmed'],
+      ['BACK', 20, 'Refunded', 'Bank transfer', '2026-11-05', '2026-11-08', 'Rohit F', ''],
+    ])
+  })
+
+  it('leaves out Taken by, Outstanding and Refunds for an event with nothing in them', () => {
+    const quiet = accountsSheets(event, [order('free', { payment_status: 'not_needed', subtotal_pence: 0, total_pence: 0 })], now).map((s) => s.name)
+    expect(quiet).toEqual(['Money', 'Accounts', 'Money by day', 'Income by ticket type'])
+  })
+})
+
