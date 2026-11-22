@@ -251,6 +251,8 @@ export const LIVE_TABLES: LiveTable[] = [
   // Two people in one household, married: the Dashboard's anniversaries.
   { table: 'household_members', keys: ['family', 'married-couples'] },
   { table: 'family_link_requests', keys: ['family'] },
+  // The details behind a DBS yes, and whether somebody has checked them (0324).
+  { table: 'dbs_details', keys: ['dbs', 'dbs-rows', 'dbs-standings'] },
   // A rule changed in Settings reaches every open page: what a Head may
   // do, and what a page even shows, follows the grid.
   { table: 'role_permissions', keys: ['role-permissions'] },

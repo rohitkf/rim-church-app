@@ -232,8 +232,8 @@ describe('an address and somebody to ring', () => {
     expect(rows.address).toEqual({ line1: '1 High Street', line2: 'Flat 3', town: 'Leeds', postcode: 'LS1 1AA' })
   })
 
-  it('make this the fourth form: the third added who the person to ring is (0302), the fourth a date of birth that can be theirs (0321)', () => {
-    expect(JOINING_FORM).toBe(4)
+  it('make this the fifth form: the third added who the person to ring is (0302), the fourth a date of birth that can be theirs (0321), the fifth the details behind a DBS yes (0324)', () => {
+    expect(JOINING_FORM).toBe(5)
   })
 })
 

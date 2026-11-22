@@ -212,9 +212,62 @@ describe('the volunteer workbook', () => {
     })
     const rows = sheet(input, 'Compliance').rows
     // The status in the words the form offered, and whether it has an expiry at all.
-    expect(rows[1]).toEqual(['Grace', 'Mensah', 'grace@rim.org', 'Skilled Worker visa', 'Yes', '2028-01-31', 'Renewal sent 1 Oct', 'Yes'])
+    // A yes with no details behind it yet: every DBS column blank, and not verified.
+    expect(rows[1]).toEqual([
+      'Grace', 'Mensah', 'grace@rim.org', 'Skilled Worker visa', 'Yes', '2028-01-31', 'Renewal sent 1 Oct', 'Yes',
+      '', '', '', '', '', '', '', '', 'No', '', '', '',
+    ])
     // Nobody has recorded anything for Alabi: blank, not a false negative.
-    expect(rows[0]).toEqual(['Tunde', 'Alabi', 'tunde@rim.org', '', '', '', '', ''])
+    expect(rows[0]).toEqual(['Tunde', 'Alabi', 'tunde@rim.org', ...Array<string>(17).fill('')])
+    for (const row of rows) expect(row).toHaveLength(sheet(input, 'Compliance').columns.length)
+  })
+
+  /*
+   * What is behind a DBS yes (0324): the certificate, how old it is on the
+   * day of the export, when permission was given, and who verified it and
+   * by looking at what.
+   */
+  it('carries the certificate, its age, the permission and who verified it', () => {
+    const input = base({
+      today: new Date(2026, 10, 22),
+      sensitive: new Map([
+        ['u1', { visa_type: 'british_citizen', visa_has_expiry: false, visa_expiry: null, has_dbs: true, visa_note: null }],
+        ['u2', { visa_type: 'british_citizen', visa_has_expiry: false, visa_expiry: null, has_dbs: false, visa_note: null }],
+      ]),
+      dbs: {
+        u1: {
+          user_id: 'u1', kind: 'enhanced', certificate_number: '001234567890', surname: 'Mensah', issued_on: '2023-03-14',
+          workforce: 'both', update_service: true, consented_at: '2026-11-20T10:05:00Z',
+          verified_at: '2026-11-21T09:30:00Z', verified_by: 'u2', status_checked: true, certificate_seen: true, id_seen: false,
+        },
+        // Left from before they said no: not theirs any more, and not exported.
+        u2: {
+          user_id: 'u2', kind: 'basic', certificate_number: null, surname: 'Alabi', issued_on: '2024-01-01',
+          workforce: null, update_service: null, consented_at: '2026-11-20T10:05:00Z',
+          verified_at: null, verified_by: null, status_checked: false, certificate_seen: false, id_seen: false,
+        },
+      },
+    })
+    const compliance = sheet(input, 'Compliance')
+    const at = (row: number, label: string) => compliance.rows[row][compliance.columns.findIndex((c) => c.label === label)]
+    const grace = compliance.rows.findIndex((r) => r[0] === 'Grace')
+    const tunde = compliance.rows.findIndex((r) => r[0] === 'Tunde')
+    expect(at(grace, 'DBS type')).toBe('Enhanced')
+    // Text, zeros and all.
+    expect(at(grace, 'DBS certificate number')).toBe('001234567890')
+    expect(at(grace, 'Surname on certificate')).toBe('Mensah')
+    expect(at(grace, 'DBS issued')).toBe('2023-03-14')
+    expect(at(grace, 'DBS age')).toBe('3 years 8 months')
+    expect(at(grace, 'DBS workforce')).toBe('Children and adults')
+    expect(at(grace, 'On Update Service')).toBe('Yes')
+    expect(String(at(grace, 'DBS permission given'))).toMatch(/^2026-11-20/)
+    expect(at(grace, 'DBS verified')).toBe('Yes')
+    expect(String(at(grace, 'DBS verified on'))).toMatch(/^2026-11-21/)
+    expect(at(grace, 'DBS verified by')).toBe('Tunde Alabi')
+    expect(at(grace, 'What was checked')).toBe('checked online, original certificate seen')
+    expect(at(tunde, 'DBS check')).toBe('No')
+    expect(at(tunde, 'DBS type')).toBe('')
+    expect(at(tunde, 'DBS verified')).toBe('')
   })
 })
 

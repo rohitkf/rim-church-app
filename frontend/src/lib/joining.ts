@@ -14,6 +14,15 @@
 
 import { nameProblem, tidyName } from './personName'
 import { ownDobProblem } from './ownAge'
+import {
+  DBS_TEXT,
+  dbsInvalid,
+  dbsMissing,
+  type DbsAnswers,
+  type DbsField,
+  type DbsKind,
+  type DbsWorkforce,
+} from './dbs'
 
 export const MARITAL_STATUSES = [
   { value: 'single', label: 'Single' },
@@ -85,6 +94,19 @@ export interface JoiningAnswers {
   visaHasExpiry: boolean | null
   visaExpiry: string
   hasDbs: boolean | null
+  /**
+   * The details behind a yes (0324), asked only of somebody who says yes.
+   * Optional, like the one-name tick, so whatever builds answers without
+   * them means "nothing given yet".
+   */
+  dbsKind?: DbsKind | ''
+  dbsCertificate?: string
+  dbsShareCode?: string
+  dbsSurname?: string
+  dbsIssued?: string
+  dbsWorkforce?: DbsWorkforce | ''
+  dbsUpdateService?: boolean | null
+  dbsConsent?: boolean
   /** Optional: what a date cannot say about the visa. */
   visaNote: string
   /** Where they live: their household's address (0149), asked of everybody since 0301. */
@@ -180,7 +202,33 @@ export function emergencyRelationLabel(value: string | null | undefined): string
  * Form 4 (0321) asks nothing new: its date of birth has to be one that
  * can be theirs, so somebody who left the picker on today is asked again.
  */
-export const JOINING_FORM = 4
+export const JOINING_FORM = 5
+
+/** What the form calls each of the DBS questions (0324). */
+export const DBS_JOINING_FIELD: Record<DbsField, keyof JoiningAnswers> = {
+  kind: 'dbsKind',
+  certificate: 'dbsCertificate',
+  shareCode: 'dbsShareCode',
+  surname: 'dbsSurname',
+  issued: 'dbsIssued',
+  workforce: 'dbsWorkforce',
+  updateService: 'dbsUpdateService',
+  consent: 'dbsConsent',
+}
+
+/** The DBS answers on the form, as `lib/dbs.ts` reads them. */
+export function dbsOf(answers: JoiningAnswers): DbsAnswers {
+  return {
+    kind: answers.dbsKind ?? '',
+    certificate: answers.dbsCertificate ?? '',
+    shareCode: answers.dbsShareCode ?? '',
+    surname: answers.dbsSurname ?? '',
+    issued: answers.dbsIssued ?? '',
+    workforce: answers.dbsWorkforce ?? '',
+    updateService: answers.dbsUpdateService ?? null,
+    consent: answers.dbsConsent === true,
+  }
+}
 
 /**
  * What is still missing, in the order the form asks for it.
@@ -209,6 +257,8 @@ export function missingAnswers(answers: JoiningAnswers): (keyof JoiningAnswers)[
     if (answers.visaHasExpiry === true && !answers.visaExpiry) missing.push('visaExpiry')
   }
   if (answers.hasDbs === null) missing.push('hasDbs')
+  // A yes is the details as well (0324): which check, its number, permission to check it.
+  if (answers.hasDbs === true) for (const field of dbsMissing(dbsOf(answers))) missing.push(DBS_JOINING_FIELD[field])
   if (!answers.addressLine1.trim()) missing.push('addressLine1')
   if (!answers.town.trim()) missing.push('town')
   if (!answers.postcode.trim()) missing.push('postcode')
@@ -239,6 +289,14 @@ export const MISSING_TEXT: Record<keyof JoiningAnswers, { label: string; message
   visaHasExpiry: { label: 'Whether your status has an expiry date', message: 'Answer yes or no.' },
   visaExpiry: { label: 'Expiry date', message: 'Choose the expiry date.' },
   hasDbs: { label: 'DBS check', message: 'Answer yes or no.' },
+  dbsKind: DBS_TEXT.kind,
+  dbsCertificate: DBS_TEXT.certificate,
+  dbsShareCode: DBS_TEXT.shareCode,
+  dbsSurname: DBS_TEXT.surname,
+  dbsIssued: DBS_TEXT.issued,
+  dbsWorkforce: DBS_TEXT.workforce,
+  dbsUpdateService: DBS_TEXT.updateService,
+  dbsConsent: DBS_TEXT.consent,
   visaNote: { label: 'Comment', message: '' },
   addressLine1: { label: 'Address line 1', message: 'Enter the first line of your address.' },
   addressLine2: { label: 'Address line 2', message: '' },
@@ -293,6 +351,10 @@ export function invalidAnswers(
   if (answers.visaHasExpiry === true && answers.visaExpiry && !isSettledStatus(answers.visaType)) {
     const y = year(answers.visaExpiry)
     if (y < 2000 || y > today.getFullYear() + 20) bad.visaExpiry = 'That date doesn’t look right.'
+  }
+  if (answers.hasDbs === true) {
+    const wrong = dbsInvalid(dbsOf(answers), todayIso)
+    for (const field of Object.keys(wrong) as DbsField[]) bad[DBS_JOINING_FIELD[field]] = wrong[field]
   }
   const ring = emergencyProblems(answers.emergencyName, answers.emergencyPhone, answers.phone)
   if (ring.name) bad.emergencyName = ring.name

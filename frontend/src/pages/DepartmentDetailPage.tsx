@@ -1,4 +1,5 @@
 import { type FormEvent, useMemo, useState } from 'react'
+import { DBS_ROWS_KEY, dbsStanding, fetchDbsRows, type DbsRow, type DbsStanding } from '../lib/dbs'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -117,7 +118,22 @@ async function fetchDepartmentGrants(departmentId: string): Promise<DepartmentGr
   return z.array(departmentGrantSchema).parse(data)
 }
 
-function ComplianceCell({ sensitive }: { sensitive: SensitiveByUser | undefined }) {
+/** The pill's colours for each standing (0324): green only for a DBS somebody has checked. */
+const DBS_PILL: Record<DbsStanding, string> = {
+  verified: 'bg-status-coordinator/15 text-status-coordinator',
+  check: 'bg-raised-strong text-on-surface',
+  details: 'bg-raised-strong text-on-surface-variant',
+  none: 'bg-error-container text-on-error-container',
+}
+/** Short enough for one line beside a name on a phone. */
+const DBS_PILL_TEXT: Record<DbsStanding, string> = {
+  verified: 'DBS ✓',
+  check: 'DBS to check',
+  details: 'DBS: no details',
+  none: 'No DBS',
+}
+
+function ComplianceCell({ sensitive, dbs }: { sensitive: SensitiveByUser | undefined; dbs: DbsRow | undefined }) {
   // RLS on profile_sensitive is the source of truth: if the row wasn't
   // returned, this viewer isn't allowed to see it (the Owner and the
   // individual only, 0126), so we show a neutral placeholder instead of
@@ -125,17 +141,13 @@ function ComplianceCell({ sensitive }: { sensitive: SensitiveByUser | undefined 
   if (!sensitive) {
     return <span className="text-body-sm text-on-surface-variant">—</span>
   }
+  // A yes is not a tick any more (0324): the tick is for one somebody has checked.
+  const standing = dbsStanding(sensitive.has_dbs, dbs)
   return (
     /* One line, always. "DBS MISSING" wrapping to two lines inside a pill
        was most of what made this roster look broken on a phone. */
-    <span
-      className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-label-sm ${
-        sensitive.has_dbs
-          ? 'bg-status-coordinator/15 text-status-coordinator'
-          : 'bg-error-container text-on-error-container'
-      }`}
-    >
-      {sensitive.has_dbs ? 'DBS ✓' : 'No DBS'}
+    <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-label-sm ${DBS_PILL[standing]}`}>
+      {DBS_PILL_TEXT[standing]}
     </span>
   )
 }
@@ -253,6 +265,8 @@ export function DepartmentDetailPage() {
     // Visa and DBS are for whoever the grid names (0126, 0277); nobody else is asked.
     enabled: seesCompliance && memberIds.length > 0,
   })
+  // The details behind a yes, and whether somebody has checked them (0324): the same reader's.
+  const dbsRowsQuery = useQuery({ queryKey: DBS_ROWS_KEY, queryFn: fetchDbsRows, enabled: seesCompliance })
 
   const handbookQuery = useHandbookUrl(deptQuery.data?.handbook_url)
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -634,7 +648,7 @@ export function DepartmentDetailPage() {
                         </div>
                       )}
                       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
-                        {seesCompliance ? <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} /> : <span />}
+                        {seesCompliance ? <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} dbs={dbsRowsQuery.data?.[m.user_id]} /> : <span />}
                         {canManage && (
                           <span className="flex items-center gap-3">
                             {moveButton(
@@ -714,7 +728,7 @@ export function DepartmentDetailPage() {
                           )}
                           {seesCompliance && (
                             <td className="py-3 pr-4">
-                              <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} />
+                              <ComplianceCell sensitive={sensitiveQuery.data?.[m.user_id]} dbs={dbsRowsQuery.data?.[m.user_id]} />
                             </td>
                           )}
                           {canManage && (

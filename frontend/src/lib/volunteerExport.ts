@@ -25,6 +25,7 @@
  * column that would be empty for everybody is left out rather than
  * shipped blank: a blank reads as "no", and "not sent" is not "no".
  */
+import { dbsAge, dbsChecksText, dbsKindLabel, dbsWorkforceLabel, type DbsRow } from './dbs'
 import type { MemberType, DepartmentMemberRow, SensitiveByUser } from './types'
 import type { UserRole } from '../auth/types'
 import type { Household, HouseholdMember } from './family'
@@ -115,6 +116,8 @@ export interface ExportInput {
   grants: (UserRole & { user_id: string })[]
   /** Keyed by user id; only present when compliance is being included. */
   sensitive?: Map<string, SensitiveByUser>
+  /** The details behind a DBS yes and who checked them (0324), by user id; beside `sensitive`. */
+  dbs?: Record<string, DbsRow>
   /** Which teams to report on. */
   selectedTeamIds: string[]
   /** Admin user ids, so the sheet can say who can change things. */
@@ -469,9 +472,25 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
         { label: 'Visa expiry', width: 14 },
         { label: 'Visa comment', width: 40 },
         { label: 'DBS check', width: 12 },
+        // What is behind a yes (0324): the certificate, how old it is, and who checked it.
+        { label: 'DBS type', width: 12 },
+        { label: 'DBS certificate number', width: 22 },
+        { label: 'Surname on certificate', width: 22 },
+        { label: 'DBS issued', width: 14 },
+        { label: 'DBS age', width: 20 },
+        { label: 'DBS workforce', width: 20 },
+        { label: 'On Update Service', width: 14 },
+        { label: 'DBS permission given', width: 20 },
+        { label: 'DBS verified', width: 12 },
+        { label: 'DBS verified on', width: 20 },
+        { label: 'DBS verified by', width: 24 },
+        { label: 'What was checked', width: 40 },
       ],
       rows: people.map((p) => {
         const record = sensitive.get(p.id)
+        // Only behind a yes: a row left from before somebody said no is not theirs any more.
+        const dbs = record?.has_dbs ? input.dbs?.[p.id] : undefined
+        const checker = dbs?.verified_by ? personById.get(dbs.verified_by) : undefined
         return [
           p.first_name,
           p.last_name,
@@ -482,6 +501,19 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
           blank(record?.visa_expiry),
           blank(record?.visa_note),
           record ? (record.has_dbs ? 'Yes' : 'No') : '',
+          blank(dbsKindLabel(dbs?.kind)),
+          // As text: a number this long loses its leading zeros as a number.
+          blank(dbs?.certificate_number),
+          blank(dbs?.surname),
+          blank(dbs?.issued_on?.slice(0, 10)),
+          blank(dbsAge(dbs?.issued_on?.slice(0, 10), todayIso)?.replace(/ old$/, '')),
+          blank(dbsWorkforceLabel(dbs?.workforce)),
+          dbs && dbs.kind !== 'basic' ? (dbs.update_service ? 'Yes' : 'No') : '',
+          dbs ? sheetMoment(dbs.consented_at) : '',
+          record?.has_dbs ? (dbs?.verified_at ? 'Yes' : 'No') : '',
+          dbs?.verified_at ? sheetMoment(dbs.verified_at) : '',
+          checker ? `${checker.first_name} ${checker.last_name}`.trim() : '',
+          dbs?.verified_at ? dbsChecksText(dbs) : '',
         ]
       }),
     })

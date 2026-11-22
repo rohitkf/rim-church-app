@@ -3,6 +3,8 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { pickDate } from '../test/pickers'
 import { JoiningPage } from './JoiningPage'
+import { dbsAge } from '../lib/dbs'
+import { todayIso } from '../lib/monthGrid'
 
 /*
  * The same form for somebody already in, with a question unanswered (0276).
@@ -42,7 +44,29 @@ const state = vi.hoisted(() => ({
   lastName: 'Mensah',
   /** Whether they have said they have one name (0323). */
   singleName: false,
+  /** The details behind their DBS yes as saved (0324); null is a yes with nothing behind it. */
+  dbs: null as Record<string, unknown> | null,
+  dbsSaved: [] as Record<string, unknown>[],
 }))
+
+/** A certificate already given, so a yes asks for nothing more. */
+const SAVED_DBS = {
+  kind: 'enhanced',
+  certificate_number: '001234567890',
+  surname: 'Owusu',
+  issued_on: '2023-03-14',
+  workforce: 'child',
+  update_service: true,
+  share_code: null,
+  consented_at: '2026-11-20T10:00:00Z',
+  consent_wording: 'I give the church permission.',
+  verified_at: null,
+  verified_by: null,
+  verified_by_name: null,
+  status_checked: false,
+  certificate_seen: false,
+  id_seen: false,
+}
 
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
@@ -88,6 +112,16 @@ vi.mock('../lib/supabaseClient', () => ({
       getSession: () => Promise.resolve({ data: { session: { user: { id: 'u1' } } } }),
       refreshSession: () => Promise.resolve({ data: { session: null } }),
     },
+    rpc: (name: string, args: Record<string, unknown>) => {
+      if (name === 'dbs_of') {
+        return Promise.resolve({
+          data: { user_id: 'u1', first_name: 'Grace', last_name: state.lastName, dob: state.dob, has_dbs: state.stored.has_dbs, details: state.dbs, log: [] },
+          error: null,
+        })
+      }
+      if (name === 'save_my_dbs') state.dbsSaved.push(args)
+      return Promise.resolve({ data: null, error: null })
+    },
     from: (table: string) => ({
       select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: state.stored, error: null }) }) }),
       update: (row: Record<string, unknown>) => ({
@@ -107,6 +141,9 @@ beforeEach(() => {
   state.dob = null
   state.lastName = 'Mensah'
   state.singleName = false
+  state.dbs = { ...SAVED_DBS }
+  state.dbsSaved = []
+  state.stored.has_dbs = true
   state.home = { id: 'h1', address_line1: '1 High Street', address_line2: null, town: 'Leeds', postcode: 'LS1 1AA' }
   state.emergency = { name: 'Ama Mensah', relation: 'mother', phone: '+447812345678' }
 })
@@ -387,3 +424,172 @@ describe('completing a profile with no last name', () => {
   })
 })
 
+/*
+ * A yes from before the details were asked for (0324): the form opens on
+ * the DBS questions, and does not let them past until the certificate's
+ * details and their permission are given, or the answer is no.
+ */
+describe('completing a DBS yes that has nothing behind it', () => {
+  beforeEach(() => {
+    state.dbs = null
+    state.dob = '1990-05-04'
+  })
+
+  const ready = () =>
+    waitFor(() => expect(screen.getByRole('radiogroup', { name: 'Which DBS check is it?' })).toBeInTheDocument())
+
+  it('names the DBS check as what is missing, and asks only which one until it is chosen', async () => {
+    render(<JoiningPage completing />)
+    await ready()
+    const alert = await screen.findByRole('alert')
+    await waitFor(() => expect(within(alert).getAllByRole('button').map((b) => b.textContent)).toEqual(['Which DBS check']))
+    expect(screen.getByText('Choose which DBS check you have.')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Certificate number/)).toBeNull()
+    expect(screen.queryByRole('checkbox', { name: /I give the church permission/ })).toBeNull()
+  })
+
+  it('asks an Enhanced check for its number, surname, date, workforce, the Update Service and permission', async () => {
+    const user = userEvent.setup()
+    render(<JoiningPage completing />)
+    await ready()
+    await user.click(screen.getByRole('radio', { name: 'Enhanced' }))
+    const alert = await screen.findByRole('alert')
+    await waitFor(() =>
+      expect(within(alert).getAllByRole('button').map((b) => b.textContent)).toEqual([
+        'DBS certificate number',
+        'Date the certificate was issued',
+        'Workforce on the certificate',
+        'Whether it is on the Update Service',
+        'Permission to check it',
+      ]),
+    )
+    // The surname is offered from the name above, and is theirs to change.
+    expect(screen.getByLabelText(/Surname on the certificate/)).toHaveValue('Mensah')
+    expect(screen.queryByLabelText(/Share code/)).toBeNull()
+    // Their date of birth is said, not asked again.
+    expect(screen.getByText(/your date of birth, 4 May 1990/)).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /I give the church permission/ })).not.toBeChecked()
+  })
+
+  it('asks a Basic check for a share code or a number, and not for a workforce', async () => {
+    const user = userEvent.setup()
+    render(<JoiningPage completing />)
+    await ready()
+    await user.click(screen.getByRole('radio', { name: 'Basic' }))
+    const alert = await screen.findByRole('alert')
+    await waitFor(() =>
+      expect(within(alert).getAllByRole('button').map((b) => b.textContent)).toEqual([
+        'Share code',
+        'Date the certificate was issued',
+        'Permission to check it',
+      ]),
+    )
+    expect(screen.getByText('Give the share code or the certificate number.')).toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup', { name: /workforce/ })).toBeNull()
+    expect(screen.queryByRole('group', { name: /Update Service/ })).toBeNull()
+  })
+
+  it('refuses a certificate number that is not 12 digits, saying how many it has', async () => {
+    const user = userEvent.setup()
+    render(<JoiningPage completing />)
+    await ready()
+    await user.click(screen.getByRole('radio', { name: 'Standard' }))
+    await user.type(screen.getByLabelText(/Certificate number/), '00123456789')
+    expect(screen.getByText('A DBS certificate number is 12 digits. That is 11.')).toBeInTheDocument()
+    await user.type(screen.getByLabelText(/Certificate number/), '0')
+    expect(screen.queryByText(/is 12 digits/)).toBeNull()
+  })
+
+  it('unticks permission when a detail changes after it was given', async () => {
+    const user = userEvent.setup()
+    render(<JoiningPage completing />)
+    await ready()
+    await user.click(screen.getByRole('radio', { name: 'Enhanced' }))
+    const box = screen.getByRole('checkbox', { name: /I give the church permission/ })
+    await user.click(box)
+    expect(box).toBeChecked()
+    await user.type(screen.getByLabelText(/Certificate number/), '001234567890')
+    expect(box).not.toBeChecked()
+  })
+
+  it('saves the details with the permission, before the rest, and lets them in', async () => {
+    const user = userEvent.setup()
+    render(<JoiningPage completing />)
+    await ready()
+    await user.click(screen.getByRole('radio', { name: 'Enhanced' }))
+    await user.type(screen.getByLabelText(/Certificate number/), '0012 3456 7890')
+    await pickDate(user, within(document.getElementById('joining-dbsIssued')!).getByRole('button'), '2023-03-14')
+    await user.click(screen.getByRole('radio', { name: 'Children' }))
+    await user.click(within(screen.getByRole('group', { name: 'Is it on the DBS Update Service?' })).getByRole('button', { name: 'Yes' }))
+    await user.click(screen.getByRole('button', { name: 'Save and carry on' }))
+    // Not without permission.
+    expect(await screen.findByText('Tick the box to give permission for the check.')).toBeInTheDocument()
+    expect(state.dbsSaved).toHaveLength(0)
+    await user.click(screen.getByRole('checkbox', { name: /I give the church permission/ }))
+    await user.click(screen.getByRole('button', { name: 'Save and carry on' }))
+    await waitFor(() => expect(state.refreshed).toBe(1))
+    expect(state.dbsSaved).toEqual([
+      {
+        p_kind: 'enhanced',
+        p_certificate: '001234567890',
+        p_surname: 'Mensah',
+        p_issued_on: '2023-03-14',
+        p_workforce: 'child',
+        p_update_service: true,
+        p_share_code: null,
+        p_consent: true,
+      },
+    ])
+    expect(state.written.find((w) => w.table === 'profile_sensitive')!.row).toMatchObject({ has_dbs: true })
+  })
+
+  it('lets them in with nothing more asked once they answer no', async () => {
+    const user = userEvent.setup()
+    render(<JoiningPage completing />)
+    await ready()
+    await user.click(within(screen.getByRole('group', { name: 'Do you have a valid DBS check?' })).getByRole('button', { name: 'No' }))
+    expect(screen.queryByRole('radiogroup', { name: 'Which DBS check is it?' })).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    await user.click(screen.getByRole('button', { name: 'Save and carry on' }))
+    await waitFor(() => expect(state.refreshed).toBe(1))
+    expect(state.dbsSaved).toHaveLength(0)
+    expect(state.written.find((w) => w.table === 'profile_sensitive')!.row).toMatchObject({ has_dbs: false })
+  })
+})
+
+describe('completing with a DBS already given', () => {
+  beforeEach(() => {
+    state.dob = '1990-05-04'
+  })
+
+  it('shows what was given, permission standing, and does not give it again on saving', async () => {
+    state.lastName = ''
+    const user = userEvent.setup()
+    render(<JoiningPage completing />)
+    await waitFor(() => expect(screen.getByLabelText(/Certificate number/)).toHaveValue('001234567890'))
+    expect(screen.getByRole('radio', { name: 'Enhanced' })).toBeChecked()
+    expect(screen.getByLabelText(/Surname on the certificate/)).toHaveValue('Owusu')
+    expect(screen.getByRole('checkbox', { name: /I give the church permission/ })).toBeChecked()
+    // How old the certificate is, said under its date.
+    expect(screen.getByText(`${dbsAge('2023-03-14', todayIso())}.`)).toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox', { name: /I only have one name/ }))
+    await user.click(screen.getByRole('button', { name: 'Save and carry on' }))
+    await waitFor(() => expect(state.refreshed).toBe(1))
+    expect(state.dbsSaved).toHaveLength(0)
+  })
+
+  it('saves them again, with permission asked again, when a detail is changed', async () => {
+    state.lastName = ''
+    const user = userEvent.setup()
+    render(<JoiningPage completing />)
+    await waitFor(() => expect(screen.getByLabelText(/Certificate number/)).toHaveValue('001234567890'))
+    await user.click(screen.getByRole('radio', { name: 'Adults' }))
+    expect(screen.getByRole('checkbox', { name: /I give the church permission/ })).not.toBeChecked()
+    await user.click(screen.getByRole('checkbox', { name: /I give the church permission/ }))
+    await user.click(screen.getByRole('checkbox', { name: /I only have one name/ }))
+    await user.click(screen.getByRole('button', { name: 'Save and carry on' }))
+    await waitFor(() => expect(state.refreshed).toBe(1))
+    expect(state.dbsSaved).toHaveLength(1)
+    expect(state.dbsSaved[0]).toMatchObject({ p_kind: 'enhanced', p_workforce: 'adult', p_surname: 'Owusu', p_consent: true })
+  })
+})

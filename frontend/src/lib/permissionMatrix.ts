@@ -856,11 +856,11 @@ export const PERMISSIONS: PermissionArea[] = [
         note: 'Their picture too. Contact details, visa and DBS stay the Owner’s.',
       },
       {
-        action: 'See and correct everybody’s visa, DBS and safeguarding details',
+        action: 'See everybody’s visa and DBS details, and mark a DBS verified',
         key: 'people.compliance',
         short: 'Safeguarding details',
         can: granted('people.compliance'),
-        note: 'Everybody always sees their own. Anybody else’s is the Owner’s alone out of the box (0126) — not Admins, not team Heads — until the Owner gives it.',
+        note: 'Everybody always sees their own. Anybody else’s is the Owner’s alone out of the box (0126) — not Admins, not team Heads — until the Owner gives it. With it comes the DBS button on Volunteers: the certificate’s details, and marking them verified (0324). Nobody verifies their own.',
       },
       {
         action: 'Invite somebody to the app, and see who has been invited',

@@ -28,6 +28,8 @@ import { emergencyRelationLabel } from '../lib/joining'
 import { ACCOUNT_BLOCKS_KEY, fetchAccountBlocks, mayBlock, unblockAccount } from '../lib/accountBlocks'
 import { BlockAccountDialog } from '../components/BlockAccountDialog'
 import { FamilyLinksDialog } from '../components/FamilyLinksDialog'
+import { DbsCheckDialog } from '../components/DbsCheckDialog'
+import { DBS_STANDING_TEXT, DBS_STANDINGS_KEY, fetchDbsStandings } from '../lib/dbs'
 import { useMinors } from '../lib/minors'
 import { ageToShow } from '../lib/ownAge'
 import { Under18Mark } from '../components/Under18Mark'
@@ -182,6 +184,9 @@ export function VolunteersPage() {
   const blocksPeople = can('people.block')
   // Linking two accounts as family for them (0319): Admins and the Owner out of the box.
   const linksFamilies = can('people.family')
+  // Everybody's DBS, and marking one verified (0324): whoever holds people.compliance, the Owner alone out of the box.
+  const checksDbs = can('people.compliance')
+  const dbsStandings = useQuery({ queryKey: DBS_STANDINGS_KEY, queryFn: fetchDbsStandings, enabled: checksDbs })
   // Who is under 18, for a reader the database tells (people.minors, 0321): nobody otherwise.
   const minors = useMinors()
   const { teamStyle } = useTeamStyle()
@@ -192,6 +197,7 @@ export function VolunteersPage() {
   const [transferTo, setTransferTo] = useState<Volunteer | null>(null)
   const [blocking, setBlocking] = useState<Volunteer | null>(null)
   const [familyOf, setFamilyOf] = useState<Volunteer | null>(null)
+  const [dbsOf, setDbsOf] = useState<Volunteer | null>(null)
   const [exporting, setExporting] = useState(false)
   const [inviting, setInviting] = useState(false)
 
@@ -669,7 +675,7 @@ export function VolunteersPage() {
             of the card rather than tucked in beside the name. Nothing here
             is reversible by the person it happens to, so it reads as a row
             of decisions and not as part of the heading. */}
-        {(canManageAdmin || canRemove || canBlock || linksFamilies) && (
+        {(canManageAdmin || canRemove || canBlock || linksFamilies || checksDbs) && (
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle px-5 py-3">
             {(() => {
               const onTeams = new Set(memberships.filter((m) => m.user_id === v.id).map((m) => m.department_id))
@@ -816,6 +822,21 @@ export function VolunteersPage() {
                 className={cardActionClasses}
               >
                 Family
+              </button>
+            )}
+            {/* Their DBS (0324): what a check needs, and where it is marked
+                verified. The button says where they stand, so who is still to
+                check can be read down the page without opening each one. */}
+            {checksDbs && (
+              <button
+                onClick={() => {
+                  setError(null)
+                  setDbsOf(v)
+                }}
+                aria-label={`DBS of ${v.first_name} ${v.last_name}: ${DBS_STANDING_TEXT[dbsStandings.data?.[v.id] ?? 'none']}`}
+                className={cardActionClasses}
+              >
+                {dbsStandings.data ? DBS_STANDING_TEXT[dbsStandings.data[v.id] ?? 'none'] : 'DBS'}
               </button>
             )}
             {canBlock && !block && (
@@ -1075,6 +1096,16 @@ export function VolunteersPage() {
 
       {blocking && <BlockAccountDialog person={blocking} onClose={() => setBlocking(null)} />}
       {familyOf && <FamilyLinksDialog person={familyOf} onClose={() => setFamilyOf(null)} />}
+      {dbsOf && (
+        <DbsCheckDialog
+          person={dbsOf}
+          onClose={() => {
+            setDbsOf(null)
+            // What they stand as may have changed while it was open.
+            void queryClient.invalidateQueries({ queryKey: DBS_STANDINGS_KEY })
+          }}
+        />
+      )}
 
       {confirmingRemoval && (
         <div

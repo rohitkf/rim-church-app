@@ -45,6 +45,8 @@ vi.mock('../auth/AuthContext', () => ({
 }))
 
 vi.mock('../components/FamilyCard', () => ({ FamilyCard: () => null }))
+// Its own saves, and its own tests (DbsCard.test.tsx).
+vi.mock('../components/DbsCard', () => ({ DbsCard: () => <div data-testid="dbs-card" /> }))
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
@@ -132,15 +134,23 @@ describe('the profile saves itself', () => {
     expect(state.updates.filter((u) => u.table === 'profiles')).toHaveLength(0)
   })
 
-  it('saves the DBS answer as soon as it is given', async () => {
+  /*
+   * The DBS answer is the DBS card's to save, with the details behind it
+   * (0324). A "no" in the database takes those details away, so the
+   * profile's own save must never carry one it happened to load.
+   */
+  it('saves a visa change without the DBS answer, which is the DBS card’s to save', async () => {
     const user = userEvent.setup()
     show()
-    const dbs = await screen.findByRole('group', { name: /DBS/ })
-    await user.click(dbs.querySelector('button')!)
-    await waitFor(() => expect(state.updates.find((u) => u.table === 'profile_sensitive')?.row).toMatchObject({ has_dbs: true }), {
+    await user.type(await screen.findByLabelText(/Comment/), 'Renewal sent')
+    await waitFor(() => expect(state.updates.find((u) => u.table === 'profile_sensitive')?.row).toMatchObject({ visa_note: 'Renewal sent' }), {
       timeout: 3000,
     })
+    for (const update of state.updates.filter((u) => u.table === 'profile_sensitive')) expect(update.row).not.toHaveProperty('has_dbs')
     expect(await screen.findByText('Compliance details saved')).toBeInTheDocument()
+    // The question itself is on the card, not among the fields that save themselves.
+    expect(screen.getByTestId('dbs-card')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: /DBS/ })).toBeNull()
   })
 })
 

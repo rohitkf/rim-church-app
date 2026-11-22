@@ -18,7 +18,7 @@ import {
   emergencyRelationOptions,
   isSettledStatus,
 } from '../lib/joining'
-import { YesNoSwitch } from '../components/YesNoSwitch'
+import { DbsCard } from '../components/DbsCard'
 import { FamilyCard } from '../components/FamilyCard'
 import { showToast } from '../lib/toast'
 import { PhoneField } from '../components/PhoneField'
@@ -60,7 +60,9 @@ function sensitiveRowOf(s: SensitiveByUser) {
   const settled = isSettledStatus(s.visa_type)
   return {
     visa_type: s.visa_type,
-    has_dbs: s.has_dbs,
+    // Not the DBS answer (0324): that is the DBS card's to save, with the
+    // details behind it. A stale "no" written from here with a visa edit
+    // would take somebody's saved details away.
     // A status that does not run out cannot carry a date: a stale one
     // from an older visa would outlive it.
     visa_expiry: settled ? null : s.visa_expiry,
@@ -425,16 +427,6 @@ export function ProfilePage() {
                 />
               </>
             )}
-            {/* Yes or No, the way an availability answer is given: a box
-                left unticked could mean "no" or "never looked". */}
-            <div className="flex flex-col gap-2">
-              <span className="text-body-sm text-on-surface-variant">Do you have a valid DBS check?</span>
-              <YesNoSwitch
-                value={sensitive.has_dbs}
-                onChange={(next) => setSensitive({ ...sensitive, has_dbs: next })}
-                label="Do you have a valid DBS check?"
-              />
-            </div>
           </div>
         </SectionTile>
       )}
@@ -443,6 +435,9 @@ export function ProfilePage() {
     </form>
     {/* Its own saves, outside the form: Enter in an address box
         should not save the whole profile. */}
+    {/* Its own save too (0324): a yes is the certificate's details and
+        permission to check them, given together. */}
+    <DbsCard />
     <FamilyCard />
     </div>
   )

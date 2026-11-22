@@ -14,8 +14,12 @@ import type { PhoneStatus } from '../lib/phone'
 import { useErrorText } from '../lib/useErrorText'
 import { tidyName } from '../lib/personName'
 import { fetchHouseholds, myFamily, saveAddress, type Household } from '../lib/family'
+import { DbsFields } from '../components/DbsFields'
+import { dbsAsked, fetchDbs, saveMyDbs, type DbsAnswers, type DbsDetails, type DbsField } from '../lib/dbs'
 import {
   ADDRESS_LIMITS,
+  DBS_JOINING_FIELD,
+  dbsOf,
   EMERGENCY_NAME_LIMIT,
   emergencyRelationOf,
   emergencyRelationOptions,
@@ -158,6 +162,28 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
     }
   }, [completing, profileId])
   /*
+   * The details of their DBS as saved (0324), read once, when completing:
+   * null for none, undefined until the database has answered. Until then
+   * the DBS questions are not drawn, so what they gave before is never
+   * shown as blanks to fill in again. A read that fails is "none": they
+   * are asked, which is the safe way to be wrong.
+   */
+  const [storedDbs, setStoredDbs] = useState<DbsDetails | null | undefined>(completing ? undefined : null)
+  useEffect(() => {
+    if (!completing || !profileId) return
+    let cancelled = false
+    fetchDbs(profileId)
+      .then((record) => {
+        if (!cancelled) setStoredDbs(record.details)
+      })
+      .catch(() => {
+        if (!cancelled) setStoredDbs(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [completing, profileId])
+  /*
    * Their household's address as saved, read once: theirs from the profile,
    * or their spouse's from a household they were linked into. Until it has
    * been read the address boxes are not drawn, so a saved address is never
@@ -211,6 +237,16 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
     visaExpiry: edits.visaExpiry ?? stored?.visa_expiry ?? '',
     // Asked afresh of a newcomer; somebody completing has answered it before.
     hasDbs: edits.hasDbs ?? (completing && stored ? stored.has_dbs === true : null),
+    dbsKind: edits.dbsKind ?? storedDbs?.kind ?? '',
+    dbsCertificate: edits.dbsCertificate ?? storedDbs?.certificate_number ?? '',
+    dbsShareCode: edits.dbsShareCode ?? storedDbs?.share_code ?? '',
+    // The surname on the certificate is nearly always the one above: offered, and theirs to change.
+    dbsSurname: edits.dbsSurname ?? storedDbs?.surname ?? edits.lastName ?? profile?.last_name ?? '',
+    dbsIssued: edits.dbsIssued ?? storedDbs?.issued_on?.slice(0, 10) ?? '',
+    dbsWorkforce: edits.dbsWorkforce ?? storedDbs?.workforce ?? '',
+    dbsUpdateService: edits.dbsUpdateService ?? storedDbs?.update_service ?? null,
+    // Permission stands for what is already saved, and is asked again the moment a detail changes.
+    dbsConsent: edits.dbsConsent ?? !!storedDbs,
     visaNote: edits.visaNote ?? stored?.visa_note ?? '',
     addressLine1: edits.addressLine1 ?? home?.address_line1 ?? '',
     addressLine2: edits.addressLine2 ?? home?.address_line2 ?? '',
@@ -223,6 +259,17 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
 
   const set = <K extends keyof JoiningAnswers>(key: K, value: JoiningAnswers[K]) =>
     setEdits((current) => ({ ...current, [key]: value }))
+  /** A DBS detail changed: permission is for the details as they stand, so the box is unticked. */
+  const setDbs = (patch: Partial<DbsAnswers>) =>
+    setEdits((current) => {
+      const next: Partial<JoiningAnswers> = { ...current }
+      const write = next as Record<string, unknown>
+      for (const field of Object.keys(patch) as DbsField[]) write[DBS_JOINING_FIELD[field]] = patch[field]
+      if (!('consent' in patch)) next.dbsConsent = false
+      return next
+    })
+  const dbsAnswers = dbsOf(answers)
+  const dbsEdited = (Object.values(DBS_JOINING_FIELD) as (keyof JoiningAnswers)[]).some((field) => field in edits)
 
   const missing = missingAnswers(answers)
   const bad = invalidAnswers(answers)
@@ -258,12 +305,16 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
   const ORDER: (keyof JoiningAnswers)[] = [
     'firstName', 'lastName', 'phone', 'dob', 'maritalStatus', 'anniversary',
     'visaType', 'visaHasExpiry', 'visaExpiry', 'hasDbs',
+    'dbsKind', 'dbsCertificate', 'dbsShareCode', 'dbsSurname', 'dbsIssued', 'dbsWorkforce', 'dbsUpdateService', 'dbsConsent',
     'addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyRelation', 'emergencyPhone',
   ]
   // Only questions on the screen: the expiry ones appear once a status is
   // chosen, and naming a question nobody can see is its own confusion.
+  const dbsOnScreen = new Set<keyof JoiningAnswers>(
+    answers.hasDbs === true ? dbsAsked(dbsAnswers).map((field) => DBS_JOINING_FIELD[field]) : [],
+  )
   const onScreen = (f: keyof JoiningAnswers) =>
-    (f !== 'visaHasExpiry' && f !== 'visaExpiry') || !!answers.visaType
+    f.startsWith('dbs') ? dbsOnScreen.has(f) : (f !== 'visaHasExpiry' && f !== 'visaExpiry') || !!answers.visaType
   const toFix = ORDER.filter(
     (f) =>
       onScreen(f) &&
@@ -324,6 +375,22 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
       }
       setError(errorText(err, 'Could not save your address.'))
       return
+    }
+    // The DBS details next, through their own function too (0324), and only
+    // when there is something new to say: saving them again is giving
+    // permission again, which is theirs to do and not the form's.
+    if (answers.hasDbs === true && (!storedDbs || dbsEdited)) {
+      try {
+        await saveMyDbs(dbsAnswers)
+      } catch (err) {
+        setSaving(false)
+        if ((err as { code?: string } | null)?.code === '42501' && !(await supabase.auth.getSession()).data.session) {
+          setSignedOut(true)
+          return
+        }
+        setError(errorText(err, 'Could not save your DBS details.'))
+        return
+      }
     }
     const [{ error: profileError }, { error: sensitiveError }] = await Promise.all([
       supabase
@@ -545,9 +612,24 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
               />
               {problem('hasDbs')}
               <span className="text-label-sm text-on-surface-faint">
-                Some teams need one. If you are not sure, answer no — a head will tell you.
+                Some teams need one. If you are not sure, answer no — a head will tell you. If you answer yes, you are
+                asked for the certificate’s details, so that it can be checked.
               </span>
             </div>
+
+            {/* A yes is the details as well (0324). Not drawn until what
+                they gave before has been read. */}
+            {answers.hasDbs === true && storedDbs !== undefined && (
+              <DbsFields
+                value={dbsAnswers}
+                onChange={setDbs}
+                messageFor={(field) => messageFor(DBS_JOINING_FIELD[field])}
+                idFor={(field) => joiningFieldId(DBS_JOINING_FIELD[field])}
+                dob={answers.dob}
+                inputClassName={inputClasses}
+                triggerClassName={fieldTriggerClasses}
+              />
+            )}
           </div>
         </section>
 
