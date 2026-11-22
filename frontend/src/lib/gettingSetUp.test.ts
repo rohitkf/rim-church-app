@@ -157,6 +157,8 @@ describe('the database’s copy of the joining form’s rule', () => {
     const names = [...body.matchAll(/then '([A-Za-z0-9]+)' end/g)].map((m) => m[1])
     expect(names).toEqual([
       'firstName', 'lastName', 'phone', 'dob', 'maritalStatus', 'anniversary', 'visaType', 'visaHasExpiry', 'visaExpiry',
+      // A yes with no details behind it (0324): the first of the DBS questions stands for them all.
+      'dbsKind',
       'addressLine1', 'town', 'postcode', 'emergencyName', 'emergencyRelation', 'emergencyPhone',
     ])
     for (const name of names) expect(MISSING_TEXT).toHaveProperty(name)
@@ -200,7 +202,8 @@ describe('the database’s copy of the joining form’s rule', () => {
       [...body.matchAll(/when p_form >= (\d+) and [^\n]* then '([A-Za-z0-9]+)' end/g)].map((m) => [m[2], Number(m[1])]),
     )
     // Form 4 (0321) asks nothing new: a date of birth that cannot be theirs is asked for again.
-    expect(formOf).toEqual({ addressLine1: 2, town: 2, postcode: 2, emergencyName: 2, emergencyPhone: 2, emergencyRelation: 3, dob: 4 })
+    // Form 5 (0324): somebody who says they have a DBS check gives its details.
+    expect(formOf).toEqual({ addressLine1: 2, town: 2, postcode: 2, emergencyName: 2, emergencyPhone: 2, emergencyRelation: 3, dob: 4, dbsKind: 5 })
     expect(Math.max(...Object.values(formOf))).toBe(newest)
   })
 

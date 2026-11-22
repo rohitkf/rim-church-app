@@ -26,6 +26,9 @@ const who = vi.hoisted(() => ({
   minors: [] as string[],
   /** Whole dates of birth by id, for a reader who is sent them. */
   dates: {} as Record<string, string>,
+  /** Who says they have a DBS check, and the details behind it (0324), as the database shows this reader. */
+  saysDbs: [] as string[],
+  dbsRows: [] as Record<string, unknown>[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -104,6 +107,13 @@ vi.mock('../lib/supabaseClient', () => ({
               }),
           }
         }
+        if (table === 'profile_sensitive') {
+          return Promise.resolve({
+            data: ['joel', 'rose', 'newbie'].map((id) => ({ user_id: id, has_dbs: who.saysDbs.includes(id) })),
+            error: null,
+          })
+        }
+        if (table === 'dbs_details') return Promise.resolve({ data: who.dbsRows, error: null })
         return Promise.resolve({ data: [], error: null })
       },
     }),
@@ -275,6 +285,64 @@ describe('the Family button on a person’s card', () => {
     await user.click(await screen.findByRole('button', { name: /Media/ }))
     expect(screen.getByRole('button', { name: 'Family of Joel Skaria' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Family of Nimmy Thomas' })).toBeInTheDocument()
+  })
+})
+
+/*
+ * Everybody's DBS (0324): a button on each card that says where the person
+ * stands and opens what a check needs. For whoever holds
+ * `people.compliance`, which out of the box is the Owner alone (0126).
+ */
+describe('the DBS button on a person’s card', () => {
+  const row = (id: string, verified: boolean) => ({
+    user_id: id, kind: 'enhanced', certificate_number: '001234567890', surname: 'X', issued_on: '2023-03-14',
+    workforce: 'child', update_service: true, consented_at: '2026-11-20T10:00:00Z',
+    verified_at: verified ? '2026-11-21T09:00:00Z' : null, verified_by: verified ? 'admin' : null,
+    status_checked: verified, certificate_seen: verified, id_seen: false,
+  })
+
+  it('is not there for an Admin out of the box, who is not sent anybody’s DBS', async () => {
+    who.owner = false
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: /Media/ }))
+    expect(screen.getByRole('button', { name: 'Family of Joel Skaria' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^DBS of/ })).toBeNull()
+  })
+
+  it('says where each person stands, for the Owner', async () => {
+    who.owner = true
+    who.saysDbs = ['joel', 'rose']
+    who.dbsRows = [row('joel', true)]
+    try {
+      const user = show()
+      await user.click(await screen.findByRole('button', { name: /Media/ }))
+      await user.click(screen.getByRole('button', { name: /Audio/ }))
+      // Verified, a yes with nothing behind it, and a no.
+      expect(await screen.findByRole('button', { name: 'DBS of Joel Skaria: DBS verified' })).toHaveTextContent('DBS verified')
+      expect(screen.getByRole('button', { name: 'DBS of Rose Mathew: DBS: no details' })).toHaveTextContent('DBS: no details')
+      expect(screen.getByRole('button', { name: 'DBS of Nimmy Thomas: No DBS' })).toHaveTextContent('No DBS')
+    } finally {
+      who.owner = false
+      who.saysDbs = []
+      who.dbsRows = []
+    }
+  })
+
+  it('says a certificate that nobody has checked is still to check, and opens it', async () => {
+    who.owner = true
+    who.saysDbs = ['newbie']
+    who.dbsRows = [row('newbie', false)]
+    who.rpcs.length = 0
+    try {
+      const user = show()
+      await user.click(await screen.findByRole('button', { name: 'DBS of Nimmy Thomas: DBS to check' }))
+      expect(await screen.findByRole('heading', { name: 'Nimmy Thomas’s DBS' })).toBeInTheDocument()
+      expect(who.rpcs).toContain('dbs_of')
+    } finally {
+      who.owner = false
+      who.saysDbs = []
+      who.dbsRows = []
+    }
   })
 })
 

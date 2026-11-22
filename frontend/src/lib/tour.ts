@@ -209,7 +209,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/settings/profile',
         target: 'page-title',
         title: 'Your profile',
-        body: 'Your name, birthday and anniversary, your DBS and visa, your address and family, and who to ring for you in an emergency. Everybody is asked for these, and changes save on their own. If you have one name only, tick the box under your name and no last name is asked for.',
+        body: 'Your name, birthday and anniversary, your DBS and visa, your address and family, and who to ring for you in an emergency. Everybody is asked for these, and changes save on their own. If you have one name only, tick the box under your name and no last name is asked for. If you have a DBS check, its card asks for the certificate’s details and your permission to check it, has its own Save, and says once it has been verified.',
       },
       {
         path: '/departments',
@@ -471,7 +471,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/volunteers',
         target: 'people-export',
         title: 'The contact book',
-        body: 'Only you see email addresses, phone numbers, visa and DBS details and families, on the page and in the export.',
+        body: 'Only you see email addresses, phone numbers, visa and DBS details and families, on the page and in the export. The DBS button on each card says where that person stands, opens what a check needs, and is where you mark it verified once you have seen the certificate.',
       },
       {
         path: '/volunteers',

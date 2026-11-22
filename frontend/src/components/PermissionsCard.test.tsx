@@ -344,7 +344,7 @@ describe('PermissionsCard', () => {
       // 0277 that is a row in the grid, every cell starting at No.
       const user = show()
       await compare(user)
-      const row = within(rowFor('See and correct everybody’s visa, DBS and safeguarding details'))
+      const row = within(rowFor('See everybody’s visa and DBS details, and mark a DBS verified'))
       expect(within(row.getAllByRole('cell')[0]).getByLabelText('Yes')).toBeInTheDocument() // Owner
       for (const role of ['Admin', 'Team Head', 'Team Member', 'Pastor']) {
         expect(row.getByRole('combobox', { name: new RegExp(`— ${role}$`) }), role).toHaveTextContent('No')

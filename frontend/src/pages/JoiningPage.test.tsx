@@ -18,6 +18,8 @@ const state = vi.hoisted(() => ({
   signedOut: 0,
   /** What save_household_address() was handed. */
   addresses: [] as { line1: string; line2: string; town: string; postcode: string }[],
+  /** What save_my_dbs() was handed (0324). */
+  dbsSaved: [] as Record<string, unknown>[],
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -63,6 +65,10 @@ vi.mock('../lib/supabaseClient', () => ({
         Promise.resolve({ data: { session: state.signedIn ? { user: { id: 'u1' } } : null } }),
       refreshSession: () => Promise.resolve({ data: { session: null } }),
     },
+    rpc: (name: string, args: Record<string, unknown>) => {
+      if (name === 'save_my_dbs') state.dbsSaved.push(args)
+      return Promise.resolve({ data: null, error: null })
+    },
     from: (table: string) => ({
       update: (row: Record<string, unknown>) => ({
         eq: () => {
@@ -76,6 +82,7 @@ vi.mock('../lib/supabaseClient', () => ({
 
 beforeEach(() => {
   state.written = []
+  state.dbsSaved = []
   state.refreshed = 0
   state.signedIn = true
   state.signedOut = 0
@@ -173,12 +180,30 @@ describe('joining', () => {
 
     await userEvent.type(screen.getByLabelText(/Comment/), 'Applied 3 Oct')
 
-    const dbs = screen.getByRole('group', { name: /DBS/i })
+    const dbs = screen.getByRole('group', { name: 'Do you have a valid DBS check?' })
     await userEvent.click(within(dbs).getByRole('button', { name: 'Yes' }))
+    // A yes is the certificate's details and permission to check it (0324).
+    await userEvent.click(screen.getByRole('radio', { name: 'Basic' }))
+    await userEvent.type(screen.getByLabelText(/Share code/), 'ab12 cd34')
+    await pickDate(userEvent.setup(), within(document.getElementById('joining-dbsIssued')!).getByRole('button'), '2024-06-01')
+    await userEvent.click(screen.getByRole('checkbox', { name: /I give the church permission/ }))
 
     await finish()
 
     await waitFor(() => expect(state.written).toHaveLength(2))
+    // The DBS details through their own function, the code tidied, nothing a Basic check does not have.
+    expect(state.dbsSaved).toEqual([
+      {
+        p_kind: 'basic',
+        p_certificate: null,
+        p_surname: 'Mensah',
+        p_issued_on: '2024-06-01',
+        p_workforce: null,
+        p_update_service: null,
+        p_share_code: 'AB12CD34',
+        p_consent: true,
+      },
+    ])
     const profile = state.written.find((w) => w.table === 'profiles')!.row
     const sensitive = state.written.find((w) => w.table === 'profile_sensitive')!.row
 

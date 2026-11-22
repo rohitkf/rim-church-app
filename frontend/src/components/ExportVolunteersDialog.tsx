@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { fetchDbsRows, type DbsRow } from '../lib/dbs'
 import { supabase } from '../lib/supabaseClient'
 import { ActionButton, Overlay } from './Surface'
 import { TeamMark } from './TeamMark'
@@ -105,6 +106,7 @@ export function ExportVolunteersDialog({
     setError(null)
     try {
       let sensitive: Map<string, SensitiveByUser> | undefined
+      let dbs: Record<string, DbsRow> | undefined
       if (seesCompliance && includeCompliance) {
         const { data, error: readError } = await supabase
           .from('profile_sensitive')
@@ -116,6 +118,8 @@ export function ExportVolunteersDialog({
           const userId = (row as { user_id?: unknown }).user_id
           if (parsed.success && typeof userId === 'string') sensitive.set(userId, parsed.data)
         }
+        // The details behind each yes, and who checked them (0324): the same reader's.
+        dbs = await fetchDbsRows()
       }
 
       // Households come with contact details (0149, 0277); RLS returns them all.
@@ -136,6 +140,7 @@ export function ExportVolunteersDialog({
         memberships,
         grants,
         sensitive,
+        dbs,
         selectedTeamIds: [...selected],
         adminIds,
         ownerId,

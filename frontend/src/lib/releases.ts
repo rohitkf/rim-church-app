@@ -46,6 +46,18 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'dbs-details-and-verified',
+    date: '2026-11-22',
+    title: 'A DBS check now has its details, and gets verified',
+    lead: 'Saying you have a DBS check was a yes or a no. A yes now comes with the certificate’s details and your permission to check it, and somebody at church marks it verified.',
+    points: [
+      'If you said yes, the app asks for the details the next time you open it: which check it is, the certificate number, the surname on it and the date it was issued. Have the certificate to hand.',
+      'You tick a box to give permission for the check. When you did is kept.',
+      'Your profile shows how old the certificate is and whether it has been verified. Whoever checks it will ask to see the original and photo ID.',
+      'If you do not have one, answer no and nothing more is asked.',
+    ],
+  },
+  {
     key: 'one-name-only',
     date: '2026-11-22',
     title: 'Somebody with one name can say so',
