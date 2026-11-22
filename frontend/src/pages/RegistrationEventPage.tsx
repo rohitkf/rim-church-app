@@ -32,6 +32,7 @@ import { pounds } from '../lib/money'
 import { registerUrl, ticketUrl } from '../lib/registrationLinks'
 import { downloadBlob, qrPngBlob } from '../lib/qrPng'
 import { writeWorkbook } from '../lib/writeWorkbook'
+import { buildFullRegistrationWorkbook, fetchRegistrationExportExtras } from '../lib/registrationExport'
 import {
   PAYMENT_TONE,
   duplicateEmails,
@@ -41,7 +42,6 @@ import {
   REGISTRATIONS_KEY,
   STATUS_TONE,
   STATUS_WORDS,
-  buildRegistrationWorkbook,
   cancelRegistrationEvent,
   deleteRegistrationEvent,
   fetchRefundDetails,
@@ -321,11 +321,18 @@ export function RegistrationEventPage() {
     setEmailError(null)
     setEmailFor(order)
   }
+  // Everything about the event (lib/registrationExport): what the page does not hold is read
+  // when Export is pressed, and anything that could not be read is named, here and in the file.
   const exportAll = useMutation({
-    mutationFn: () => writeWorkbook(buildRegistrationWorkbook(full.data!, orders.data ?? [], invitedBy), registrationExportFileName(full.data!.event.slug)),
-    onSuccess: () => {
+    mutationFn: async () => {
+      const extras = await fetchRegistrationExportExtras(id, rights.office)
+      await writeWorkbook(buildFullRegistrationWorkbook(full.data!, orders.data ?? [], invitedBy, extras), registrationExportFileName(full.data!.event.slug))
+      return extras.leftOut ?? []
+    },
+    onSuccess: (leftOut) => {
       setError(null)
-      showToast('Exported')
+      if (leftOut.length > 0) showToast(`Exported, without ${leftOut.join(', ')}: that could not be read just now`, 'error', 8000)
+      else showToast('Exported')
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not export the registrations.')),
   })

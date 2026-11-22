@@ -11,6 +11,7 @@ import {
   type ExportPerson,
 } from '../lib/volunteerExport'
 import { writeWorkbook } from '../lib/writeWorkbook'
+import { fetchExportExtras } from '../lib/volunteerExportData'
 import { useErrorText } from '../lib/useErrorText'
 
 /**
@@ -21,6 +22,13 @@ import { useErrorText } from '../lib/useErrorText'
  * chosen team brings its people, their profile details, and what they are
  * allowed to do — the three things anyone opening this file is actually
  * after, on their own sheets rather than flattened into one wide table.
+ *
+ * And everything else that is known about them (the Owner, November 2026:
+ * "as detailed as possible"): read when Export is pressed, each part for
+ * whoever has the right to it (lib/volunteerExportData). The two sets of
+ * personal records start ticked for whoever may have them — a file meant
+ * to hold everything should not need two boxes found first — and can be
+ * unticked for a file that is going further.
  */
 export function ExportVolunteersDialog({
   departments,
@@ -32,6 +40,9 @@ export function ExportVolunteersDialog({
   isOwner,
   seesContacts = isOwner,
   seesCompliance = isOwner,
+  seesSetup = isOwner,
+  seesBlocks = isOwner,
+  seesMinors = isOwner,
   onClose,
 }: {
   departments: Department[]
@@ -53,14 +64,21 @@ export function ExportVolunteersDialog({
    */
   seesContacts?: boolean
   seesCompliance?: boolean
+  /** Each its own right: whether details are finished, who is blocked, who is under 18. */
+  seesSetup?: boolean
+  seesBlocks?: boolean
+  seesMinors?: boolean
   onClose: () => void
 }) {
   const errorText = useErrorText()
   const [selected, setSelected] = useState<Set<string>>(() => new Set(departments.map((d) => d.id)))
   // Off unless asked for: ticking one team should export that team.
   const [includeUnassigned, setIncludeUnassigned] = useState(false)
-  const [includeCompliance, setIncludeCompliance] = useState(false)
-  const [includeFamily, setIncludeFamily] = useState(false)
+  // On for whoever may have them: the export is asked to hold everything.
+  const [includeCompliance, setIncludeCompliance] = useState(seesCompliance)
+  const [includeFamily, setIncludeFamily] = useState(seesContacts)
+  // Written, with something that could not be read left out: said, not hidden.
+  const [leftOut, setLeftOut] = useState<string[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -90,7 +108,7 @@ export function ExportVolunteersDialog({
       if (seesCompliance && includeCompliance) {
         const { data, error: readError } = await supabase
           .from('profile_sensitive')
-          .select('user_id, visa_type, has_dbs, visa_expiry, visa_note')
+          .select('user_id, visa_type, has_dbs, visa_has_expiry, visa_expiry, visa_note')
         if (readError) throw readError
         sensitive = new Map()
         for (const row of data ?? []) {
@@ -102,8 +120,16 @@ export function ExportVolunteersDialog({
 
       // Households come with contact details (0149, 0277); RLS returns them all.
       const family = seesContacts && includeFamily ? await fetchHouseholds() : undefined
+      // Everything else that is known, each part for whoever may read it.
+      const { leftOut: missed, ...extras } = await fetchExportExtras({
+        contacts: seesContacts,
+        setup: seesSetup,
+        blocks: seesBlocks,
+        minors: seesMinors,
+      })
 
       const sheets = buildVolunteerWorkbook({
+        ...extras,
         family,
         people,
         teams: departments.map((d) => ({ id: d.id, name: d.name })),
@@ -118,7 +144,9 @@ export function ExportVolunteersDialog({
       })
 
       await writeWorkbook(sheets, exportFileName())
-      onClose()
+      // Something could not be read: the file is written without it, and says which.
+      if (missed.length > 0) setLeftOut(missed)
+      else onClose()
     } catch (err: unknown) {
       setError(errorText(err, 'Could not build the export.'))
     } finally {
@@ -135,7 +163,8 @@ export function ExportVolunteersDialog({
         <div className="px-6 pt-5">
           <h2 className="text-headline-md">Export volunteers</h2>
           <p className="mt-1.5 text-body-sm text-on-surface-variant">
-            An Excel workbook: one sheet per person, one per membership, one per team.
+            An Excel workbook with everything that is known: a sheet of people with their details, one of who is
+            on which team, one of the teams, every time on the rota, and the guests.
           </p>
         </div>
 
@@ -239,10 +268,16 @@ export function ExportVolunteersDialog({
             {error}
           </p>
         )}
+        {leftOut && (
+          <p role="status" className="mx-6 mt-4 rounded-[var(--radius-chip)] bg-raised px-4 py-3 text-body-sm text-on-surface hairline">
+            The file is saved, without {leftOut.join(', ')}: that could not be read just now. Export again to try
+            for it.
+          </p>
+        )}
 
         <div className="flex items-center justify-end gap-2 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5">
           <ActionButton tone="quiet" onClick={onClose}>
-            Cancel
+            {leftOut ? 'Done' : 'Cancel'}
           </ActionButton>
           <ActionButton onClick={handleExport} disabled={busy || noneSelected}>
             {busy ? 'Building…' : noneSelected ? 'Pick a team' : 'Export'}

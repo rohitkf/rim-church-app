@@ -503,7 +503,9 @@ describe('an event’s page', () => {
     await waitFor(() => expect(state.exported).toHaveLength(1))
     const { sheets, file } = state.exported[0]
     expect(file).toMatch(/^registrations-plc-2026-\d{4}-\d{2}-\d{2}\.xlsx$/)
-    expect(sheets.map((s) => s.name)).toEqual(['Orders', 'Tickets', 'Summary'])
+    // The accounts' three sheets first, as they always were, then everything else about the event (lib/registrationExport).
+    expect(sheets.slice(0, 3).map((s) => s.name)).toEqual(['Orders', 'Tickets', 'Summary'])
+    expect(sheets.map((s) => s.name)).toEqual(expect.arrayContaining(['Event', 'Dates', 'Ticket types']))
     expect(sheets[0].rows).toHaveLength(5)
     expect(sheets[1].rows).toHaveLength(8)
   })

@@ -12,11 +12,25 @@
  * per membership, the shape you sort and filter), how big is each team,
  * and — for whoever keeps the church's compliance record — who is cleared
  * to serve.
+ *
+ * And then everything else that is known (the Owner, November 2026: "as
+ * detailed as possible [...] Every single details about that person"):
+ * age and whether under 18, marital status, the address, when they
+ * joined and last signed in, whether their details are finished and what
+ * is missing, whether they are blocked, how often they have served; a
+ * Serving sheet with every time on the rota; and a Guests sheet for the
+ * people who take part without an account.
+ *
+ * Each of those is on the sheet only when the reader was sent it. A
+ * column that would be empty for everybody is left out rather than
+ * shipped blank: a blank reads as "no", and "not sent" is not "no".
  */
 import type { MemberType, DepartmentMemberRow, SensitiveByUser } from './types'
 import type { UserRole } from '../auth/types'
 import type { Household, HouseholdMember } from './family'
 import { ageFrom } from './celebrations'
+import { ADULT_AGE, ownDobProblem } from './ownAge'
+import { MISSING_TEXT, maritalLabel, visaLabel, type JoiningAnswers } from './joining'
 import { formatPhoneInternational } from './phone'
 import { emergencyRelationLabel } from './joining'
 import { ROLE_NAME } from './roleNames'
@@ -35,6 +49,44 @@ export interface ExportPerson {
   emergency_contact_relation?: string | null
   dob?: string | null
   anniversary?: string | null
+}
+
+/** What `people_details()` (0322) hands whoever is sent contact details. */
+export interface ExportDetails {
+  marital_status: string | null
+  joined_at: string | null
+  email_confirmed_at: string | null
+  last_sign_in_at: string | null
+}
+
+/** How somebody's set-up stands (`people_setup()`, 0276/0304). */
+export interface ExportSetup {
+  /** Through the joining form at all. */
+  joined: boolean
+  /** The questions still unanswered, by name. */
+  gaps: string[]
+  notifications: boolean
+  completed_at: string | null
+}
+
+/** One time on the rota. */
+export interface ExportServing {
+  user_id: string
+  department_id: string
+  role_label: string | null
+  is_shadow?: boolean | null
+  date: string
+  service_type: string
+}
+
+/** Somebody who takes part without an account (the guest roll). */
+export interface ExportGuest {
+  id: string
+  name: string
+  title?: string | null
+  note?: string | null
+  became_member?: boolean | null
+  teams: { department_id: string; member_type: MemberType }[]
 }
 
 export interface ExportTeam {
@@ -82,10 +134,43 @@ export interface ExportInput {
   family?: { households: Household[]; members: HouseholdMember[] }
   /** The day ages are worked out on; today unless a test says otherwise. */
   today?: Date
+  /** Marital status and the account's dates (0322), by user id: with contact details and never without. */
+  details?: Map<string, ExportDetails>
+  /** Whether their details are finished, by user id: for whoever may send the tour. */
+  setup?: Map<string, ExportSetup>
+  /** Who is blocked, when and why, by user id: for whoever may block. */
+  blocks?: Map<string, { blocked_at: string; reason: string | null }>
+  /** Who the database says is under 18 (0321). Without it, it is worked out from a date the reader was sent. */
+  minors?: ReadonlySet<string>
+  /** Every time on the rota the reader may see: a Serving sheet, and three columns a person. */
+  serving?: ExportServing[]
+  /** The guest roll: a Guests sheet. */
+  guests?: ExportGuest[]
 }
 
 /** A blank cell reads better than the word "null" in a spreadsheet. */
 const blank = (value: string | null | undefined): string => value ?? ''
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+/** A moment as a sheet sorts it: "2026-11-22 09:30", in the reader's own clock. */
+export function sheetMoment(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+/** The day of a moment: "2026-11-22". */
+const sheetDay = (iso: string | null | undefined): string => sheetMoment(iso).slice(0, 10)
+const isoDay = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+const yesNo = (value: boolean) => (value ? 'Yes' : 'No')
+
+/** One column of a sheet that is there only when its data was sent. */
+interface PersonColumn {
+  label: string
+  width: number
+  when?: boolean
+  value: (p: ExportPerson) => ExportCell
+}
 
 const MEMBER_TYPE_LABEL: Record<MemberType, string> = { core: 'Core', guest: 'Guest' }
 
@@ -157,36 +242,135 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
     return [...new Set(words)].join(', ')
   }
 
+  const today = input.today ?? new Date()
+  const todayIso = isoDay(today)
+  const yearAgo = isoDay(new Date(today.getFullYear() - 1, today.getMonth(), today.getDate()))
+  const anyDob = people.some((p) => !!p.dob)
+  // An age only from a date that can be theirs: born today is not "0" (0321).
+  const ageOf = (p: ExportPerson): number | null => (p.dob && !ownDobProblem(p.dob, today) ? ageFrom(p.dob, today) : null)
+  const under18 = (p: ExportPerson): boolean | null => {
+    if (input.minors) return input.minors.has(p.id)
+    const age = ageOf(p)
+    return age === null ? null : age < ADULT_AGE
+  }
+  // Their own home: a person is an adult in at most one household (0149).
+  const homeOf = new Map<string, Household>()
+  if (input.family) {
+    const byId = new Map(input.family.households.map((h) => [h.id, h]))
+    for (const m of input.family.members) {
+      if (m.kind === 'adult' && m.user_id && byId.has(m.household_id)) homeOf.set(m.user_id, byId.get(m.household_id)!)
+    }
+  }
+  // Every time on the rota, for the chosen teams: who, and how often.
+  const servingRows = (input.serving ?? []).filter((r) => selected.has(r.department_id))
+  const servedBy = new Map<string, ExportServing[]>()
+  for (const row of servingRows) servedBy.set(row.user_id, [...(servedBy.get(row.user_id) ?? []), row])
+  const served = (id: string) => servedBy.get(id) ?? []
+  const gapWords = (gaps: string[]) =>
+    gaps.map((g) => (g in MISSING_TEXT ? MISSING_TEXT[g as keyof JoiningAnswers].label : g)).join(', ')
+
+  const personColumns: PersonColumn[] = [
+    { label: 'First name', width: 18, value: (p) => p.first_name },
+    { label: 'Last name', width: 18, value: (p) => p.last_name },
+    { label: 'Email', width: 30, value: (p) => blank(p.email) },
+    { label: 'Phone', width: 16, value: (p) => blank(formatPhoneInternational(p.phone)) },
+    { label: 'Emergency contact', width: 24, value: (p) => blank(p.emergency_contact_name) },
+    { label: 'Relationship', width: 18, value: (p) => blank(emergencyRelationLabel(p.emergency_contact_relation)) },
+    { label: 'Emergency number', width: 18, value: (p) => blank(formatPhoneInternational(p.emergency_contact_phone)) },
+    { label: 'Date of birth', width: 14, value: (p) => blank(p.dob) },
+    { label: 'Age', width: 6, when: anyDob, value: (p) => ageOf(p) ?? '' },
+    {
+      label: 'Under 18',
+      width: 9,
+      when: !!input.minors || anyDob,
+      value: (p) => {
+        const young = under18(p)
+        return young === null ? '' : yesNo(young)
+      },
+    },
+    { label: 'Marital status', width: 14, when: !!input.details, value: (p) => blank(maritalLabel(input.details?.get(p.id)?.marital_status)) },
+    { label: 'Wedding anniversary', width: 18, value: (p) => blank(p.anniversary) },
+    { label: 'Address line 1', width: 26, when: !!input.family, value: (p) => blank(homeOf.get(p.id)?.address_line1) },
+    { label: 'Address line 2', width: 20, when: !!input.family, value: (p) => blank(homeOf.get(p.id)?.address_line2) },
+    { label: 'Town', width: 16, when: !!input.family, value: (p) => blank(homeOf.get(p.id)?.town) },
+    { label: 'Postcode', width: 10, when: !!input.family, value: (p) => blank(homeOf.get(p.id)?.postcode) },
+    { label: 'Core teams', width: 30, value: (p) => teamsFor(p.id, 'core').join(', ') },
+    { label: 'Guest teams', width: 24, value: (p) => teamsFor(p.id, 'guest').join(', ') },
+    { label: 'Roles', width: 34, value: (p) => roleWords(p.id) },
+    { label: 'Account made', width: 12, when: !!input.details, value: (p) => sheetDay(input.details?.get(p.id)?.joined_at) },
+    {
+      label: 'Email confirmed',
+      width: 14,
+      when: !!input.details,
+      value: (p) => {
+        const d = input.details?.get(p.id)
+        return d ? (d.email_confirmed_at ? sheetDay(d.email_confirmed_at) : 'No') : ''
+      },
+    },
+    {
+      label: 'Last signed in',
+      width: 17,
+      when: !!input.details,
+      value: (p) => {
+        const d = input.details?.get(p.id)
+        return d ? (d.last_sign_in_at ? sheetMoment(d.last_sign_in_at) : 'Never') : ''
+      },
+    },
+    {
+      label: 'Details complete',
+      width: 14,
+      when: !!input.setup,
+      value: (p) => {
+        const row = input.setup?.get(p.id)
+        return row ? yesNo(row.joined && row.gaps.length === 0) : ''
+      },
+    },
+    {
+      label: 'Still missing',
+      width: 40,
+      when: !!input.setup,
+      value: (p) => {
+        const row = input.setup?.get(p.id)
+        if (!row) return ''
+        return row.joined ? gapWords(row.gaps) : 'Has not been through the joining form'
+      },
+    },
+    { label: 'Details finished on', width: 17, when: !!input.setup, value: (p) => sheetMoment(input.setup?.get(p.id)?.completed_at) },
+    {
+      label: 'Notifications on',
+      width: 14,
+      when: !!input.setup,
+      value: (p) => {
+        const row = input.setup?.get(p.id)
+        return row ? yesNo(row.notifications) : ''
+      },
+    },
+    { label: 'Blocked', width: 17, when: !!input.blocks, value: (p) => sheetMoment(input.blocks?.get(p.id)?.blocked_at) },
+    { label: 'Block reason', width: 30, when: !!input.blocks, value: (p) => blank(input.blocks?.get(p.id)?.reason) },
+    {
+      label: 'Times on the rota, last 12 months',
+      width: 14,
+      when: !!input.serving,
+      value: (p) => served(p.id).filter((r) => r.date >= yearAgo && r.date <= todayIso).length,
+    },
+    {
+      label: 'Last served',
+      width: 12,
+      when: !!input.serving,
+      value: (p) => served(p.id).map((r) => r.date).filter((d) => d <= todayIso).sort().at(-1) ?? '',
+    },
+    {
+      label: 'Next on the rota',
+      width: 14,
+      when: !!input.serving,
+      value: (p) => served(p.id).map((r) => r.date).filter((d) => d > todayIso).sort()[0] ?? '',
+    },
+  ]
+  const shownColumns = personColumns.filter((c) => c.when !== false)
   const volunteers: ExportSheet = {
     name: 'Volunteers',
-    columns: [
-      { label: 'First name', width: 18 },
-      { label: 'Last name', width: 18 },
-      { label: 'Email', width: 30 },
-      { label: 'Phone', width: 16 },
-      { label: 'Emergency contact', width: 24 },
-      { label: 'Relationship', width: 18 },
-      { label: 'Emergency number', width: 18 },
-      { label: 'Date of birth', width: 14 },
-      { label: 'Wedding anniversary', width: 18 },
-      { label: 'Core teams', width: 30 },
-      { label: 'Guest teams', width: 24 },
-      { label: 'Roles', width: 34 },
-    ],
-    rows: people.map((p) => [
-      p.first_name,
-      p.last_name,
-      blank(p.email),
-      blank(formatPhoneInternational(p.phone)),
-      blank(p.emergency_contact_name),
-      blank(emergencyRelationLabel(p.emergency_contact_relation)),
-      blank(formatPhoneInternational(p.emergency_contact_phone)),
-      blank(p.dob),
-      blank(p.anniversary),
-      teamsFor(p.id, 'core').join(', '),
-      teamsFor(p.id, 'guest').join(', '),
-      roleWords(p.id),
-    ]),
+    columns: shownColumns.map(({ label, width }) => ({ label, width })),
+    rows: people.map((p) => shownColumns.map((c) => c.value(p))),
   }
 
   // One row per membership — the shape a spreadsheet is actually good at:
@@ -212,16 +396,23 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
       { label: 'Last name', width: 18 },
       { label: 'Email', width: 30 },
       { label: 'Phone', width: 16 },
+      { label: 'On the team since', width: 14 },
+      ...(input.minors || anyDob ? [{ label: 'Under 18', width: 9 }] : []),
     ],
-    rows: membershipRows.map(({ membership, person }) => [
-      teamName.get(membership.department_id) ?? '',
-      MEMBER_TYPE_LABEL[membership.member_type],
-      designationIn(grantsBy.get(person.id) ?? [], membership.department_id),
-      person.first_name,
-      person.last_name,
-      blank(person.email),
-      blank(person.phone),
-    ]),
+    rows: membershipRows.map(({ membership, person }) => {
+      const young = under18(person)
+      return [
+        teamName.get(membership.department_id) ?? '',
+        MEMBER_TYPE_LABEL[membership.member_type],
+        designationIn(grantsBy.get(person.id) ?? [], membership.department_id),
+        person.first_name,
+        person.last_name,
+        blank(person.email),
+        blank(formatPhoneInternational(person.phone)),
+        sheetDay(membership.created_at),
+        ...(input.minors || anyDob ? [young === null ? '' : yesNo(young)] : []),
+      ]
+    }),
   }
 
   const nameOf = (userId: string) => {
@@ -271,7 +462,8 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
         { label: 'First name', width: 18 },
         { label: 'Last name', width: 18 },
         { label: 'Email', width: 30 },
-        { label: 'Visa type', width: 20 },
+        { label: 'Visa type', width: 26 },
+        { label: 'Has an expiry date', width: 14 },
         { label: 'Visa expiry', width: 14 },
         { label: 'Visa comment', width: 40 },
         { label: 'DBS check', width: 12 },
@@ -282,7 +474,9 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
           p.first_name,
           p.last_name,
           blank(p.email),
-          blank(record?.visa_type),
+          // The words the form offered, not the value kept ("ilr").
+          blank(visaLabel(record?.visa_type)),
+          record ? (record.visa_has_expiry === true ? 'Yes' : record.visa_has_expiry === false ? 'No' : '') : '',
           blank(record?.visa_expiry),
           blank(record?.visa_note),
           record ? (record.has_dbs ? 'Yes' : 'No') : '',
@@ -291,7 +485,64 @@ export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
     })
   }
 
-  if (input.family) sheets.push(...familySheets(people, input.family, input.today ?? new Date()))
+  if (input.family) sheets.push(...familySheets(people, input.family, today))
+
+  if (input.serving) {
+    const included = new Set(people.map((p) => p.id))
+    const rows = servingRows
+      .filter((r) => included.has(r.user_id))
+      .map((r) => ({ r, person: personById.get(r.user_id)! }))
+      // Newest first: what is coming, then what has been.
+      .sort((a, b) => b.r.date.localeCompare(a.r.date) || a.r.service_type.localeCompare(b.r.service_type) || byName(a.person, b.person))
+    sheets.push({
+      name: 'Serving',
+      columns: [
+        { label: 'Date', width: 12 },
+        { label: 'Service', width: 26 },
+        { label: 'Team', width: 22 },
+        { label: 'Role', width: 22 },
+        { label: 'Shadowing', width: 10 },
+        { label: 'First name', width: 18 },
+        { label: 'Last name', width: 18 },
+        { label: 'When', width: 10 },
+      ],
+      rows: rows.map(({ r, person }) => [
+        r.date,
+        r.service_type,
+        teamName.get(r.department_id) ?? '',
+        blank(r.role_label),
+        r.is_shadow ? 'Yes' : '',
+        person.first_name,
+        person.last_name,
+        r.date > todayIso ? 'Coming' : r.date === todayIso ? 'Today' : 'Past',
+      ]),
+    })
+  }
+
+  if (input.guests) {
+    const teamsOf = (g: ExportGuest, type: MemberType) =>
+      g.teams
+        .filter((t) => t.member_type === type && selected.has(t.department_id))
+        .map((t) => teamName.get(t.department_id) ?? '')
+        .filter(Boolean)
+        .sort()
+        .join(', ')
+    sheets.push({
+      name: 'Guests',
+      columns: [
+        { label: 'Name', width: 24 },
+        { label: 'Title', width: 10 },
+        { label: 'Note', width: 40 },
+        { label: 'Core teams', width: 26 },
+        { label: 'Guest teams', width: 26 },
+        { label: 'Has since joined', width: 14 },
+      ],
+      rows: input.guests
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((g) => [g.name, blank(g.title), blank(g.note), teamsOf(g, 'core'), teamsOf(g, 'guest'), g.became_member ? 'Yes' : '']),
+    })
+  }
 
   return input.includeContacts ? sheets : sheets.map(withoutContacts)
 }
@@ -408,7 +659,11 @@ function familySheets(
   return [families, children]
 }
 
-const CONTACT_COLUMNS = new Set(['Email', 'Phone', 'Emergency contact', 'Relationship', 'Emergency number'])
+const CONTACT_COLUMNS = new Set([
+  'Email', 'Phone', 'Emergency contact', 'Relationship', 'Emergency number',
+  // With contact details and never without (0277, 0322).
+  'Address line 1', 'Address line 2', 'Town', 'Postcode', 'Marital status', 'Account made', 'Email confirmed', 'Last signed in',
+])
 
 /** The same sheet with its Email and Phone columns taken out. */
 function withoutContacts(sheet: ExportSheet): ExportSheet {
