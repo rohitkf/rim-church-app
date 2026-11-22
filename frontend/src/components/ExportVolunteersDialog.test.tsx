@@ -35,4 +35,17 @@ describe('exporting volunteers', () => {
     open(false)
     expect(screen.queryByRole('checkbox', { name: /Include compliance details/ })).toBeNull()
   })
+
+  // "As detailed as possible" (the Owner, November 2026): a file meant to hold
+  // everything starts with everything the reader may have ticked.
+  it('starts with compliance and families ticked for whoever may have them', () => {
+    open(true)
+    expect(screen.getByRole('checkbox', { name: /Include compliance details/ })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /Include families and addresses/ })).toBeChecked()
+  })
+
+  it('says the file holds everything that is known', () => {
+    open(true)
+    expect(screen.getByText(/everything that is known/)).toHaveTextContent(/every time on the rota, and the guests/)
+  })
 })

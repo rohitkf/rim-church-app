@@ -46,6 +46,20 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'exports-with-everything',
+    date: '2026-11-22',
+    title: 'Exports with everything in them',
+    lead: 'The Volunteers export and each event’s export now carry every detail there is, not a summary.',
+    points: [
+      'Volunteers: age and whether under 18, marital status, the address, when they joined and last signed in, whether their details are finished and what is missing, whether they are blocked, and how often they have served. New sheets list every time on the rota, and the guests.',
+      'An event: what each order bought and who is coming, what is still owed, everything that happened to its email, and who checked it in. New sheets hold the event’s own details, its dates, ticket types, every check-in, promo codes, invitation links, the agenda and the messages sent to the organisers.',
+      'Each part is in the file only for somebody who may see it. If a part cannot be read, the export says which.',
+    ],
+    link: { to: '/volunteers', label: 'Open Volunteers' },
+    page: '/volunteers',
+    holds: ['people.contacts'],
+  },
+  {
     key: 'a-real-date-of-birth',
     date: '2026-11-22',
     title: 'A date of birth has to be a real one',

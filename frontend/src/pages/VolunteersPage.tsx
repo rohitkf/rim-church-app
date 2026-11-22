@@ -903,6 +903,9 @@ export function VolunteersPage() {
           isOwner={isSuperAdmin}
           seesContacts={seesContacts}
           seesCompliance={can('people.compliance')}
+          seesSetup={can('people.onboard')}
+          seesBlocks={blocksPeople}
+          seesMinors={can('people.minors')}
           onClose={() => setExporting(false)}
         />
       )}
