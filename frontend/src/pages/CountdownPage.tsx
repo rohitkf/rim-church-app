@@ -10,6 +10,7 @@ import { useNow } from '../lib/useNow'
 import { formatTime } from '../lib/time'
 import { serviceStanding } from '../lib/serviceState'
 import { clockFace, clockSize, clockTone, countdownFace, minutesWords, serviceClock, type ClockTone, type ServiceClock } from '../lib/serviceClock'
+import { nextServiceToStart, startDay, startFace, startWords } from '../lib/serviceStart'
 
 /*
  * The service's clock, large, for whoever is keeping time.
@@ -31,6 +32,13 @@ import { clockFace, clockSize, clockTone, countdownFace, minutesWords, serviceCl
  * line under it says the same in words, so the colour is never the only
  * thing telling anybody. Past zero the number also blinks (`blink-over`,
  * index.css), steady for anybody who has asked for less motion.
+ *
+ * Under the sessions is a second section, for the service itself: how
+ * long until the next one starts (lib/serviceStart). Before today's first
+ * service that is the service about to begin, so the page says something
+ * while the first section's clock is still blank; once a service is under
+ * way it is whichever comes after, later today or next Sunday. It is a
+ * plain number, in blue and never red: nothing is running late there.
  */
 
 /** The big number's colour for each state of the clock: the app's green, amber and red. */
@@ -63,11 +71,21 @@ const sessionRowSchema = z.object({
 })
 type SessionRow = z.infer<typeof sessionRowSchema>
 
-async function fetchTodaysServices(today: string): Promise<ServiceRow[]> {
+/** How many services ahead are read: enough to find the next one that has a running order. */
+const SERVICES_AHEAD = 30
+
+/**
+ * Today's services and the ones after them, soonest first. Today's are
+ * what the session clocks run on; the rest are read to find the service
+ * that starts next.
+ */
+async function fetchServicesFrom(today: string): Promise<ServiceRow[]> {
   const { data, error } = await supabase
     .from('services')
     .select('id, date, service_type, ended_at, end_held_at')
-    .eq('date', today)
+    .gte('date', today)
+    .order('date')
+    .limit(SERVICES_AHEAD)
   if (error) throw error
   return z.array(serviceRowSchema).parse(data)
 }
@@ -92,7 +110,7 @@ export function CountdownPage() {
   // running order reaches this page as it reaches the planner.
   const servicesQuery = useQuery({
     queryKey: ['services', 'countdown', today],
-    queryFn: () => fetchTodaysServices(today),
+    queryFn: () => fetchServicesFrom(today),
   })
   const serviceIds = useMemo(() => (servicesQuery.data ?? []).map((s) => s.id), [servicesQuery.data])
   const sessionsQuery = useQuery({
@@ -101,7 +119,7 @@ export function CountdownPage() {
     enabled: serviceIds.length > 0,
   })
 
-  const live = useMemo(() => {
+  const { live, next } = useMemo(() => {
     const sessions = sessionsQuery.data ?? []
     const rows = (servicesQuery.data ?? []).map((service) => {
       const own = sessions.filter((s) => s.service_id === service.id)
@@ -112,8 +130,12 @@ export function CountdownPage() {
         clock: serviceClock(own, now, service.ended_at, { gaps: true, endHeld: !!service.end_held_at }),
       }
     })
-    // Only a service that is on: its clock is running. Earliest first.
-    return rows.filter((r) => r.clock).sort((a, b) => (a.standing.from ?? 0) - (b.standing.from ?? 0))
+    return {
+      // Only a service that is on: its clock is running. Earliest first.
+      live: rows.filter((r) => r.clock).sort((a, b) => (a.standing.from ?? 0) - (b.standing.from ?? 0)),
+      // The earliest that has not begun: today's before it starts, the one after once it has.
+      next: nextServiceToStart(rows, now),
+    }
   }, [servicesQuery.data, sessionsQuery.data, now])
 
   const loading = servicesQuery.isLoading || (serviceIds.length > 0 && sessionsQuery.isLoading)
@@ -125,7 +147,7 @@ export function CountdownPage() {
         live={live.length > 0}
         context={live.length > 0 ? 'Live now' : undefined}
         title="Countdown"
-        description="The running order’s clock, as the Service Planner keeps it. Past zero it counts on, so you can see how far over it is running."
+        description="The running order’s clock, as the Service Planner keeps it. Past zero it counts on, so you can see how far over it is running. Under it, how long until the next service starts."
       />
 
       <QueryState isLoading={loading} error={servicesQuery.error ?? sessionsQuery.error}>
@@ -147,9 +169,74 @@ export function CountdownPage() {
               </p>
             </Tile>
           )}
+
+          {/* The second section: the service itself, under its sessions. */}
+          <NextServiceTile next={next} now={now} running={live.length > 0} />
         </div>
       </QueryState>
     </div>
+  )
+}
+
+/**
+ * How long until the next service starts.
+ *
+ * Before a service begins this is the one about to; once one is running
+ * it is the one after. Smaller than the session clock above it and in
+ * blue, so the two are never read as the same kind of number: that one
+ * says how the service is running, this one says when the next begins.
+ */
+function NextServiceTile({ next, now, running }: { next: { service: ServiceRow; at: number } | null; now: number; running: boolean }) {
+  // With a service on, what follows it is "next"; with none on, it is simply the service that is coming.
+  const title = running ? 'Next service' : 'Service'
+  if (!next) {
+    return (
+      // The card takes no label of its own, so the section around it carries the name.
+      <section aria-label={title}>
+        <Tile className="text-center">
+          <Eyebrow>{title}</Eyebrow>
+          <p className="mt-3 text-body-md text-on-surface-variant">
+            {running ? 'Nothing is planned after this one yet.' : 'No service with a running order is planned yet.'}
+          </p>
+        </Tile>
+      </section>
+    )
+  }
+  const left = next.at - now
+  const face = startFace(left)
+  // The time as every other time on this page is written, and the day when it is not today.
+  const day = startDay(next.at, now)
+  return (
+    <section aria-label={title}>
+      <Tile className="@container text-center">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-left">
+          <Eyebrow>{title}</Eyebrow>
+          <Link to={`/service-planner/${next.service.id}`} className="text-body-sm text-accent-blue-soft hover:underline">
+            Running order
+          </Link>
+        </div>
+
+        <p className="mt-4 text-body-md text-on-surface-variant">
+          <span className="font-medium text-on-surface [overflow-wrap:anywhere]">{next.service.service_type}</span> starts in
+        </p>
+
+        <p
+          role="timer"
+          aria-live="off"
+          aria-label={`${startWords(left)} until ${next.service.service_type} starts`}
+          className="mt-2 whitespace-nowrap font-mono tabular font-semibold leading-none tracking-tight text-accent-blue-soft"
+          // A size down from the session clock, and never wider than the card (clockSize).
+          style={{ fontSize: clockSize(face, 'clamp(3rem, 15vw, 8.5rem)') }}
+        >
+          {face}
+        </p>
+
+        <p className="mt-3 text-body-lg text-on-surface">
+          Starts{day ? ` ${day}` : ''}
+          <span className="font-mono tabular text-on-surface-variant"> · {formatTime(new Date(next.at).toISOString())}</span>
+        </p>
+      </Tile>
+    </section>
   )
 }
 
