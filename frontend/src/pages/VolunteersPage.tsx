@@ -27,6 +27,7 @@ import { formatPhoneInternational } from '../lib/phone'
 import { emergencyRelationLabel } from '../lib/joining'
 import { ACCOUNT_BLOCKS_KEY, fetchAccountBlocks, mayBlock, unblockAccount } from '../lib/accountBlocks'
 import { BlockAccountDialog } from '../components/BlockAccountDialog'
+import { FamilyLinksDialog } from '../components/FamilyLinksDialog'
 import { momentWords } from '../lib/appNotices'
 
 /**
@@ -176,6 +177,8 @@ export function VolunteersPage() {
   const seesContacts = can('people.contacts')
   // Blocking an account without removing it (0279).
   const blocksPeople = can('people.block')
+  // Linking two accounts as family for them (0319): Admins and the Owner out of the box.
+  const linksFamilies = can('people.family')
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
@@ -183,6 +186,7 @@ export function VolunteersPage() {
   const [confirmingRemoval, setConfirmingRemoval] = useState<Volunteer | null>(null)
   const [transferTo, setTransferTo] = useState<Volunteer | null>(null)
   const [blocking, setBlocking] = useState<Volunteer | null>(null)
+  const [familyOf, setFamilyOf] = useState<Volunteer | null>(null)
   const [exporting, setExporting] = useState(false)
   const [inviting, setInviting] = useState(false)
 
@@ -649,7 +653,7 @@ export function VolunteersPage() {
             of the card rather than tucked in beside the name. Nothing here
             is reversible by the person it happens to, so it reads as a row
             of decisions and not as part of the heading. */}
-        {(canManageAdmin || canRemove || canBlock) && (
+        {(canManageAdmin || canRemove || canBlock || linksFamilies) && (
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle px-5 py-3">
             {(() => {
               const onTeams = new Set(memberships.filter((m) => m.user_id === v.id).map((m) => m.department_id))
@@ -782,6 +786,20 @@ export function VolunteersPage() {
                 className={cardActionClasses}
               >
                 Transfer ownership
+              </button>
+            )}
+            {/* Their husband or wife, children and parents on the app, linked
+                for them (0319). On everybody's card, your own included. */}
+            {linksFamilies && (
+              <button
+                onClick={() => {
+                  setError(null)
+                  setFamilyOf(v)
+                }}
+                aria-label={`Family of ${v.first_name} ${v.last_name}`}
+                className={cardActionClasses}
+              >
+                Family
               </button>
             )}
             {canBlock && !block && (
@@ -1037,6 +1055,7 @@ export function VolunteersPage() {
       )}
 
       {blocking && <BlockAccountDialog person={blocking} onClose={() => setBlocking(null)} />}
+      {familyOf && <FamilyLinksDialog person={familyOf} onClose={() => setFamilyOf(null)} />}
 
       {confirmingRemoval && (
         <div

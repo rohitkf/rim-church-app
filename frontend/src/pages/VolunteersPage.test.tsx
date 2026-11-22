@@ -246,3 +246,24 @@ describe('contact details on the volunteers page', () => {
     expect(screen.queryByText(/Parent of rose/)).toBeNull()
   })
 })
+
+/*
+ * Linking a family for them (0319): a Family button on a person's card,
+ * for whoever holds `people.family` — an Admin, out of the box.
+ */
+describe('the Family button on a person’s card', () => {
+  it('is there for an Admin, and opens that person’s family', async () => {
+    who.rpcs.length = 0
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Family of Nimmy Thomas' }))
+    expect(await screen.findByRole('heading', { name: 'Nimmy Thomas’s family' })).toBeInTheDocument()
+    expect(who.rpcs).toContain('family_of')
+  })
+
+  it('is on every card, so anybody can be the one a family is opened from', async () => {
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: /Media/ }))
+    expect(screen.getByRole('button', { name: 'Family of Joel Skaria' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Family of Nimmy Thomas' })).toBeInTheDocument()
+  })
+})
