@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import migration from '../../../supabase/migrations/0324_a_dbs_is_details_and_somebody_checks_it.sql?raw'
+import ownersOwn from '../../../supabase/migrations/0325_the_owner_can_check_their_own_dbs.sql?raw'
 
 vi.mock('./supabaseClient', () => ({ supabase: {} }))
 
@@ -200,6 +201,24 @@ describe('the form and the database ask for the same thing', () => {
     expect(migration).toContain("certificate_number ~ '^[0-9]{12}$'")
     expect(migration).toContain("share_code ~ '^[A-Z0-9]{4,20}$'")
     expect(migration).toContain(`date '${DBS_EARLIEST}'`)
+  })
+
+  /*
+   * Nobody marks their own verified, bar the Owner (0325). The check for
+   * the permission stays in front of it, and what is recorded is the same.
+   */
+  it('lets only the Owner mark their own, and still asks for the permission first', () => {
+    const body = ownersOwn.slice(ownersOwn.indexOf('create or replace function public.verify_dbs('))
+    const permission = body.indexOf("not public.may(me, 'people.compliance')")
+    const own = body.indexOf('if p_person is not distinct from me and not public.is_super_admin(me) then')
+    expect(permission).toBeGreaterThan(0)
+    expect(own).toBeGreaterThan(permission)
+    expect(body).toContain("values (p_person, 'verified', me, its_kind, checked);")
+    expect(body).toContain('verified_by = me,')
+    // The rest is 0324's, word for word.
+    const was = migration.slice(migration.indexOf('create or replace function public.verify_dbs('))
+    const strip = (sql: string) => sql.slice(0, sql.indexOf('$function$;')).replace(/\s+/g, ' ')
+    expect(strip(body).replace(" -- Nobody checks their own, bar the Owner (0325): there is nobody above them to do it.", '').replace(' and not public.is_super_admin(me)', '')).toBe(strip(was))
   })
 
   it('leaves nobody a way to write a row but through the functions', () => {
