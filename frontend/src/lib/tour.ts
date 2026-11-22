@@ -471,7 +471,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/volunteers',
         target: 'people-export',
         title: 'The contact book',
-        body: 'Only you see email addresses, phone numbers, visa and DBS details and families, on the page and in the export. The DBS button on each card says where that person stands, opens what a check needs, and is where you mark it verified once you have seen the certificate.',
+        body: 'Only you see email addresses, phone numbers, visa and DBS details and families, on the page and in the export. The DBS button on each card says where that person stands, opens what a check needs, and is where you mark it verified once you have seen the certificate. You can mark your own, too.',
       },
       {
         path: '/volunteers',

@@ -61,6 +61,10 @@ function logLine(entry: DbsLogEntry): string {
  * date of birth. Then what the checker did, ticked by them, and a button
  * that puts their name and the time to it.
  *
+ * Nobody marks their own verified, bar the Owner (0325): `people.compliance`
+ * is the Owner's alone out of the box, and there is nobody above them to
+ * do it. The record then has their own name against their own certificate.
+ *
  * It does not run the check. The Update Service is GOV.UK's, used by a
  * person who has the original certificate and the holder's ID in front of
  * them; this is where the result is written down.
@@ -72,7 +76,7 @@ export function DbsCheckDialog({
   person: { id: string; first_name: string; last_name: string }
   onClose: () => void
 }) {
-  const { profile } = useAuth()
+  const { profile, isSuperAdmin } = useAuth()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [checks, setChecks] = useState<DbsChecks>({ statusChecked: false, certificateSeen: false, idSeen: false })
@@ -84,7 +88,9 @@ export function DbsCheckDialog({
   const query = useQuery({ queryKey: dbsKey(person.id), queryFn: () => fetchDbs(person.id) })
   const record = query.data
   const details = record?.details ?? null
+  // Nobody marks their own verified, bar the Owner (0325): there is nobody above them to do it.
   const own = profile?.id === person.id
+  const ownRefused = own && !isSuperAdmin
   const today = todayIso()
 
   const settled = async () => {
@@ -222,10 +228,10 @@ export function DbsCheckDialog({
                 </p>
               )}
 
-              {own ? (
+              {ownRefused ? (
                 <p className="text-body-sm text-on-surface-variant">
-                  Somebody else has to check your own DBS. The Owner can give another Admin “Safeguarding details” in
-                  Settings › Permissions.
+                  Somebody else has to check your own DBS: the Owner, or anybody else the Owner has given “Safeguarding
+                  details” in Settings › Permissions.
                 </p>
               ) : details.verified_at ? (
                 <div className="flex justify-end">
@@ -236,6 +242,11 @@ export function DbsCheckDialog({
               ) : (
                 <fieldset className="flex flex-col gap-2">
                   <legend className="mb-1 text-body-sm font-medium text-on-surface">What you checked</legend>
+                  {own && (
+                    <p className="mb-1 text-body-sm text-on-surface-variant">
+                      This is your own. As the Owner you can mark it yourself; the record will show your name against it.
+                    </p>
+                  )}
                   {(
                     [
                       ['statusChecked', basic ? 'Seen the shared certificate online' : 'Checked online, and it is current'],

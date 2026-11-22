@@ -860,7 +860,7 @@ export const PERMISSIONS: PermissionArea[] = [
         key: 'people.compliance',
         short: 'Safeguarding details',
         can: granted('people.compliance'),
-        note: 'Everybody always sees their own. Anybody else’s is the Owner’s alone out of the box (0126) — not Admins, not team Heads — until the Owner gives it. With it comes the DBS button on Volunteers: the certificate’s details, and marking them verified (0324). Nobody verifies their own.',
+        note: 'Everybody always sees their own. Anybody else’s is the Owner’s alone out of the box (0126) — not Admins, not team Heads — until the Owner gives it. With it comes the DBS button on Volunteers: the certificate’s details, and marking them verified (0324). Nobody verifies their own, bar the Owner (0325).',
       },
       {
         action: 'Invite somebody to the app, and see who has been invited',

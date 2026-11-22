@@ -13,6 +13,8 @@ import { todayIso } from '../lib/monthGrid'
 
 const state = vi.hoisted(() => ({
   me: 'owner',
+  /** Whether the person looking is the Owner (0325): the only one who may mark their own. */
+  isOwner: false,
   hasDbs: true,
   details: null as Record<string, unknown> | null,
   log: [] as Record<string, unknown>[],
@@ -38,7 +40,7 @@ const DETAILS = {
   id_seen: false,
 }
 
-vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ profile: { id: state.me } }) }))
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ profile: { id: state.me }, isSuperAdmin: state.isOwner }) }))
 
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
@@ -82,6 +84,7 @@ function show(person = GRACE) {
 
 beforeEach(() => {
   state.me = 'owner'
+  state.isOwner = false
   state.hasDbs = true
   state.details = { ...DETAILS }
   state.log = []
@@ -163,9 +166,41 @@ describe('checking somebody’s DBS', () => {
   it('does not offer somebody their own to verify, and says who can', async () => {
     state.me = 'u1'
     show()
-    expect(await screen.findByText(/Somebody else has to check your own DBS/)).toBeInTheDocument()
+    expect(await screen.findByText(/Somebody else has to check your own DBS: the Owner/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Mark as verified' })).toBeNull()
     expect(screen.queryByRole('checkbox')).toBeNull()
+  })
+
+  /*
+   * The Owner's own (0325). Out of the box only the Owner checks anybody's,
+   * so theirs could not be checked at all; there is nobody above them to
+   * do it. The record carries their name against their own certificate.
+   */
+  it('lets the Owner mark their own verified, and says the record will show it', async () => {
+    state.me = 'u1'
+    state.isOwner = true
+    const user = userEvent.setup()
+    show()
+    expect(await screen.findByText(/This is your own\. As the Owner you can mark it yourself/)).toBeInTheDocument()
+    expect(screen.queryByText(/Somebody else has to check your own DBS/)).toBeNull()
+    await user.click(screen.getByRole('checkbox', { name: 'Seen the original certificate' }))
+    await user.click(screen.getByRole('button', { name: 'Mark as verified' }))
+    await waitFor(() =>
+      expect(state.calls).toEqual([
+        { name: 'verify_dbs', args: { p_person: 'u1', p_status_checked: false, p_certificate_seen: true, p_id_seen: false } },
+      ]),
+    )
+    expect(await screen.findByText('Verified')).toBeInTheDocument()
+  })
+
+  it('lets the Owner take their own check back', async () => {
+    state.me = 'u1'
+    state.isOwner = true
+    state.details = { ...DETAILS, verified_at: '2026-11-21T09:30:00Z', verified_by: 'u1', verified_by_name: 'Grace Mensah', certificate_seen: true }
+    const user = userEvent.setup()
+    show()
+    await user.click(await screen.findByRole('button', { name: 'Take the check back' }))
+    await waitFor(() => expect(state.calls).toEqual([{ name: 'unverify_dbs', args: { p_person: 'u1' } }]))
   })
 
   it('says what the database said when it refuses', async () => {
