@@ -46,6 +46,20 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'an-events-money-for-the-books',
+    date: '2026-11-22',
+    title: 'An event’s export, ready for the accounts',
+    lead: 'Each event’s export now works the money out, on sheets of its own, for whoever keeps the church’s books.',
+    points: [
+      'Money: what was charged, received, still to come and waived; what came in on registrations since cancelled; refunds; what should be in the bank and the cash box now; and what stays once refunds are paid.',
+      'Accounts: a row for every registration with its money as numbers, the day it was paid, who took it, the reference, and whether it was checked against the bank.',
+      'Money by day and by way of paying, to lay beside a bank statement; who took the money; income by ticket type after discounts; who still owes; and the refunds.',
+      'Every sheet adds up to the same totals. The sheets that were there before are unchanged.',
+    ],
+    link: { to: '/registrations', label: 'Open Registrations' },
+    page: '/registrations',
+  },
+  {
     key: 'exports-with-everything',
     date: '2026-11-22',
     title: 'Exports with everything in them',
