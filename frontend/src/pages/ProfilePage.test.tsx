@@ -276,3 +276,43 @@ describe('who to ring in an emergency', () => {
     expect(screen.getByText(/Somebody we can ring if something happens to you at church\. Only you and the Owner can see these\./)).toBeInTheDocument()
   })
 })
+
+/*
+ * Somebody with one name (0323): a cleared last name used to wait for
+ * ever to be filled in again. Ticking the box says there is none.
+ */
+describe('one name on the profile', () => {
+  it('does not save a cleared last name by itself: it could have been a slip', async () => {
+    const user = userEvent.setup()
+    show()
+    await user.clear(screen.getByDisplayValue('K'))
+    await new Promise((r) => setTimeout(r, 1300))
+    expect(profileSaves()).toHaveLength(0)
+  })
+
+  it('saves no last name, and that they have one name, once the box is ticked', async () => {
+    const user = userEvent.setup()
+    show()
+    const last = screen.getByDisplayValue('K')
+    await user.click(screen.getByRole('checkbox', { name: /I only have one name/ }))
+    expect(last).toHaveValue('')
+    expect(last).toBeDisabled()
+    await waitFor(() => expect(profileSaves().at(-1)).toMatchObject({ first_name: 'Rohit', last_name: '', single_name: true }), { timeout: 3000 })
+  })
+
+  it('takes a last name again when the box is unticked and one is typed, the two saved together', async () => {
+    const user = userEvent.setup()
+    show()
+    const box = screen.getByRole('checkbox', { name: /I only have one name/ })
+    await user.click(box)
+    await waitFor(() => expect(profileSaves().at(-1)).toMatchObject({ single_name: true }), { timeout: 3000 })
+    await user.click(box)
+    const last = screen.getAllByRole('textbox').find((el) => (el as HTMLInputElement).autocomplete === 'family-name')!
+    expect(last).not.toBeDisabled()
+    await user.type(last, 'kumar')
+    await waitFor(() => expect(profileSaves().at(-1)).toMatchObject({ last_name: 'Kumar', single_name: false }), { timeout: 3000 })
+    // Never the tick beside a last name: the database refuses that.
+    expect(profileSaves().every((row) => !(row.single_name === true && row.last_name !== ''))).toBe(true)
+  })
+})
+

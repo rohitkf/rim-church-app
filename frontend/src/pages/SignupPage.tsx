@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { AuthCard, AuthLabel, authInputClasses, authSubmitClasses } from '../components/AuthCard'
+import { OneNameBox } from '../components/OneNameBox'
 import { errorMessage } from '../lib/errorMessage'
 import { useAuth } from '../auth/AuthContext'
 import { PasswordInput } from '../components/PasswordInput'
@@ -28,6 +29,8 @@ export function SignupPage() {
   const { session } = useAuth()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
+  // "I only have one name" (0323): no last name is asked for, and the account is made saying so.
+  const [singleName, setSingleName] = useState(false)
   const [email, setEmail] = useState('')
   // Typed a second time, as registering for an event asks (November 2026):
   // a slip is rarely made the same way twice.
@@ -54,7 +57,7 @@ export function SignupPage() {
   const [left, setLeft] = useState<{ first?: boolean; last?: boolean }>({})
 
   const firstProblem = left.first ? nameProblem(firstName, 'First name') : null
-  const lastProblem = left.last ? nameProblem(lastName, 'Last name') : null
+  const lastProblem = left.last && !singleName ? nameProblem(lastName, 'Last name') : null
 
   // Whether the address can be one at all, and whether the two boxes say the same.
   const emailWrong = email.trim() ? emailProblem(email) : null
@@ -85,7 +88,7 @@ export function SignupPage() {
     // Saved as a name is written, and refused here with the reason when it
     // is not one: the database would salvage what it could and say nothing.
     const first = tidyName(firstName)
-    const last = tidyName(lastName)
+    const last = singleName ? '' : tidyName(lastName)
     setFirstName(first)
     setLastName(last)
     setLeft({ first: true, last: true })
@@ -114,14 +117,14 @@ export function SignupPage() {
   /** Make the account, once they have said the address is theirs. */
   async function createAccount() {
     const first = tidyName(firstName)
-    const last = tidyName(lastName)
+    const last = singleName ? '' : tidyName(lastName)
     setSubmitting(true)
     try {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         // Where the link in the email lands is said here, not left to a setting (lib/authLinks).
-        options: { emailRedirectTo: confirmationLanding(), data: { first_name: first, last_name: last } },
+        options: { emailRedirectTo: confirmationLanding(), data: { first_name: first, last_name: last, ...(singleName ? { single_name: true } : {}) } },
       })
       if (error) {
         setError(error.message)
@@ -175,7 +178,8 @@ export function SignupPage() {
             <label className="flex min-w-0 flex-1 flex-col gap-2">
               <AuthLabel>Last name</AuthLabel>
               <input
-                required
+                required={!singleName}
+                disabled={singleName}
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 onBlur={() => {
@@ -185,11 +189,20 @@ export function SignupPage() {
                 autoComplete="family-name"
                 aria-invalid={lastProblem ? true : undefined}
                 aria-describedby={lastProblem ? 'signup-last-problem' : undefined}
-                className={authInputClasses}
+                className={`${authInputClasses} disabled:opacity-50`}
               />
             </label>
           </div>
           {/* Outside the labels: words inside one become part of the field's name. */}
+          {/* Not everybody has two names (0323): ticked, no last name is asked for. */}
+          <OneNameBox
+            className="-mt-1"
+            checked={singleName}
+            onChange={(one) => {
+              setSingleName(one)
+              if (one) setLastName('')
+            }}
+          />
           {(firstProblem || lastProblem) && (
             <div role="alert" className="-mt-2 flex flex-col gap-1 text-body-sm text-error">
               {firstProblem && <p id="signup-first-problem">{firstProblem}</p>}

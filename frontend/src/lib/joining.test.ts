@@ -12,6 +12,7 @@ import {
   isComplete,
   maritalLabel,
   missingAnswers,
+  MISSING_TEXT,
   toProfileRows,
   visaLabel,
   type JoiningAnswers,
@@ -308,3 +309,48 @@ describe('who the person to ring is', () => {
     expect(EMERGENCY_RELATIONS.at(-1)).toEqual({ value: 'other', label: 'Other' })
   })
 })
+
+/*
+ * Somebody can have one name (0323). A last name was compulsory in the
+ * form and in the database's list of what is missing; a box says there is
+ * none, and neither asks.
+ */
+describe('one name only', () => {
+  const oneNameMigration = Object.entries(
+    import.meta.glob('../../../supabase/migrations/0323_*.sql', { query: '?raw', import: 'default', eager: true }) as Record<string, string>,
+  )[0][1]
+
+  it('is not a missing last name once the box is ticked', () => {
+    expect(missingAnswers(answers({ lastName: '' }))).toContain('lastName')
+    expect(missingAnswers(answers({ lastName: '', singleName: true }))).not.toContain('lastName')
+    expect(missingAnswers(answers({ lastName: '   ', singleName: true }))).not.toContain('lastName')
+  })
+
+  it('still asks for the first name', () => {
+    expect(missingAnswers(answers({ firstName: '', lastName: '', singleName: true }))).toContain('firstName')
+  })
+
+  it('has no last name to be wrong', () => {
+    const on = new Date('2026-11-22T12:00:00')
+    expect(invalidAnswers(answers({ lastName: 'y@cht' }), on).lastName).toBeTruthy()
+    expect(invalidAnswers(answers({ lastName: 'y@cht', singleName: true }), on).lastName).toBeUndefined()
+  })
+
+  it('is saved as an empty last name and the tick, together', () => {
+    expect(toProfileRows(answers({ lastName: 'Left Over', singleName: true })).profile).toMatchObject({ last_name: '', single_name: true })
+    expect(toProfileRows(answers({ lastName: 'mensah' })).profile).toMatchObject({ last_name: 'Mensah', single_name: false })
+  })
+
+  it('tells somebody who left it blank that the box is there', () => {
+    expect(MISSING_TEXT.lastName.message).toBe('Enter your last name, or tick “I only have one name”.')
+  })
+
+  it('is the same rule in the database: no gap, the two held together, and carried by a sign-up', () => {
+    expect(oneNameMigration).toContain("case when coalesce(btrim(p.last_name), '') = '' and not p.single_name then 'lastName' end")
+    expect(oneNameMigration).toContain("check (not single_name or btrim(last_name) = '')")
+    expect(oneNameMigration).toContain("coalesce(new.raw_user_meta_data ->> 'single_name', '') = 'true'")
+    // It takes a question away, so the form keeps its number.
+    expect(oneNameMigration).not.toMatch(/function public\.joining_form\(\)/)
+  })
+})
+

@@ -456,3 +456,15 @@ describe('a moment on a sheet', () => {
   })
 })
 
+describe('somebody with one name (0323)', () => {
+  it('is filed under that name, not ahead of everybody under a blank surname', () => {
+    const input = base({
+      people: [person('u1', 'Grace', 'Mensah'), person('u2', 'Tunde', 'Alabi'), person('u3', 'Madonna', '')],
+      memberships: [membership('u1', 'd1'), membership('u2', 'd2'), membership('u3', 'd1')],
+    })
+    const of = sheet(input, 'Volunteers')
+    expect(column(of, 'First name')).toEqual(['Tunde', 'Madonna', 'Grace'])
+    expect(column(of, 'Last name')).toEqual(['Alabi', '', 'Mensah'])
+  })
+})
+

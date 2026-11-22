@@ -46,6 +46,17 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'one-name-only',
+    date: '2026-11-22',
+    title: 'Somebody with one name can say so',
+    lead: 'A last name used to be compulsory, so somebody with a single name had to make one up. There is now a box to tick: “I only have one name”.',
+    points: [
+      'It is under the names when signing up, on the details form and on your profile (Settings › Profile). Ticked, the last name is left empty and is not asked for again.',
+      'Left unticked, a blank last name is still asked for, so one that was simply forgotten is still caught.',
+      'Lists and exports show the one name, filed under it.',
+    ],
+  },
+  {
     key: 'an-events-money-for-the-books',
     date: '2026-11-22',
     title: 'An event’s export, ready for the accounts',

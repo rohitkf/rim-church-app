@@ -188,8 +188,10 @@ export function designationIn(
   return ROLE_NAME.member
 }
 
+// By surname; somebody with one name (0323) is filed under that name, not ahead of everybody under a blank.
+const filedUnder = (p: { last_name: string; first_name: string }) => p.last_name.trim() || p.first_name
 const byName = (a: { last_name: string; first_name: string }, b: typeof a) =>
-  a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name)
+  filedUnder(a).localeCompare(filedUnder(b)) || a.first_name.localeCompare(b.first_name)
 
 export function buildVolunteerWorkbook(input: ExportInput): ExportSheet[] {
   const selected = new Set(input.selectedTeamIds)
