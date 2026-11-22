@@ -429,3 +429,119 @@ describe('the Countdown’s second section, for the service', () => {
     expect(timer).toHaveClass('text-accent-blue-soft')
   })
 })
+
+describe('sessions one after another that the same person takes', () => {
+  // The Owner, November 2026: "If 2 sessions are done by same persons, let's
+  // show the combined time in countdown page instead of that session's
+  // countdown" — "2 or more sessions one after another by same person".
+  const guest = (id: string, name: string) => ({
+    id: `a-${id}`,
+    user_id: null,
+    guest_id: id,
+    order_index: 0,
+    is_substitute: false,
+    is_translator: false,
+    profile: null,
+    guest: { id, name, title: 'Ps' },
+  })
+  const member = (id: string, first: string) => ({
+    id: `a-${id}`,
+    user_id: id,
+    guest_id: null,
+    order_index: 0,
+    is_substitute: false,
+    is_translator: false,
+    profile: { id, first_name: first, last_name: 'Thomas' },
+    guest: null,
+  })
+  const speaker = guest('g1', 'Damien Antony')
+
+  beforeEach(() => {
+    db.rows.service_sessions = [
+      session('s1', 'Worship', '10:00', 30, 0, { assignees: [member('u1', 'Anna')] }),
+      session('s2', 'Message', '10:30', 40, 1, { assignees: [speaker] }),
+      session('s3', 'Message 1', '11:10', 30, 2, { assignees: [speaker] }),
+      session('s4', 'Notices', '11:40', 10, 3, { assignees: [member('u2', 'Ben')] }),
+    ]
+  })
+
+  it('counts the time for both, not the first one’s alone', async () => {
+    vi.setSystemTime(at('10:40'))
+    show()
+    const section = (await screen.findByText('Message')).closest('section')!
+    const timer = within(section).getByRole('timer')
+    // An hour to Notices at 11:40, not thirty minutes to Message 1 at 11:10.
+    expect(timer).toHaveTextContent('1:00:00')
+    expect(timer).toHaveAccessibleName('1:00:00 until Notices')
+    expect(within(section).getByText('60 minutes remaining')).toBeInTheDocument()
+    expect(within(section).getByText(/Until Notices/)).toHaveTextContent('11:40')
+    expect(within(section).getByText('Counting on through Message 1: Ps Damien Antony takes both.')).toBeInTheDocument()
+  })
+
+  it('does not go red when the first one’s own time runs out', async () => {
+    // 11:08: two minutes of Message left, thirty-two of the speaker’s.
+    vi.setSystemTime(at('11:08'))
+    show()
+    const section = (await screen.findByText('Message')).closest('section')!
+    const timer = within(section).getByRole('timer')
+    expect(timer).toHaveTextContent('32:00')
+    expect(timer).toHaveAttribute('data-tone', 'plenty')
+  })
+
+  it('carries on as one clock into the second, with nothing more to say', async () => {
+    vi.setSystemTime(at('11:20'))
+    show()
+    const section = (await screen.findByText('Message 1')).closest('section')!
+    expect(within(section).getByRole('timer')).toHaveTextContent('20:00')
+    expect(within(section).getByText(/Until Notices/)).toBeInTheDocument()
+    expect(within(section).queryByText(/Counting on through/)).not.toBeInTheDocument()
+  })
+
+  it('counts three in a row as one, to the end of the service when they are the last', async () => {
+    db.rows.service_sessions = [
+      session('s1', 'Message', '10:30', 40, 0, { assignees: [speaker] }),
+      session('s2', 'Message 1', '11:10', 30, 1, { assignees: [speaker] }),
+      session('s3', 'Q&A', '11:40', 10, 2, { assignees: [speaker] }),
+    ]
+    vi.setSystemTime(at('10:40'))
+    show()
+    const section = (await screen.findByText('Message')).closest('section')!
+    expect(within(section).getByRole('timer')).toHaveTextContent('1:10:00')
+    expect(within(section).getByText(/Until the end of the service/)).toHaveTextContent('11:50')
+    expect(within(section).getByText('Counting on through Message 1 and Q&A: Ps Damien Antony takes all 3.')).toBeInTheDocument()
+  })
+
+  it('keeps each session’s own clock when somebody else takes the next', async () => {
+    vi.setSystemTime(at('10:10'))
+    show()
+    const section = (await screen.findByText('Worship')).closest('section')!
+    expect(within(section).getByRole('timer')).toHaveTextContent('20:00')
+    expect(within(section).getByText(/Until Message/)).toHaveTextContent('10:30')
+    expect(within(section).queryByText(/Counting on through/)).not.toBeInTheDocument()
+  })
+
+  it('does not join them when the second has somebody more on it', async () => {
+    db.rows.service_sessions = [
+      session('s2', 'Message', '10:30', 40, 1, { assignees: [speaker] }),
+      session('s3', 'Message 1', '11:10', 30, 2, { assignees: [speaker, { ...member('u1', 'Anna'), order_index: 1 }] }),
+    ]
+    vi.setSystemTime(at('10:40'))
+    show()
+    const section = (await screen.findByText('Message')).closest('section')!
+    expect(within(section).getByRole('timer')).toHaveTextContent('30:00')
+  })
+
+  it('says two people take both, when two do', async () => {
+    const pair = [member('u1', 'Anna'), { ...member('u2', 'Ben'), order_index: 1 }]
+    db.rows.service_sessions = [
+      session('s1', 'Worship', '10:00', 30, 0, { assignees: pair }),
+      session('s2', 'Response', '10:30', 10, 1, { assignees: [pair[1], pair[0]] }),
+      session('s3', 'Close', '10:40', 5, 2),
+    ]
+    vi.setSystemTime(at('10:10'))
+    show()
+    const section = (await screen.findByText('Worship')).closest('section')!
+    expect(within(section).getByRole('timer')).toHaveTextContent('30:00')
+    expect(within(section).getByText('Counting on through Response: Anna Thomas and Ben Thomas take both.')).toBeInTheDocument()
+  })
+})

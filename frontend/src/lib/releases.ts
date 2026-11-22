@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'countdown-joins-the-same-persons-sessions',
+    date: '2026-11-22',
+    title: 'Countdown counts one person’s sessions together',
+    lead: 'When the same person takes two or more sessions one after another, the Countdown page now shows the time for all of them as one clock.',
+    points: [
+      'A speaker with “Message” and then “Message 1” sees the time left for both, and the number no longer turns red when only the first one’s time is up.',
+      'It counts to whatever comes after: the next session somebody else takes, or the end of the service. A line under the number says which sessions are being counted together.',
+      'It goes by who is taking the session, not who stands in or translates. The Service Planner and the Dashboard still show each session’s own time.',
+    ],
+    link: { to: '/countdown', label: 'Open Countdown' },
+    page: '/countdown',
+  },
+  {
     key: 'countdown-to-the-service',
     date: '2026-11-22',
     title: 'Countdown also counts to the service',
