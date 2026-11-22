@@ -278,7 +278,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/countdown',
         target: 'page-title',
         title: 'Countdown',
-        body: 'The service’s clock, large: how long the session has left, green, then amber, then red as the end comes, and past zero how far over it is running. It follows the Service Planner as the running order changes. Under it is the service itself: how long until it starts, and once it has, until the next one does.',
+        body: 'The service’s clock, large: how long the session has left, green, then amber, then red as the end comes, and past zero how far over it is running. It follows the Service Planner as the running order changes, and sessions one after another that the same person takes are counted as one. Under it is the service itself: how long until it starts, and once it has, until the next one does.',
       },
       {
         path: '/inventory',

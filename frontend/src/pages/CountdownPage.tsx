@@ -9,8 +9,11 @@ import { todayIso } from '../lib/monthGrid'
 import { useNow } from '../lib/useNow'
 import { formatTime } from '../lib/time'
 import { serviceStanding } from '../lib/serviceState'
-import { clockFace, clockSize, clockTone, countdownFace, minutesWords, serviceClock, type ClockTone, type ServiceClock } from '../lib/serviceClock'
+import { clockFace, clockSize, clockTone, countdownFace, minutesWords, serviceClock, type ClockTone } from '../lib/serviceClock'
 import { nextServiceToStart, startDay, startFace, startWords } from '../lib/serviceStart'
+import { combinedClock, namesJoined, type CombinedClock } from '../lib/combinedClock'
+import { namesOn } from '../lib/sessionAssignees'
+import { sessionAssigneeSchema } from '../lib/types'
 
 /*
  * The service's clock, large, for whoever is keeping time.
@@ -26,6 +29,12 @@ import { nextServiceToStart, startDay, startFace, startWords } from '../lib/serv
  * is one number counting down, so below nothing it is a negative one
  * (lib/serviceClock `countdownFace`). Everywhere else an overrun keeps its
  * plus.
+ *
+ * Sessions one after another that the same people take are counted as
+ * one (lib/combinedClock): a speaker with "Message" and then "Message 1"
+ * sees the time they have for both, not the first one's clock running
+ * out halfway through. On this page only — the planner and the Dashboard
+ * keep each session's own clock.
  *
  * The number is green while there is plenty of time, amber as the end
  * comes close and red for the last of it and past zero (clockTone). The
@@ -68,6 +77,8 @@ const sessionRowSchema = z.object({
   added_minutes: z.number().nullable().optional(),
   skipped_at: z.string().nullable().optional(),
   held_at: z.string().nullable().optional(),
+  /** Who is on it: sessions in a row taken by the same people are counted as one (lib/combinedClock). */
+  assignees: z.array(sessionAssigneeSchema).optional(),
 })
 type SessionRow = z.infer<typeof sessionRowSchema>
 
@@ -94,7 +105,9 @@ async function fetchSessionsFor(serviceIds: string[]): Promise<SessionRow[]> {
   if (serviceIds.length === 0) return []
   const { data, error } = await supabase
     .from('service_sessions')
-    .select('id, service_id, order_index, session_name, start_time, duration_minutes, added_minutes, skipped_at, held_at')
+    .select(
+      'id, service_id, order_index, session_name, start_time, duration_minutes, added_minutes, skipped_at, held_at, assignees:service_session_assignees(id, user_id, guest_id, order_index, is_substitute, is_translator, profile:profiles(id, first_name, last_name), guest:guests(id, name, title))',
+    )
     .in('service_id', serviceIds)
     .order('order_index')
   if (error) throw error
@@ -123,11 +136,14 @@ export function CountdownPage() {
     const sessions = sessionsQuery.data ?? []
     const rows = (servicesQuery.data ?? []).map((service) => {
       const own = sessions.filter((s) => s.service_id === service.id)
+      const endHeld = !!service.end_held_at
+      const clock = serviceClock(own, now, service.ended_at, { gaps: true, endHeld })
       return {
         service,
         sessions: own,
         standing: serviceStanding(own, now, service.ended_at, service.end_held_at),
-        clock: serviceClock(own, now, service.ended_at, { gaps: true, endHeld: !!service.end_held_at }),
+        // The service's clock, counting on through sessions the same people take next.
+        clock: clock ? combinedClock(own, clock, endHeld) : null,
       }
     })
     return {
@@ -153,7 +169,7 @@ export function CountdownPage() {
       <QueryState isLoading={loading} error={servicesQuery.error ?? sessionsQuery.error}>
         <div className="flex flex-col gap-5">
           {live.map(({ service, clock }) => (
-            <ClockTile key={service.id} service={service} clock={clock!} now={now} />
+            <ClockTile key={service.id} service={service} counting={clock!} now={now} />
           ))}
 
           {/* Nothing on: a blank clock, not a countdown to something else. */}
@@ -240,16 +256,21 @@ function NextServiceTile({ next, now, running }: { next: { service: ServiceRow; 
   )
 }
 
-function ClockTile({ service, clock, now }: { service: ServiceRow; clock: ServiceClock<SessionRow>; now: number }) {
+function ClockTile({ service, counting, now }: { service: ServiceRow; counting: CombinedClock<SessionRow>; now: number }) {
+  const { clock, joined, from } = counting
   const remaining = clock.target - now
   const over = remaining < 0
   const due = formatTime(new Date(clock.target).toISOString())
   const what = clock.to === 'end' ? 'The end of the service' : clock.next ? clock.next.session_name : 'The next session'
-  // How long the thing being counted runs in all: the session that is on,
-  // from its start to the moment the clock is counting to. In a gap there
-  // is no session, and the colour goes by minutes alone.
-  const span = clock.current ? clock.target - new Date(clock.current.start_time).getTime() : null
+  // How long the thing being counted runs in all: from where these people
+  // began (the session that is on, or the first of the ones they take in a
+  // row) to the moment the clock is counting to. In a gap there is no
+  // session, and the colour goes by minutes alone.
+  const span = from === null ? null : clock.target - from
   const tone = clockTone(remaining, span)
+  // The sessions counted with the one that is on, and whose they are.
+  const also = joined.slice(1).map((s) => s.session_name)
+  const takers = clock.current ? namesOn(clock.current) : []
 
   return (
     <Tile as="section" className="@container text-center" tone={over ? 'danger' : 'plain'}>
@@ -295,6 +316,12 @@ function ClockTile({ service, clock, now }: { service: ServiceRow; clock: Servic
         {over ? (clock.to === 'end' ? 'Over the planned end' : `Over — ${what} was due`) : clock.to === 'end' ? 'Until the end of the service' : `Until ${what}`}
         <span className="font-mono tabular text-on-surface-variant"> · {due}</span>
       </p>
+      {also.length > 0 && (
+        <p className="mt-2 text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">
+          Counting on through {namesJoined(also)}: {takers.length > 0 ? namesJoined(takers) : 'the same people'}{' '}
+          {takers.length === 1 ? 'takes' : 'take'} {joined.length === 2 ? 'both' : `all ${joined.length}`}.
+        </p>
+      )}
       {clock.holding && clock.next && (
         <p className="mt-2 text-body-sm text-error">{clock.next.session_name} has not started yet.</p>
       )}
