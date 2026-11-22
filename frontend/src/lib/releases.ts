@@ -46,6 +46,20 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'a-real-date-of-birth',
+    date: '2026-11-22',
+    title: 'A date of birth has to be a real one',
+    lead: 'A date of birth left on today’s date, or on this year, is no longer accepted. Anybody who has one is asked for their own before the app opens.',
+    points: [
+      'Somebody with an account is between 5 and 110 years old; anything else is refused, with the reason, on the joining form and on the profile.',
+      'Volunteers shows each person’s age, and “Date of birth to correct” where the date cannot be right.',
+      '“Under 18” is marked beside the name on a team’s page and on Volunteers, for Admins and the people who lead a team. Settings › Permissions has it as “See under 18s”.',
+    ],
+    link: { to: '/volunteers', label: 'Open Volunteers' },
+    page: '/volunteers',
+    holds: ['people.minors'],
+  },
+  {
     key: 'write-a-family-member-in',
     date: '2026-11-22',
     title: 'Add family who are not on the app',

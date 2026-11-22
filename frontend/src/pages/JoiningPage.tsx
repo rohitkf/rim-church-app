@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { Select, triggerClasses } from '../components/Select'
 import { DateField } from '../components/DateTimeFields'
 import { todayIso } from '../lib/monthGrid'
+import { latestOwnDob } from '../lib/ownAge'
 import { AppMark } from '../components/AppMark'
 import { PhoneField } from '../components/PhoneField'
 import { AgeNote } from '../components/AgeNote'
@@ -419,7 +420,8 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
                 value={answers.dob}
                 onChange={(d) => set('dob', d)}
                 label="Date of birth"
-                max={todayIso()}
+                // Nobody with an account is younger than this (lib/ownAge): the picker does not offer today.
+                max={latestOwnDob()}
                 className={`${fieldTriggerClasses} ${wants('dob') ? 'field-error' : ''}`}
               />
               {messageFor('dob') ? problem('dob') : <AgeNote dob={answers.dob} />}

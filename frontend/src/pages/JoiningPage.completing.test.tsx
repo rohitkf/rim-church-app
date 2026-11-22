@@ -36,6 +36,8 @@ const state = vi.hoisted(() => ({
     phone: '+447812345678' as string | null,
   },
   addresses: [] as { line1: string; line2: string; town: string; postcode: string }[],
+  /** Their date of birth as saved: none, or one left where the picker opened (0321). */
+  dob: null as string | null,
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -47,7 +49,7 @@ vi.mock('../auth/AuthContext', () => ({
       last_name: 'Mensah',
       email: 'grace@example.com',
       phone: '+447911123456',
-      dob: null,
+      dob: state.dob,
       anniversary: null,
       avatar_url: null,
       marital_status: 'single',
@@ -97,6 +99,7 @@ beforeEach(() => {
   state.written = []
   state.refreshed = 0
   state.addresses = []
+  state.dob = null
   state.home = { id: 'h1', address_line1: '1 High Street', address_line2: null, town: 'Leeds', postcode: 'LS1 1AA' }
   state.emergency = { name: 'Ama Mensah', relation: 'mother', phone: '+447812345678' }
 })
@@ -278,3 +281,54 @@ describe('completing a profile that has a blank', () => {
     )
   })
 })
+
+/*
+ * A date of birth that cannot be theirs (0321). The picker opened on today
+ * and whatever it was left on was taken, so an account could be a day old.
+ * Form 4 sends that person back here, and the form has to say what is
+ * wrong with a box that looks answered.
+ */
+describe('completing a profile whose date of birth cannot be right', () => {
+  const todayIso = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  it('names the date of birth as the thing to fix, and says why, before anything is pressed', async () => {
+    state.dob = todayIso()
+    render(<JoiningPage completing />)
+    const alert = await screen.findByRole('alert')
+    // Answered, and wrong: the list says to check it, not that it is blank.
+    await waitFor(() => expect(within(alert).getAllByRole('button').map((b) => b.textContent)).toEqual(['Date of birth — check what you entered']))
+    expect(screen.getByText('That date of birth would make you under 5. Enter your own date of birth.')).toBeInTheDocument()
+  })
+
+  it('does not let them back in with it as it is', async () => {
+    state.dob = todayIso()
+    const user = userEvent.setup()
+    render(<JoiningPage completing />)
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Your status in the UK' })).toHaveTextContent('Student visa'))
+    await user.click(screen.getByRole('button', { name: 'Save and carry on' }))
+    expect(state.written).toEqual([])
+    expect(state.refreshed).toBe(0)
+  })
+
+  it('lets them in once it is a date that can be theirs', async () => {
+    state.dob = todayIso()
+    const user = userEvent.setup()
+    render(<JoiningPage completing />)
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Your status in the UK' })).toHaveTextContent('Student visa'))
+    await pickDate(user, screen.getByLabelText('Date of birth'), '1990-04-12')
+    expect(screen.queryByText(/would make you under 5/)).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Save and carry on' }))
+    await waitFor(() => expect(state.refreshed).toBe(1))
+    expect(state.written.find((w) => w.table === 'profiles')!.row).toMatchObject({ dob: '1990-04-12' })
+  })
+
+  it('says the same of a date from 1850', async () => {
+    state.dob = '1850-06-01'
+    render(<JoiningPage completing />)
+    expect(await screen.findByText('That date of birth is more than 110 years ago. Check the year.')).toBeInTheDocument()
+  })
+})
+

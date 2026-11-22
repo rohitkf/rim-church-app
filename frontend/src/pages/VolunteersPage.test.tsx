@@ -9,7 +9,8 @@ import { VolunteersPage } from './VolunteersPage'
 // Dates of birth come through birth_dates() (0256); nothing here is about them.
 vi.mock('../lib/birthDates', async (orig) => ({
   ...(await orig<typeof import('../lib/birthDates')>()),
-  fetchBirthDates: () => Promise.resolve(new Map()),
+  // Whole dates, as the database hands them to whoever may see ages: none unless a test says.
+  fetchBirthDates: () => Promise.resolve(new Map(Object.entries(who.dates).map(([id, dob]) => [id, { dob, birthday: dob.slice(5) }]))),
 }))
 
 /*
@@ -17,7 +18,15 @@ vi.mock('../lib/birthDates', async (orig) => ({
  * shut, so it opens as a list of teams; whoever is on no team is open,
  * because they are the reason somebody came here.
  */
-const who = vi.hoisted(() => ({ owner: false, rpcs: [] as string[], selected: [] as string[] }))
+const who = vi.hoisted(() => ({
+  owner: false,
+  rpcs: [] as string[],
+  selected: [] as string[],
+  /** Who the database says is under 18 (0321). */
+  minors: [] as string[],
+  /** Whole dates of birth by id, for a reader who is sent them. */
+  dates: {} as Record<string, string>,
+}))
 
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
@@ -60,6 +69,7 @@ vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     rpc: (fn: string) => {
       who.rpcs.push(fn)
+      if (fn === 'people_under_18') return Promise.resolve({ data: who.minors.map((id) => ({ id })), error: null })
       return Promise.resolve({
         data: ['joel', 'rose', 'newbie'].map((id) => ({
           id,
@@ -267,3 +277,64 @@ describe('the Family button on a person’s card', () => {
     expect(screen.getByRole('button', { name: 'Family of Nimmy Thomas' })).toBeInTheDocument()
   })
 })
+
+/*
+ * Ages and "Under 18" on a person's card (0321). Who is under 18 is the
+ * database's to say (people_under_18); an age is drawn from a date only
+ * the database handed over.
+ */
+describe('ages on the volunteers page', () => {
+  const yearsAgo = (n: number) => {
+    const d = new Date()
+    return `${d.getFullYear() - n}-01-01`
+  }
+  const today = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  const cardOf = (name: string) => screen.getByText(name).closest('li')!
+
+  beforeEach(() => {
+    who.minors = []
+    who.dates = {}
+  })
+
+  it('marks somebody the database says is under 18, beside their name', async () => {
+    who.minors = ['newbie']
+    show()
+    await screen.findByText('Nimmy Thomas')
+    expect(await within(cardOf('Nimmy Thomas')).findByText('Under 18')).toBeInTheDocument()
+    expect(who.rpcs).toContain('people_under_18')
+  })
+
+  it('marks nobody else', async () => {
+    who.minors = ['newbie']
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: /Media/ }))
+    await within(cardOf('Nimmy Thomas')).findByText('Under 18')
+    expect(within(cardOf('Joel Skaria')).queryByText('Under 18')).toBeNull()
+  })
+
+  it('shows how old somebody is when the database sends their date', async () => {
+    who.dates = { newbie: yearsAgo(30) }
+    show()
+    await screen.findByText('Nimmy Thomas')
+    // Born on 1 January thirty years ago: 30, or 29 on the first day of a year.
+    expect(await within(cardOf('Nimmy Thomas')).findByText(/^Age (29|30)$/)).toBeInTheDocument()
+  })
+
+  it('shows no age for somebody whose date was not sent', async () => {
+    show()
+    await screen.findByText('Nimmy Thomas')
+    expect(within(cardOf('Nimmy Thomas')).queryByText(/^Age /)).toBeNull()
+  })
+
+  it('says a date that cannot be theirs needs correcting, not “Age 0”', async () => {
+    who.dates = { newbie: today() }
+    show()
+    await screen.findByText('Nimmy Thomas')
+    expect(await within(cardOf('Nimmy Thomas')).findByText('Date of birth to correct')).toBeInTheDocument()
+    expect(within(cardOf('Nimmy Thomas')).queryByText(/^Age /)).toBeNull()
+  })
+})
+

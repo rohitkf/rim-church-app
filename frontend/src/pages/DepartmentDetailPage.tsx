@@ -16,6 +16,8 @@ import { InviteDialog } from '../components/InviteDialog'
 import { supabase } from '../lib/supabaseClient'
 import { fetchBirthDates, fullDate } from '../lib/birthDates'
 import { usePermissions } from '../lib/usePermissions'
+import { useMinors } from '../lib/minors'
+import { Under18Mark } from '../components/Under18Mark'
 import { HEAD_ON_PAGE, ON_CARD } from '../lib/stickyHead'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
@@ -172,6 +174,8 @@ export function DepartmentDetailPage() {
   // Who sees how old people are is the church's to say (people.ages,
   // 0258) — out of the box the Owner and Admins. A preview follows it.
   const seesAges = can('people.ages')
+  // Who is under 18, for a reader the database tells (people.minors, 0321): nobody otherwise.
+  const minors = useMinors()
   // Contact details, and visa and DBS details, are each their own row since
   // 0277 — the Owner's alone out of the box. A preview follows them.
   const seesContacts = can('people.contacts')
@@ -603,6 +607,7 @@ export function DepartmentDetailPage() {
                         <span className="min-w-0 break-words text-body-md font-medium text-on-surface">
                           {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
                         </span>
+                        {minors.has(m.user_id) && <Under18Mark />}
                         {rank !== 'member' && (
                           <span
                             className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-label-sm ${
@@ -687,7 +692,12 @@ export function DepartmentDetailPage() {
                     {coreMembers.map((m) => (
                         <tr key={m.id} className="border-b border-border-subtle last:border-0">
                           <td className="py-3 pr-4 font-medium text-on-surface">
-                            {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
+                            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="min-w-0 break-words">
+                                {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
+                              </span>
+                              {minors.has(m.user_id) && <Under18Mark />}
+                            </span>
                           </td>
                           {seesAges && (
                             <td className="whitespace-nowrap py-3 pr-4 text-on-surface-variant">
@@ -891,8 +901,11 @@ export function DepartmentDetailPage() {
                       className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] hairline p-3"
                     >
                       <div className="min-w-0">
-                        <div className="text-body-sm font-medium text-on-surface">
-                          {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm font-medium text-on-surface">
+                          <span className="min-w-0 break-words">
+                            {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown user'}
+                          </span>
+                          {minors.has(m.user_id) && <Under18Mark />}
                         </div>
                         {seesContacts && m.profiles?.email && (
                           <div className="break-all text-body-sm text-on-surface-variant">

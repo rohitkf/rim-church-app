@@ -166,9 +166,16 @@ describe('what is filled in and wrong', () => {
     expect(invalidAnswers(answers({ lastName: 'x'.repeat(51) }), today).lastName).toMatch(/50/)
     expect(invalidAnswers(answers({ firstName: "Mary-Jane O’Neil", lastName: 'Åsa' }), today)).toEqual({})
   })
-  it('refuses a birth date in the future or from before 1900', () => {
+  it('refuses a birth date in the future or from too long ago', () => {
     expect(invalidAnswers(answers({ dob: '2027-01-01' }), today).dob).toMatch(/future/)
-    expect(invalidAnswers(answers({ dob: '1850-01-01' }), today).dob).toMatch(/right/)
+    expect(invalidAnswers(answers({ dob: '1850-01-01' }), today).dob).toMatch(/110 years ago/)
+  })
+  // The picker opens on today, and a date left there was taken (0321).
+  it('refuses a birth date that would make them under 5: today, or this year', () => {
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    expect(invalidAnswers(answers({ dob: iso(today) }), today).dob).toBe('That date of birth would make you under 5. Enter your own date of birth.')
+    expect(invalidAnswers(answers({ dob: `${today.getFullYear()}-01-01` }), today).dob).toMatch(/under 5/)
+    expect(invalidAnswers(answers({ dob: `${today.getFullYear() - 13}-01-01` }), today).dob).toBeUndefined()
   })
   it('keeps an anniversary after the person was old enough to marry', () => {
     const married = { maritalStatus: 'married' as const, dob: '1990-04-02' }
@@ -224,8 +231,8 @@ describe('an address and somebody to ring', () => {
     expect(rows.address).toEqual({ line1: '1 High Street', line2: 'Flat 3', town: 'Leeds', postcode: 'LS1 1AA' })
   })
 
-  it('make this the third form: who the person to ring is came after the rest (0302)', () => {
-    expect(JOINING_FORM).toBe(3)
+  it('make this the fourth form: the third added who the person to ring is (0302), the fourth a date of birth that can be theirs (0321)', () => {
+    expect(JOINING_FORM).toBe(4)
   })
 })
 

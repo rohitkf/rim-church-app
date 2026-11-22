@@ -879,6 +879,9 @@ export const CATALOG = {
     member: offer('none all', 'none'),
     newcomer: offer('none all', 'none'),
   },
+  // Who is under 18 (0321): ids only, never a date. For the people who lead,
+  // not for everybody: anybody can sign up.
+  'people.minors': given('all', { head: 'all', assistant: 'all' }),
   'people.remove': {
     admin: offer('none all', 'all'),
     head: offer('none all', 'none'),

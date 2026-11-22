@@ -28,6 +28,9 @@ import { emergencyRelationLabel } from '../lib/joining'
 import { ACCOUNT_BLOCKS_KEY, fetchAccountBlocks, mayBlock, unblockAccount } from '../lib/accountBlocks'
 import { BlockAccountDialog } from '../components/BlockAccountDialog'
 import { FamilyLinksDialog } from '../components/FamilyLinksDialog'
+import { useMinors } from '../lib/minors'
+import { ageToShow } from '../lib/ownAge'
+import { Under18Mark } from '../components/Under18Mark'
 import { momentWords } from '../lib/appNotices'
 
 /**
@@ -179,6 +182,8 @@ export function VolunteersPage() {
   const blocksPeople = can('people.block')
   // Linking two accounts as family for them (0319): Admins and the Owner out of the box.
   const linksFamilies = can('people.family')
+  // Who is under 18, for a reader the database tells (people.minors, 0321): nobody otherwise.
+  const minors = useMinors()
   const { teamStyle } = useTeamStyle()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
@@ -411,6 +416,7 @@ export function VolunteersPage() {
       can('people.remove') && v.id !== session?.user.id && !isOwner && (!holdsAdmin || isSuperAdmin)
     // Blocked, as far as this viewer is told (only whoever may block is).
     const block = blockOf.get(v.id)
+    const shownAge = ageToShow(v.dob)
     const canBlock = mayBlock({
       hasRight: blocksPeople,
       viewerId: session?.user.id,
@@ -455,6 +461,7 @@ export function VolunteersPage() {
               <span className="min-w-0 break-words text-headline-sm font-medium text-on-surface">
                 {v.first_name} {v.last_name}
               </span>
+              {minors.has(v.id) && <Under18Mark />}
               {v.id === session?.user.id && (
                 <span className="shrink-0 rounded-full bg-secondary/15 px-2 py-0.5 font-mono text-label-sm text-accent-blue-soft">
                   You
@@ -492,6 +499,15 @@ export function VolunteersPage() {
               )}
             </div>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+              {/* How old they are, for whoever is sent dates of birth (people.ages): the date
+                  comes back empty for anybody else, and then nothing is drawn. A date that
+                  cannot be theirs (born today) is said to need correcting, not shown as 0. */}
+              {shownAge && 'age' in shownAge && (
+                <span className="whitespace-nowrap text-body-sm text-on-surface-variant">Age {shownAge.age}</span>
+              )}
+              {shownAge && 'wrong' in shownAge && (
+                <span className="text-body-sm text-error">Date of birth to correct</span>
+              )}
               {/* For whoever the grid gives contact details: nobody else is sent it. */}
               {seesContacts && v.email && (
                 <span className="min-w-0 text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">{v.email}</span>

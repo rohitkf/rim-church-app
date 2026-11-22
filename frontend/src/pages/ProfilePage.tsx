@@ -6,6 +6,7 @@ import { isMissingColumnError } from '../lib/missingColumn'
 import { Select } from '../components/Select'
 import { DateField } from '../components/DateTimeFields'
 import { todayIso } from '../lib/monthGrid'
+import { latestOwnDob, ownDobProblem } from '../lib/ownAge'
 import { SectionTile, inputClasses } from '../components/Surface'
 import {
   EMERGENCY_NAME_LIMIT,
@@ -169,6 +170,9 @@ export function ProfilePage() {
     const core = coreOf(firstName, lastName, phone, dob, maritalStatus, anniversary, emergency)
     const json = JSON.stringify(core)
     if (json === savedCore.current || !firstName.trim() || !lastName.trim() || nameWaits) return
+    // A date of birth that cannot be theirs waits to be put right (0321): the
+    // note under it says what is wrong, and nothing is saved over what was there.
+    if (ownDobProblem(dob) && (core.dob ?? null) !== ((JSON.parse(savedCore.current) as { dob?: string | null }).dob ?? null)) return
     const timer = window.setTimeout(async () => {
       // Anniversary arrived in a later migration. If the database hasn't had
       // it applied yet, save everything else rather than losing the edit.
@@ -312,7 +316,7 @@ export function ProfilePage() {
         <div className="flex flex-col gap-4">
           <label className={labelClasses}>
             Date of birth
-            <DateField value={dob} onChange={setDob} label="Date of birth" max={todayIso()} clearable />
+            <DateField value={dob} onChange={setDob} label="Date of birth" max={latestOwnDob()} clearable />
             <AgeNote dob={dob} />
           </label>
           <label className={labelClasses}>

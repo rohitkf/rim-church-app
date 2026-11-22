@@ -821,7 +821,14 @@ export const PERMISSIONS: PermissionArea[] = [
         key: 'people.ages',
         short: 'See ages',
         can: granted('people.ages'),
-        note: 'On team pages, “Turns 40” on birthdays, and the volunteer export. Everybody always sees their own. Closed in the database itself (0256–0258), not just hidden on the page.',
+        note: 'On team pages, Volunteers (“Age 34”), “Turns 40” on birthdays, and the volunteer export. Everybody always sees their own. Closed in the database itself (0256–0258), not just hidden on the page.',
+      },
+      {
+        action: 'See who is under 18',
+        key: 'people.minors',
+        short: 'See under 18s',
+        can: granted('people.minors'),
+        note: 'An “Under 18” label beside the name on a team’s page and on Volunteers (0321). It shows that somebody is under 18 and nothing more: not their age or date of birth. Out of the box it is for Admins and the people who lead a team, not for everybody, because anybody can sign up.',
       },
       {
         action: 'See everybody’s email address, phone number and household',

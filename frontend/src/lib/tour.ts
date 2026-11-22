@@ -385,7 +385,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/departments',
         target: 'page-title',
         title: 'Your team’s page',
-        body: 'Join requests land here for you to answer. Set the team’s roles and each role’s checklist, upload the handbook, and invite somebody straight onto the team. Under a role, make somebody permanent and they are on the rota for it by default.',
+        body: 'Join requests land here for you to answer. Set the team’s roles and each role’s checklist, upload the handbook, and invite somebody straight onto the team. Under a role, make somebody permanent and they are on the rota for it by default. Anybody under 18 has “Under 18” beside their name.',
       },
       {
         path: '/settings/alerts',
@@ -446,7 +446,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/volunteers',
         target: 'people-invite',
         title: 'Volunteers',
-        body: 'Everybody with an account. Invite people, make somebody a Head or an Admin, and export the roster. Block stops an account without removing it, and Unblock puts everything back. Family on a person’s card links them to their husband or wife, children or parents on the app, with nobody having to confirm, and writes in the ones who are not on the app yet.',
+        body: 'Everybody with an account. Invite people, make somebody a Head or an Admin, and export the roster. Block stops an account without removing it, and Unblock puts everything back. Each card says how old the person is, and “Under 18” beside the name where they are. Family on a person’s card links them to their husband or wife, children or parents on the app, with nobody having to confirm, and writes in the ones who are not on the app yet.',
       },
       {
         path: '/departments',
