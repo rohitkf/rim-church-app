@@ -8,6 +8,7 @@ import { Lifespan } from '../components/Lifespan'
 import { pounds } from '../lib/money'
 import { registerUrl } from '../lib/registrationLinks'
 import { useNow } from '../lib/timeLeft'
+import { ClearingLine } from '../components/RegistrationClearing'
 import { REGISTRATIONS_KEY, STATUS_TONE, STATUS_WORDS, fetchRegistrationEvents, groupEvents, sweepRegistrationFiles, whenWords, type EventSummary } from '../lib/registrations'
 
 /**
@@ -92,7 +93,7 @@ export function RegistrationsPage() {
             </h2>
             <ul aria-label={g.title} className="mt-3 flex flex-col gap-3">
               {g.events.map((e) => (
-                <EventCard key={e.id} event={e} past={g.key === 'done' && e.status === 'published'} />
+                <EventCard key={e.id} event={e} past={g.key === 'done' && e.status === 'published'} now={now} />
               ))}
             </ul>
           </section>
@@ -103,7 +104,7 @@ export function RegistrationsPage() {
 }
 
 
-function EventCard({ event, past }: { event: EventSummary; past: boolean }) {
+function EventCard({ event, past, now }: { event: EventSummary; past: boolean; now: Date }) {
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const link = registerUrl(event.slug)
@@ -159,6 +160,8 @@ function EventCard({ event, past }: { event: EventSummary; past: boolean }) {
           {/* Let go, not received: said beside the money, never inside it. */}
           {event.waived_pence > 0 && ` · ${pounds(event.waived_pence)} waived`}
         </p>
+        {/* A finished event: how long until people's details are taken off its registrations. */}
+        <ClearingLine lastEndsAt={event.last_ends_at} anonymised={event.anonymised} now={now} />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">

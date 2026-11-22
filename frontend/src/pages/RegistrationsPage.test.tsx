@@ -62,6 +62,7 @@ const summary = (over: Partial<EventSummary>): EventSummary => ({
   owed: 0,
   first_starts_at: daysOn(18),
   last_ends_at: daysOn(18),
+  anonymised: false,
   ...over,
 })
 
@@ -97,6 +98,41 @@ describe('the Registrations page', () => {
     const draft = screen.getByRole('listitem', { name: 'Youth Night' })
     expect(within(draft).getByText('Draft')).toBeInTheDocument()
     expect(within(draft).getByText(/No date yet/)).toBeInTheDocument()
+  })
+
+  /*
+   * A finished event counts down to the night people's details come off
+   * its registrations (the Owner's ask, November 2026). The event itself
+   * is not deleted by anything, and the line does not say it is.
+   */
+  it('counts a finished event down to when names and contact details are removed', async () => {
+    state.events = [
+      summary({ id: 'done', title: 'Harvest Supper', status: 'closed', first_starts_at: daysOn(-10), last_ends_at: daysOn(-10) }),
+      summary({ id: 'open', title: 'Carol Service' }),
+    ]
+    show()
+    const done = await screen.findByRole('listitem', { name: 'Harvest Supper' })
+    // Ninety days from its last date, then the night's run: 79 or 80 days left, to the hour.
+    expect(within(done).getByRole('timer')).toHaveTextContent(/^Names and contact details removed in (79|80) days \d+ hrs?$/)
+    // Nothing is counting on an event still to come.
+    const open = screen.getByRole('listitem', { name: 'Carol Service' })
+    expect(within(open).queryByRole('timer')).toBeNull()
+    expect(within(open).queryByText(/removed/)).toBeNull()
+  })
+
+  it('says so, without a count, once they have been removed', async () => {
+    state.events = [summary({ id: 'old', title: 'Easter Retreat', status: 'closed', first_starts_at: daysOn(-200), last_ends_at: daysOn(-200), anonymised: true })]
+    show()
+    const old = await screen.findByRole('listitem', { name: 'Easter Retreat' })
+    expect(within(old).getByText('Names and contact details removed')).toBeInTheDocument()
+    expect(within(old).queryByRole('timer')).toBeNull()
+  })
+
+  it('says tonight for one whose days have run out and which still has its names', async () => {
+    state.events = [summary({ id: 'due', title: 'Summer Camp', status: 'closed', first_starts_at: daysOn(-100), last_ends_at: daysOn(-100) })]
+    show()
+    const due = await screen.findByRole('listitem', { name: 'Summer Camp' })
+    expect(within(due).getByText('Names and contact details removed tonight')).toBeInTheDocument()
   })
 
   it('says what was waived beside the money received, never inside it', async () => {

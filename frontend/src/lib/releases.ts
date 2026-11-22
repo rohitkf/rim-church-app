@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'finished-events-count-down',
+    date: '2026-11-22',
+    title: 'A finished event counts down to its clear-up',
+    lead: 'Some time after an event’s last date, the names, emails and phone numbers on its registrations are removed overnight. A finished event now says how long is left.',
+    points: [
+      'On Registrations, each finished event has a line: “Names and contact details removed in 89 days 14 hrs”.',
+      'The event’s own page has the full countdown, the date, and a reminder to export to Excel first if the names are needed.',
+      'Nothing deletes the event itself: the orders, ticket codes and sums stay until somebody deletes it.',
+    ],
+    link: { to: '/registrations', label: 'Open Registrations' },
+    page: '/registrations',
+  },
+  {
     key: 'dbs-details-and-verified',
     date: '2026-11-22',
     title: 'A DBS check now has its details, and gets verified',
