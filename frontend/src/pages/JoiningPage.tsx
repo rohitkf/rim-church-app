@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { Select, triggerClasses } from '../components/Select'
 import { DateField } from '../components/DateTimeFields'
 import { todayIso } from '../lib/monthGrid'
+import { OneNameBox } from '../components/OneNameBox'
 import { latestOwnDob } from '../lib/ownAge'
 import { AppMark } from '../components/AppMark'
 import { PhoneField } from '../components/PhoneField'
@@ -199,6 +200,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
   const answers: JoiningAnswers = {
     firstName: edits.firstName ?? profile?.first_name ?? '',
     lastName: edits.lastName ?? profile?.last_name ?? '',
+    singleName: edits.singleName ?? profile?.single_name === true,
     phone: edits.phone ?? profile?.phone ?? '',
     dob: edits.dob ?? profile?.dob ?? '',
     maritalStatus: edits.maritalStatus ?? savedMarital,
@@ -396,12 +398,18 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
                   onChange={(e) => set('lastName', e.target.value)}
                   onBlur={() => set('lastName', tidyName(answers.lastName))}
                   autoComplete="family-name"
+                  // One name: nothing to type here (0323).
+                  disabled={answers.singleName === true}
                   {...described('lastName')}
-                  className={`${inputClasses} ${redRing('lastName')}`}
+                  className={`${inputClasses} ${redRing('lastName')} disabled:opacity-50`}
                 />
                 {problem('lastName')}
               </label>
             </div>
+            <OneNameBox
+              checked={answers.singleName === true}
+              onChange={(one) => setEdits((current) => ({ ...current, singleName: one, ...(one ? { lastName: '' } : {}) }))}
+            />
             <div id={joiningFieldId('phone')} className="flex flex-col gap-1.5">
               <PhoneField
                 value={answers.phone}

@@ -299,3 +299,71 @@ describe('an address whose domain takes no mail', () => {
     expect(await screen.findByRole('dialog', { name: 'Is this your email address?' })).toBeInTheDocument()
   })
 })
+
+/*
+ * Somebody with one name (0323). A last name was compulsory, so they had
+ * to make one up; a box says so instead, and the account is made knowing.
+ */
+describe('signing up with one name', () => {
+  async function fillInOne(first: string, { tick = true, last = '' } = {}) {
+    render(
+      <MemoryRouter>
+        <SignupPage />
+      </MemoryRouter>,
+    )
+    const user = userEvent.setup()
+    const [firstBox, lastBox] = screen.getAllByRole('textbox')
+    await user.type(firstBox, first)
+    if (last) await user.type(lastBox, last)
+    if (tick) await user.click(screen.getByRole('checkbox', { name: /I only have one name/ }))
+    await user.type(screen.getByRole('textbox', { name: 'Email' }), 'cher@gmail.com')
+    await user.type(screen.getByRole('textbox', { name: 'Confirm email' }), 'cher@gmail.com')
+    const passwords = document.querySelectorAll('input[type="password"]')
+    await user.type(passwords[0] as HTMLElement, 'Sunday-Rota-9')
+    await user.type(passwords[1] as HTMLElement, 'Sunday-Rota-9')
+    await user.click(screen.getByRole('button', { name: 'Sign up' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Checking the address…' })).toBeNull())
+    const asked = screen.queryByRole('dialog', { name: 'Is this your email address?' })
+    if (asked) await user.click(await screen.findByRole('button', { name: 'Yes, it’s right — Sign up' }))
+    return { user, lastBox }
+  }
+
+  it('offers the box under the names, and says what ticking it means', () => {
+    render(
+      <MemoryRouter>
+        <SignupPage />
+      </MemoryRouter>,
+    )
+    const box = screen.getByRole('checkbox', { name: /I only have one name/ })
+    expect(box).not.toBeChecked()
+    expect(screen.getByText('Tick this if you have no last name. You will not be asked for one.')).toBeInTheDocument()
+  })
+
+  it('makes the account with no last name, and says they have one name', async () => {
+    await fillInOne('cher')
+    await screen.findByRole('dialog', { name: 'Check your email' })
+    expect(auth.calls[0].data).toEqual({ first_name: 'Cher', last_name: '', single_name: true })
+  })
+
+  it('empties and locks the last name box when it is ticked, whatever was typed there', async () => {
+    const { lastBox } = await fillInOne('cher', { last: 'Sarkisian' })
+    expect(lastBox).toHaveValue('')
+    expect(lastBox).toBeDisabled()
+    expect(lastBox).not.toBeRequired()
+    await screen.findByRole('dialog', { name: 'Check your email' })
+    expect(auth.calls[0].data).toEqual({ first_name: 'Cher', last_name: '', single_name: true })
+  })
+
+  it('still asks for a last name of somebody who has not ticked it', async () => {
+    await fillInOne('cher', { tick: false })
+    expect(screen.getAllByRole('textbox')[1]).toBeRequired()
+    expect(auth.calls).toHaveLength(0)
+  })
+
+  it('says nothing of one name for somebody with two', async () => {
+    await fillIn()
+    await screen.findByRole('dialog', { name: 'Check your email' })
+    expect(auth.calls[0].data).toEqual({ first_name: 'Ada', last_name: 'Grace' })
+  })
+})
+

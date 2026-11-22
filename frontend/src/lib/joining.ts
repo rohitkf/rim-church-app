@@ -70,6 +70,12 @@ export function maritalLabel(value: string | null | undefined): string | null {
 export interface JoiningAnswers {
   firstName: string
   lastName: string
+  /**
+   * "I only have one name" (0323): no last name to give, and none asked
+   * for. Optional so everything that builds answers without it still
+   * means "has two".
+   */
+  singleName?: boolean
   phone: string
   dob: string
   maritalStatus: MaritalStatus | ''
@@ -191,7 +197,8 @@ export const JOINING_FORM = 4
 export function missingAnswers(answers: JoiningAnswers): (keyof JoiningAnswers)[] {
   const missing: (keyof JoiningAnswers)[] = []
   if (!answers.firstName.trim()) missing.push('firstName')
-  if (!answers.lastName.trim()) missing.push('lastName')
+  // Somebody with one name has no last name to give (0323).
+  if (!answers.lastName.trim() && !answers.singleName) missing.push('lastName')
   if (!answers.phone.trim()) missing.push('phone')
   if (!answers.dob) missing.push('dob')
   if (!answers.maritalStatus) missing.push('maritalStatus')
@@ -222,7 +229,8 @@ export function missingAnswers(answers: JoiningAnswers): (keyof JoiningAnswers)[
  */
 export const MISSING_TEXT: Record<keyof JoiningAnswers, { label: string; message: string }> = {
   firstName: { label: 'First name', message: 'Enter your first name.' },
-  lastName: { label: 'Last name', message: 'Enter your last name.' },
+  lastName: { label: 'Last name', message: 'Enter your last name, or tick “I only have one name”.' },
+  singleName: { label: 'One name only', message: '' },
   phone: { label: 'Phone number', message: 'Enter your phone number.' },
   dob: { label: 'Date of birth', message: 'Choose your date of birth.' },
   maritalStatus: { label: 'Marital status', message: 'Choose your marital status.' },
@@ -266,7 +274,8 @@ export function invalidAnswers(
   const bad: Partial<Record<keyof JoiningAnswers, string>> = {}
   const first = ownNameProblem(answers.firstName, 'First name')
   if (first) bad.firstName = first
-  const last = ownNameProblem(answers.lastName, 'Last name')
+  // With one name there is no last name to be wrong.
+  const last = answers.singleName ? null : ownNameProblem(answers.lastName, 'Last name')
   if (last) bad.lastName = last
 
   const year = (iso: string) => Number(iso.slice(0, 4))
@@ -344,7 +353,9 @@ export function toProfileRows(answers: JoiningAnswers): {
   return {
     profile: {
       first_name: tidyName(answers.firstName),
-      last_name: tidyName(answers.lastName),
+      // One name: the last name is empty, and the two are saved together (the database holds them to it, 0323).
+      last_name: answers.singleName ? '' : tidyName(answers.lastName),
+      single_name: answers.singleName === true,
       phone: answers.phone.trim() || null,
       dob: answers.dob || null,
       marital_status: answers.maritalStatus || null,

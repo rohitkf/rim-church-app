@@ -38,6 +38,10 @@ const state = vi.hoisted(() => ({
   addresses: [] as { line1: string; line2: string; town: string; postcode: string }[],
   /** Their date of birth as saved: none, or one left where the picker opened (0321). */
   dob: null as string | null,
+  /** Their last name as saved; empty for somebody who never gave one. */
+  lastName: 'Mensah',
+  /** Whether they have said they have one name (0323). */
+  singleName: false,
 }))
 
 vi.mock('../auth/AuthContext', () => ({
@@ -46,7 +50,8 @@ vi.mock('../auth/AuthContext', () => ({
     profile: {
       id: 'u1',
       first_name: 'Grace',
-      last_name: 'Mensah',
+      last_name: state.lastName,
+      single_name: state.singleName,
       email: 'grace@example.com',
       phone: '+447911123456',
       dob: state.dob,
@@ -100,6 +105,8 @@ beforeEach(() => {
   state.refreshed = 0
   state.addresses = []
   state.dob = null
+  state.lastName = 'Mensah'
+  state.singleName = false
   state.home = { id: 'h1', address_line1: '1 High Street', address_line2: null, town: 'Leeds', postcode: 'LS1 1AA' }
   state.emergency = { name: 'Ama Mensah', relation: 'mother', phone: '+447812345678' }
 })
@@ -329,6 +336,54 @@ describe('completing a profile whose date of birth cannot be right', () => {
     state.dob = '1850-06-01'
     render(<JoiningPage completing />)
     expect(await screen.findByText('That date of birth is more than 110 years ago. Check the year.')).toBeInTheDocument()
+  })
+})
+
+/*
+ * Somebody with one name (0323). They were held here for ever by a last
+ * name they do not have; now a box says so, and they are let in.
+ */
+describe('completing a profile with no last name', () => {
+  beforeEach(() => {
+    state.dob = '1990-04-12'
+    state.lastName = ''
+  })
+
+  it('names the last name as missing, and says the box is there', async () => {
+    render(<JoiningPage completing />)
+    const alert = await screen.findByRole('alert')
+    await waitFor(() => expect(within(alert).getAllByRole('button').map((b) => b.textContent)).toEqual(['Last name']))
+    expect(screen.getByText('Enter your last name, or tick “I only have one name”.')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /I only have one name/ })).not.toBeChecked()
+  })
+
+  it('lets them in once they tick it, saving no last name and that they have one name', async () => {
+    const user = userEvent.setup()
+    render(<JoiningPage completing />)
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Your status in the UK' })).toHaveTextContent('Student visa'))
+    await user.click(screen.getByRole('checkbox', { name: /I only have one name/ }))
+    expect(screen.queryByText(/Enter your last name/)).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Save and carry on' }))
+    await waitFor(() => expect(state.refreshed).toBe(1))
+    expect(state.written.find((w) => w.table === 'profiles')!.row).toMatchObject({ first_name: 'Grace', last_name: '', single_name: true })
+  })
+
+  it('shows the box ticked, and asks for nothing, for somebody who has already said so', async () => {
+    state.singleName = true
+    render(<JoiningPage completing />)
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Your status in the UK' })).toHaveTextContent('Student visa'))
+    expect(screen.getByRole('checkbox', { name: /I only have one name/ })).toBeChecked()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('empties a last name already typed when the box is ticked', async () => {
+    state.lastName = 'Mensah'
+    const user = userEvent.setup()
+    render(<JoiningPage completing />)
+    const last = screen.getByDisplayValue('Mensah')
+    await user.click(screen.getByRole('checkbox', { name: /I only have one name/ }))
+    expect(last).toHaveValue('')
+    expect(last).toBeDisabled()
   })
 })
 

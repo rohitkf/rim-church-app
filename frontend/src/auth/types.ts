@@ -24,6 +24,11 @@ export const profileSchema = z.object({
   id: z.string(),
   first_name: z.string(),
   last_name: z.string(),
+  /**
+   * They have said they have one name only (0323): `last_name` is empty
+   * and is not asked for. Absent from a database that has not had 0323.
+   */
+  single_name: z.boolean().nullable().optional(),
   dob: z.string().nullable(),
   anniversary: z.string().nullable().optional(),
   email: z.string(),

@@ -6,6 +6,7 @@ import { isMissingColumnError } from '../lib/missingColumn'
 import { Select } from '../components/Select'
 import { DateField } from '../components/DateTimeFields'
 import { todayIso } from '../lib/monthGrid'
+import { OneNameBox } from '../components/OneNameBox'
 import { latestOwnDob, ownDobProblem } from '../lib/ownAge'
 import { SectionTile, inputClasses } from '../components/Surface'
 import {
@@ -32,6 +33,8 @@ const labelClasses = 'flex flex-col gap-2 text-body-sm text-on-surface-variant'
 function coreOf(
   first: string,
   last: string,
+  /** "I only have one name" (0323): saved with an empty last name, the two together. */
+  single: boolean,
   phone: string,
   dob: string,
   marital: string,
@@ -40,7 +43,8 @@ function coreOf(
 ) {
   return {
     first_name: tidyName(first),
-    last_name: tidyName(last),
+    last_name: single ? '' : tidyName(last),
+    single_name: single,
     phone: phone.trim() || null,
     dob: dob || null,
     marital_status: marital || null,
@@ -70,6 +74,7 @@ export function ProfilePage() {
   const { profile, refreshProfile } = useAuth()
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
+  const [singleName, setSingleName] = useState(false)
   const [phone, setPhone] = useState('')
   const [dob, setDob] = useState('')
   const [anniversary, setAnniversary] = useState('')
@@ -96,6 +101,7 @@ export function ProfilePage() {
     loadedFor.current = profile.id
     setFirstName(profile.first_name)
     setLastName(profile.last_name)
+    setSingleName(profile.single_name === true)
     setPhone(profile.phone ?? '')
     setDob(profile.dob ?? '')
     setAnniversary(profile.anniversary ?? '')
@@ -110,7 +116,7 @@ export function ProfilePage() {
     setEmergencyRelation(emergency.relation)
     setEmergencyPhone(emergency.phone)
     savedEmergency.current = emergency
-    savedCore.current = JSON.stringify(coreOf(profile.first_name, profile.last_name, profile.phone ?? '', profile.dob ?? '', profile.marital_status ?? '', profile.anniversary ?? '', emergency))
+    savedCore.current = JSON.stringify(coreOf(profile.first_name, profile.last_name, profile.single_name === true, profile.phone ?? '', profile.dob ?? '', profile.marital_status ?? '', profile.anniversary ?? '', emergency))
   }, [profile])
 
   /*
@@ -134,7 +140,8 @@ export function ProfilePage() {
    * it, in a toast every time a key was pressed.
    */
   const firstProblem = nameProblem(firstName, 'First name')
-  const lastProblem = nameProblem(lastName, 'Last name')
+  // With one name there is no last name to be wrong.
+  const lastProblem = singleName ? null : nameProblem(lastName, 'Last name')
   const nameWaits = firstProblem ?? lastProblem
 
   const profileId = profile?.id
@@ -167,9 +174,10 @@ export function ProfilePage() {
     const emergency = emergencyWaits
       ? savedEmergency.current
       : { name: emergencyName, relation: emergencyRelation, phone: emergencyPhone }
-    const core = coreOf(firstName, lastName, phone, dob, maritalStatus, anniversary, emergency)
+    const core = coreOf(firstName, lastName, singleName, phone, dob, maritalStatus, anniversary, emergency)
     const json = JSON.stringify(core)
-    if (json === savedCore.current || !firstName.trim() || !lastName.trim() || nameWaits) return
+    // A cleared last name waits, unless they have said they have one name (0323).
+    if (json === savedCore.current || !firstName.trim() || (!lastName.trim() && !singleName) || nameWaits) return
     // A date of birth that cannot be theirs waits to be put right (0321): the
     // note under it says what is wrong, and nothing is saved over what was there.
     if (ownDobProblem(dob) && (core.dob ?? null) !== ((JSON.parse(savedCore.current) as { dob?: string | null }).dob ?? null)) return
@@ -189,7 +197,7 @@ export function ProfilePage() {
       refreshProfile()
     }, 900)
     return () => window.clearTimeout(timer)
-  }, [profileId, firstName, lastName, phone, dob, maritalStatus, anniversary, emergencyName, emergencyRelation, emergencyPhone, emergencyWaits, nameWaits, refreshProfile, errorText])
+  }, [profileId, firstName, lastName, singleName, phone, dob, maritalStatus, anniversary, emergencyName, emergencyRelation, emergencyPhone, emergencyWaits, nameWaits, refreshProfile, errorText])
 
   useEffect(() => {
     if (!profileId || !sensitive || savedSensitive.current === null) return
@@ -235,17 +243,26 @@ export function ProfilePage() {
           <label className={`min-w-0 flex-1 ${labelClasses}`}>
             Last name
             <input
-              required
+              required={!singleName}
+              disabled={singleName}
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               onBlur={() => setLastName(tidyName(lastName))}
               autoComplete="family-name"
               aria-invalid={lastProblem ? true : undefined}
               aria-describedby={lastProblem ? 'profile-name-waits' : undefined}
-              className={`${inputClasses} ${lastProblem ? 'field-error' : ''}`}
+              className={`${inputClasses} ${lastProblem ? 'field-error' : ''} disabled:opacity-50`}
             />
           </label>
         </div>
+        <OneNameBox
+          className="mt-3"
+          checked={singleName}
+          onChange={(one) => {
+            setSingleName(one)
+            if (one) setLastName('')
+          }}
+        />
         {/* Outside the labels: words inside one become part of the field's name. */}
         {nameWaits && (
           <p id="profile-name-waits" role="status" className="mt-3 text-label-sm text-error">
