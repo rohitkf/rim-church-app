@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'countdown-to-the-service',
+    date: '2026-11-22',
+    title: 'Countdown also counts to the service',
+    lead: 'The Countdown page now has a second section under the sessions: how long until the service starts.',
+    points: [
+      'Before a service begins, it counts down to that service’s start, so the page is no longer blank beforehand.',
+      'Once a service is running, it counts down to the next one, whether that is later the same day or next week.',
+      'The sessions’ clock above it is unchanged.',
+    ],
+    link: { to: '/countdown', label: 'Open Countdown' },
+    page: '/countdown',
+  },
+  {
     key: 'a-confirmation-link-lands-on-sign-in',
     date: '2026-11-21',
     title: 'The link in a confirmation email opens the app',

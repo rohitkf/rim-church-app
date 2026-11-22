@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CountdownPage } from './CountdownPage'
@@ -115,13 +115,15 @@ describe('the Countdown page', () => {
     expect(screen.getByText(/Over the planned end/)).toBeInTheDocument()
   })
 
-  it('shows a blank clock before the service starts, not a countdown to it', async () => {
+  it('shows a blank session clock before the service starts: the countdown to it is the section below', async () => {
     vi.setSystemTime(at('09:00'))
     show()
     expect(await screen.findByText('--:--:--')).toBeInTheDocument()
     expect(screen.getByText('No service running')).toBeInTheDocument()
-    expect(screen.queryByRole('timer')).toBeNull()
-    expect(screen.queryByText(/English Service/)).toBeNull()
+    // The only clock running is the one in the Service section, to the start.
+    const timers = screen.getAllByRole('timer')
+    expect(timers).toHaveLength(1)
+    expect(within(screen.getByRole('region', { name: 'Service' })).getByRole('timer')).toBe(timers[0])
   })
 
   it('shows a blank clock once the service has been called over', async () => {
@@ -294,5 +296,136 @@ describe('the sign on the Countdown’s number', () => {
     vi.setSystemTime(at('10:10'))
     show()
     expect((await screen.findByRole('timer')).textContent).toBe('20:00')
+  })
+})
+
+/*
+ * The second section: the service itself. Before one starts it counts to
+ * that start; once one is running it counts to the one after. The Owner:
+ * "the countdown page has 2 sections: one is to show countdown of
+ * sessions. Below is another section showing countdown until service
+ * starts or next service starts."
+ */
+describe('the Countdown’s second section, for the service', () => {
+  const on = (day: string, hhmm: string) => new Date(`${day}T${hhmm}:00`).toISOString()
+  const NEXT_SUNDAY = '2026-09-13'
+  const later = (id: string, service: string, day: string, hhmm: string) => session(id, 'Worship', '10:00', 30, 0, { service_id: service, start_time: on(day, hhmm) })
+
+  it('counts to the service’s start before it begins, and names it', async () => {
+    vi.setSystemTime(at('09:00'))
+    show()
+    const section = within(await screen.findByRole('region', { name: 'Service' }))
+    expect(section.getByRole('timer')).toHaveTextContent('1:00:00')
+    expect(section.getByRole('timer')).toHaveAccessibleName('1 hour until English Service starts')
+    expect(section.getByText('English Service')).toBeInTheDocument()
+    expect(section.getByText(/starts in/)).toBeInTheDocument()
+    // When that is: the time alone, the day not being in question.
+    expect(section.getByText(/^Starts/)).toHaveTextContent(/^Starts · 10:00/)
+    expect(section.getByRole('link', { name: 'Running order' })).toHaveAttribute('href', '/service-planner/svc')
+    // Not called "next" while nothing is on.
+    expect(screen.queryByRole('region', { name: 'Next service' })).toBeNull()
+  })
+
+  it('sits under the session clock, not above it', async () => {
+    vi.setSystemTime(at('09:00'))
+    show()
+    const blank = await screen.findByText('--:--:--')
+    const section = screen.getByRole('region', { name: 'Service' })
+    expect(blank.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('counts to the next service once one is running: a later one the same day', async () => {
+    db.rows.services = [
+      { id: 'svc', date: SUNDAY, service_type: 'English Service', ended_at: null },
+      { id: 'mal', date: SUNDAY, service_type: 'Malayalam Service', ended_at: null },
+    ]
+    db.rows.service_sessions = [
+      session('s1', 'Worship', '10:00', 30, 0),
+      session('s2', 'Notices', '10:30', 10, 1),
+      later('m1', 'mal', SUNDAY, '12:00'),
+    ]
+    vi.setSystemTime(at('10:10'))
+    show()
+    const section = within(await screen.findByRole('region', { name: 'Next service' }))
+    expect(section.getByRole('timer')).toHaveTextContent('1:50:00')
+    expect(section.getByText('Malayalam Service')).toBeInTheDocument()
+    expect(section.getByRole('link', { name: 'Running order' })).toHaveAttribute('href', '/service-planner/mal')
+    // The session clock above is still its own number.
+    const timers = screen.getAllByRole('timer')
+    expect(timers).toHaveLength(2)
+    expect(timers[0]).toHaveTextContent('20:00')
+    // And the section is not called just "Service" while one is on.
+    expect(screen.queryByRole('region', { name: 'Service' })).toBeNull()
+  })
+
+  it('counts in days to next week’s, when that is what comes next', async () => {
+    db.rows.services = [
+      { id: 'svc', date: SUNDAY, service_type: 'English Service', ended_at: null },
+      { id: 'nxt', date: NEXT_SUNDAY, service_type: 'English Service', ended_at: null },
+    ]
+    db.rows.service_sessions = [session('s1', 'Worship', '10:00', 30, 0), later('n1', 'nxt', NEXT_SUNDAY, '10:00')]
+    vi.setSystemTime(at('10:10'))
+    show()
+    const section = within(await screen.findByRole('region', { name: 'Next service' }))
+    expect(section.getByRole('timer')).toHaveTextContent('6d 23:50:00')
+    expect(section.getByRole('timer')).toHaveAccessibleName('6 days 23 hours until English Service starts')
+    // A week off, the day is said with the time.
+    expect(section.getByText(/^Starts/)).toHaveTextContent(/^Starts .*13.* · 10:00/)
+    expect(section.getByRole('link', { name: 'Running order' })).toHaveAttribute('href', '/service-planner/nxt')
+  })
+
+  it('says nothing is planned after this one, when nothing is', async () => {
+    vi.setSystemTime(at('10:10'))
+    show()
+    const section = within(await screen.findByRole('region', { name: 'Next service' }))
+    expect(section.getByText('Nothing is planned after this one yet.')).toBeInTheDocument()
+    expect(section.queryByRole('timer')).toBeNull()
+  })
+
+  it('says no service is planned, when there is none at all', async () => {
+    db.rows.services = []
+    db.rows.service_sessions = []
+    vi.setSystemTime(at('08:00'))
+    show()
+    const section = within(await screen.findByRole('region', { name: 'Service' }))
+    expect(section.getByText('No service with a running order is planned yet.')).toBeInTheDocument()
+  })
+
+  it('passes over a service that has no running order, and one that is over', async () => {
+    db.rows.services = [
+      { id: 'svc', date: SUNDAY, service_type: 'English Service', ended_at: at('11:10').toISOString() },
+      { id: 'bare', date: SUNDAY, service_type: 'Prayer Meeting', ended_at: null },
+      { id: 'nxt', date: NEXT_SUNDAY, service_type: 'Malayalam Service', ended_at: null },
+    ]
+    db.rows.service_sessions = [session('s1', 'Worship', '10:00', 30, 0), later('n1', 'nxt', NEXT_SUNDAY, '10:00')]
+    vi.setSystemTime(at('11:15'))
+    show()
+    const section = within(await screen.findByRole('region', { name: 'Service' }))
+    expect(section.getByText('Malayalam Service')).toBeInTheDocument()
+    expect(section.queryByText('Prayer Meeting')).toBeNull()
+  })
+
+  it('moves on to the one after at the moment a service starts', async () => {
+    db.rows.services = [
+      { id: 'svc', date: SUNDAY, service_type: 'English Service', ended_at: null },
+      { id: 'nxt', date: NEXT_SUNDAY, service_type: 'Malayalam Service', ended_at: null },
+    ]
+    db.rows.service_sessions = [session('s1', 'Worship', '10:00', 30, 0), later('n1', 'nxt', NEXT_SUNDAY, '10:00')]
+    vi.setSystemTime(new Date(at('09:59').getTime() + 58_000))
+    const before = show()
+    expect(within(await screen.findByRole('region', { name: 'Service' })).getByText('English Service')).toBeInTheDocument()
+    before.unmount()
+    vi.setSystemTime(new Date(at('10:00').getTime() + 1_000))
+    show()
+    expect(within(await screen.findByRole('region', { name: 'Next service' })).getByText('Malayalam Service')).toBeInTheDocument()
+  })
+
+  it('is sized to its card, and has no minus or plus: nothing runs late there', async () => {
+    vi.setSystemTime(at('09:00'))
+    show()
+    const timer = within(await screen.findByRole('region', { name: 'Service' })).getByRole('timer')
+    expect(timer.style.fontSize).toMatch(/^min\(clamp\(3rem, 15vw, 8\.5rem\), [\d.]+cqi\)$/)
+    expect(timer.textContent).not.toMatch(/[+−-]/)
+    expect(timer).toHaveClass('text-accent-blue-soft')
   })
 })
