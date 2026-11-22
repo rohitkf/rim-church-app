@@ -46,6 +46,21 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'link-a-family-for-them',
+    date: '2026-11-22',
+    title: 'Link families yourself',
+    lead: 'On Volunteers, every person’s card now has a Family button. It links two people on the app as husband and wife, or a child to their parents, straight away.',
+    points: [
+      'Nobody has to confirm. Each person whose family changes gets a notification, and sees who on their own profile.',
+      'A child linked to one of a couple is the child of both. Unlink is in the same place.',
+      'It refuses what cannot be right, and says why: a second husband or wife, or a child who is already linked to another parent.',
+      'Families can still link themselves from their profiles, as before. Admins have this out of the box; Settings › Permissions has it as “Link families”.',
+    ],
+    link: { to: '/volunteers', label: 'Open Volunteers' },
+    page: '/volunteers',
+    holds: ['people.family'],
+  },
+  {
     key: 'countdown-joins-the-same-persons-sessions',
     date: '2026-11-22',
     title: 'Countdown counts one person’s sessions together',

@@ -21,7 +21,8 @@ export function PersonPicker({
   placeholder?: string
   myId?: string
   onPick: (person: Suggestion) => void
-  onWriteIn: (typed: string) => void
+  /** Left out where only an account will do (linking two accounts, 0319): nothing is offered by hand. */
+  onWriteIn?: (typed: string) => void
 }) {
   const [typed, setTyped] = useState('')
   const [found, setFound] = useState<Suggestion[]>([])
@@ -73,7 +74,7 @@ export function PersonPicker({
           ))}
         </ul>
       )}
-      {typed.trim().length >= 2 && (
+      {onWriteIn && typed.trim().length >= 2 && (
         <button
           type="button"
           onClick={() => onWriteIn(typed.trim())}
