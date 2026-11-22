@@ -46,6 +46,20 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'write-a-family-member-in',
+    date: '2026-11-22',
+    title: 'Add family who are not on the app',
+    lead: 'The Family button on Volunteers now takes people who have no account: type their name and choose “Not on the app? Add by hand”.',
+    points: [
+      'A husband or wife, a child or a parent: their name and date of birth, and for a child whether a boy or a girl, the school and the year.',
+      'They are listed with “No account”, and can be changed or removed from the same place. The family sees them on their own profile and is told.',
+      'When they join the app, link their account from Family and it takes the written entry’s place.',
+    ],
+    link: { to: '/volunteers', label: 'Open Volunteers' },
+    page: '/volunteers',
+    holds: ['people.family'],
+  },
+  {
     key: 'link-a-family-for-them',
     date: '2026-11-22',
     title: 'Link families yourself',

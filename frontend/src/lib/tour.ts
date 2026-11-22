@@ -446,7 +446,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/volunteers',
         target: 'people-invite',
         title: 'Volunteers',
-        body: 'Everybody with an account. Invite people, make somebody a Head or an Admin, and export the roster. Block stops an account without removing it, and Unblock puts everything back. Family on a person’s card links them to their husband or wife, children or parents on the app, with nobody having to confirm.',
+        body: 'Everybody with an account. Invite people, make somebody a Head or an Admin, and export the roster. Block stops an account without removing it, and Unblock puts everything back. Family on a person’s card links them to their husband or wife, children or parents on the app, with nobody having to confirm, and writes in the ones who are not on the app yet.',
       },
       {
         path: '/departments',

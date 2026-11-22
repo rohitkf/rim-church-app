@@ -1,27 +1,33 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Overlay } from './Surface'
+import { PersonForm } from './FamilyCard'
 import { PersonPicker } from './PersonPicker'
 import { QueryState } from './QueryState'
 import { Select } from './Select'
 import { useErrorText } from '../lib/useErrorText'
-import type { Relation, Suggestion } from '../lib/family'
+import { EMPTY_PERSON, type PersonDraft, type Relation, type Suggestion } from '../lib/family'
 import {
   FAMILY_RELATIONS,
   FAMILY_WORDS,
+  LIST_OF,
+  draftOf,
   familyOfKey,
   fetchFamilyOf,
   fullName,
   linkFamily,
+  removeFamilyPerson,
+  saveFamilyPerson,
   unlinkFamily,
   unlinkWords,
-  writtenWords,
+  writtenDetails,
   type FamilyOf,
   type LinkedPerson,
+  type WrittenPerson,
 } from '../lib/familyLinks'
 
 /**
- * One person's family, and linking somebody to it (0319).
+ * One person's family, and adding somebody to it (0319, 0320).
  *
  * For whoever holds `people.family`: the Owner asked to be able to link
  * members himself — "husband and wife. Or kids to their parents" — where
@@ -29,14 +35,19 @@ import {
  * This is that link made directly: nobody is asked, and everybody whose
  * household changes is told.
  *
- * It shows the accounts linked to the person and how many people are
- * written in by hand, never who those are: a household's own details are
- * the family's (lib/familyLinks).
+ * Somebody who is not on the app is written in by hand (0320: "For those
+ * who aren't in the app, give the ability to add the details manually
+ * (until they come as a member in future)"): the name box offers it as
+ * soon as a name is typed, with the form the family's own profile uses.
+ * When that person joins, linking their account takes the entry's place.
+ *
+ * It shows who is linked and who is written in, with what is written
+ * about them, and never a family's address (lib/familyLinks).
  *
  * Nothing here is one tap. Choosing a name shows what is about to be
- * linked and asks; Unlink says what it takes away and asks. A link tells
- * two people something about their family, so a slip of the thumb must
- * not be one.
+ * linked and asks; Unlink and Remove say what they take away and ask. A
+ * change tells a family something about itself, so a slip of the thumb
+ * must not be one.
  */
 export function FamilyLinksDialog({
   person,
@@ -48,8 +59,10 @@ export function FamilyLinksDialog({
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [relation, setRelation] = useState<Relation>('spouse')
-  const [chosen, setChosen] = useState<Suggestion | null>(null)
-  const [unlinking, setUnlinking] = useState<{ who: LinkedPerson; relation: Relation } | null>(null)
+  // What is being added: an account that was chosen, or somebody being written in.
+  const [adding, setAdding] = useState<{ account: Suggestion } | { draft: PersonDraft } | null>(null)
+  // The one row that is open: asked about, or being changed.
+  const [open, setOpen] = useState<{ id: string; mode: 'unlink' | 'edit' | 'remove' } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [said, setSaid] = useState<string | null>(null)
 
@@ -59,67 +72,93 @@ export function FamilyLinksDialog({
   const query = useQuery({ queryKey: familyOfKey(person.id), queryFn: () => fetchFamilyOf(person.id) })
 
   const settled = (words: string) => {
-    setChosen(null)
-    setUnlinking(null)
+    setAdding(null)
+    setOpen(null)
     setError(null)
     setSaid(words)
     // The household, and the diary's couples, wherever they are shown.
     void queryClient.invalidateQueries({ queryKey: ['family'] })
     void queryClient.invalidateQueries({ queryKey: ['married-couples'] })
   }
+  const failed = (fallback: string) => (err: unknown) => {
+    setSaid(null)
+    setError(errorText(err, fallback))
+  }
+  /** Starting something new clears what the last thing said. */
+  const begin = () => {
+    setError(null)
+    setSaid(null)
+  }
 
   const link = useMutation({
     mutationFn: (v: { to: Suggestion; relation: Relation }) => linkFamily(person.id, v.to.id, v.relation),
     onSuccess: (_d, v) => settled(`${fullName(v.to)} is now linked as ${first}’s ${FAMILY_WORDS[v.relation].one}. They have both been told.`),
-    onError: (err: unknown) => {
-      setSaid(null)
-      setError(errorText(err, 'Could not link them.'))
-    },
+    onError: failed('Could not link them.'),
   })
   const unlink = useMutation({
     mutationFn: (v: { who: LinkedPerson }) => unlinkFamily(person.id, v.who.id),
     onSuccess: (_d, v) => settled(`${fullName(v.who)} is no longer linked to ${first}. They have both been told.`),
-    onError: (err: unknown) => {
-      setSaid(null)
-      setError(errorText(err, 'Could not unlink them.'))
-    },
+    onError: failed('Could not unlink them.'),
   })
-  const busy = link.isPending || unlink.isPending
+  const save = useMutation({
+    mutationFn: (v: { id: string | null; relation: Relation; draft: PersonDraft }) =>
+      saveFamilyPerson({ personId: person.id, relation: v.relation, id: v.id, draft: v.draft }),
+    onSuccess: (_d, v) =>
+      settled(
+        v.id
+          ? `${fullName(v.draft)}’s details are saved.`
+          : `${fullName(v.draft)} is written in as ${first}’s ${FAMILY_WORDS[v.relation].one}. The family has been told.`,
+      ),
+    onError: failed('Could not save their details.'),
+  })
+  const remove = useMutation({
+    mutationFn: (v: { who: WrittenPerson }) => removeFamilyPerson(person.id, v.who.id),
+    onSuccess: (_d, v) => settled(`${fullName(v.who)} is taken off ${first}’s family.`),
+    onError: failed('Could not remove them.'),
+  })
+  const busy = link.isPending || unlink.isPending || save.isPending || remove.isPending
 
   const family = query.data
+  const anyWritten = !!family && FAMILY_RELATIONS.some((r) => family.written_people[LIST_OF[r]].length > 0)
 
   return (
     <Overlay closable={!busy} onDismiss={onClose} label={`${name}’s family`}>
       <div className="w-full max-w-md rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
         <h2 className="break-words pr-8 text-headline-md">{name}’s family</h2>
         <p className="mt-2 text-body-sm text-on-surface-variant">
-          Link {first} to the people on the app who are their family. They are linked straight away, with nobody having to
-          confirm, and each of them is told.
+          Link {first} to the people on the app who are their family: they are linked straight away, with nobody having to
+          confirm. Somebody who is not on the app yet can be written in by hand. The family is told of each change.
         </p>
 
         <QueryState isLoading={query.isLoading} error={query.error}>
           {family && (
             <div className="mt-4 flex flex-col gap-4">
               {FAMILY_RELATIONS.map((part) => (
-                <LinkedList
+                <FamilyList
                   key={part}
                   relation={part}
-                  people={part === 'spouse' ? family.spouse : part === 'child' ? family.children : family.parents}
-                  written={part === 'spouse' ? family.written.spouse : part === 'child' ? family.written.children : family.written.parents}
+                  linked={family[LIST_OF[part]]}
+                  written={family.written_people[LIST_OF[part]]}
                   person={person}
                   family={family}
-                  unlinking={unlinking}
+                  open={open}
                   busy={busy}
-                  onAsk={(who) => {
-                    setError(null)
-                    setSaid(null)
-                    setUnlinking({ who, relation: part })
+                  onOpen={(id, mode) => {
+                    begin()
+                    setAdding(null)
+                    setOpen({ id, mode })
                   }}
-                  onCancel={() => setUnlinking(null)}
+                  onShut={() => setOpen(null)}
                   onUnlink={(who) => unlink.mutate({ who })}
-                  pending={unlink.isPending}
+                  onSave={(who, draft) => save.mutate({ id: who.id, relation: part, draft })}
+                  onRemove={(who) => remove.mutate({ who })}
                 />
               ))}
+              {anyWritten && (
+                <p className="text-label-md text-on-surface-faint">
+                  When somebody written in joins the app, link their account here and it takes their place.
+                </p>
+              )}
             </div>
           )}
         </QueryState>
@@ -136,8 +175,8 @@ export function FamilyLinksDialog({
         )}
 
         {family && (
-          <section aria-label="Link somebody" className="mt-5 border-t border-black/8 pt-4 dark:border-white/10">
-            <h3 className="text-label-md font-medium uppercase tracking-wide text-on-surface-faint">Link somebody</h3>
+          <section aria-label="Add somebody" className="mt-5 border-t border-black/8 pt-4 dark:border-white/10">
+            <h3 className="text-label-md font-medium uppercase tracking-wide text-on-surface-faint">Add somebody</h3>
             <div className="mt-2 flex flex-col gap-2">
               <Select
                 value={relation}
@@ -148,20 +187,20 @@ export function FamilyLinksDialog({
                 aria-label={`What they are to ${first}`}
                 options={FAMILY_RELATIONS.map((r) => ({ value: r, label: `${first}’s ${FAMILY_WORDS[r].one}` }))}
               />
-              {chosen ? (
+              {adding && 'account' in adding ? (
                 <div role="group" aria-label="Confirm the link" className="rounded-[var(--radius-row)] bg-raised p-3 hairline">
                   <p className="text-body-sm text-on-surface [overflow-wrap:anywhere]">
-                    Link <span className="font-semibold">{fullName(chosen)}</span> as {first}’s {FAMILY_WORDS[relation].one}?
+                    Link <span className="font-semibold">{fullName(adding.account)}</span> as {first}’s {FAMILY_WORDS[relation].one}?
                   </p>
                   <div className="mt-3 flex flex-wrap justify-end gap-2">
-                    <button type="button" onClick={() => setChosen(null)} disabled={busy} className={quietButton}>
+                    <button type="button" onClick={() => setAdding(null)} disabled={busy} className={quietButton}>
                       Cancel
                     </button>
                     <button
                       type="button"
                       onClick={() => {
                         setError(null)
-                        link.mutate({ to: chosen, relation })
+                        link.mutate({ to: adding.account, relation })
                       }}
                       disabled={busy}
                       className={primaryButton}
@@ -170,14 +209,40 @@ export function FamilyLinksDialog({
                     </button>
                   </div>
                 </div>
+              ) : adding ? (
+                <div role="group" aria-label={`Write in ${first}’s ${FAMILY_WORDS[relation].one}`}>
+                  <p className="mb-2 text-body-sm text-on-surface-variant">
+                    Not on the app: written in as {first}’s {FAMILY_WORDS[relation].one}, until they join.
+                  </p>
+                  <PersonForm
+                    // A child is asked a little more, so the form is the relation's.
+                    key={relation === 'child' ? 'child' : 'adult'}
+                    kind={relation === 'child' ? 'child' : 'adult'}
+                    initial={adding.draft}
+                    busy={busy}
+                    onCancel={() => setAdding(null)}
+                    onSave={(draft) => {
+                      setError(null)
+                      // Kept as typed, so a refusal leaves the form as it was.
+                      setAdding({ draft })
+                      save.mutate({ id: null, relation, draft })
+                    }}
+                  />
+                </div>
               ) : (
                 <PersonPicker
-                  label="Name of the person to link"
+                  label="Name of the person to add"
                   myId={person.id}
                   onPick={(p) => {
-                    setError(null)
-                    setSaid(null)
-                    setChosen(p)
+                    begin()
+                    setOpen(null)
+                    setAdding({ account: p })
+                  }}
+                  onWriteIn={(typed) => {
+                    begin()
+                    setOpen(null)
+                    const [given, ...rest] = typed.split(/\s+/)
+                    setAdding({ draft: { ...EMPTY_PERSON, first_name: given ?? '', last_name: rest.join(' ') } })
                   }}
                 />
               )}
@@ -201,44 +266,52 @@ const primaryButton =
   'tap rounded-full bg-primary px-5 py-2.5 text-body-sm font-semibold text-on-primary transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50'
 const dangerButton =
   'tap rounded-full bg-error px-5 py-2.5 text-body-sm font-semibold text-on-error transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms] disabled:opacity-50'
+const rowButton =
+  'tap shrink-0 rounded-full px-3 py-1.5 text-label-md font-medium ring-1 ring-black/8 disabled:opacity-50 dark:ring-white/10'
 
-/** One of the three lists: who is linked that way, each with a way to unlink them. */
-function LinkedList({
+/**
+ * One of the three lists: the accounts linked that way, then the people
+ * written in by hand. An account is unlinked; somebody written in is
+ * changed or removed.
+ */
+function FamilyList({
   relation,
-  people,
+  linked,
   written,
   person,
   family,
-  unlinking,
+  open,
   busy,
-  pending,
-  onAsk,
-  onCancel,
+  onOpen,
+  onShut,
   onUnlink,
+  onSave,
+  onRemove,
 }: {
   relation: Relation
-  people: LinkedPerson[]
-  written: number
+  linked: LinkedPerson[]
+  written: WrittenPerson[]
   person: { first_name: string }
   family: FamilyOf
-  unlinking: { who: LinkedPerson; relation: Relation } | null
+  open: { id: string; mode: 'unlink' | 'edit' | 'remove' } | null
   busy: boolean
-  pending: boolean
-  onAsk: (who: LinkedPerson) => void
-  onCancel: () => void
+  onOpen: (id: string, mode: 'unlink' | 'edit' | 'remove') => void
+  onShut: () => void
   onUnlink: (who: LinkedPerson) => void
+  onSave: (who: WrittenPerson, draft: PersonDraft) => void
+  onRemove: (who: WrittenPerson) => void
 }) {
   const words = FAMILY_WORDS[relation]
-  const note = writtenWords(relation, written)
+  const first = person.first_name || 'them'
   return (
     <section aria-label={words.heading}>
       <h3 className="text-label-md font-medium uppercase tracking-wide text-on-surface-faint">{words.heading}</h3>
-      {people.length === 0 ? (
-        <p className="mt-1 text-body-sm text-on-surface-variant">Nobody linked.</p>
+      {linked.length + written.length === 0 ? (
+        <p className="mt-1 text-body-sm text-on-surface-variant">Nobody listed.</p>
       ) : (
         <ul className="mt-1.5 flex flex-col gap-1.5">
-          {people.map((p) => {
-            const asking = unlinking?.who.id === p.id && unlinking.relation === relation
+          {linked.map((p) => {
+            const asking = open?.id === p.id && open.mode === 'unlink'
             return (
               <li key={p.id} className="rounded-[var(--radius-row)] bg-raised px-3 py-2 hairline">
                 <div className="flex items-center justify-between gap-3">
@@ -246,10 +319,10 @@ function LinkedList({
                   {!asking && (
                     <button
                       type="button"
-                      onClick={() => onAsk(p)}
+                      onClick={() => onOpen(p.id, 'unlink')}
                       disabled={busy}
                       aria-label={`Unlink ${fullName(p)}`}
-                      className="tap shrink-0 rounded-full px-3 py-1.5 text-label-md font-medium text-error ring-1 ring-black/8 hover:ring-error/40 disabled:opacity-50 dark:ring-white/10"
+                      className={`${rowButton} text-error hover:ring-error/40`}
                     >
                       Unlink
                     </button>
@@ -259,11 +332,79 @@ function LinkedList({
                   <div role="group" aria-label={`Unlink ${fullName(p)}?`} className="mt-2">
                     <p className="text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">{unlinkWords(person, p, relation, family)}</p>
                     <div className="mt-2 flex flex-wrap justify-end gap-2">
-                      <button type="button" onClick={onCancel} disabled={busy} className={quietButton}>
+                      <button type="button" onClick={onShut} disabled={busy} className={quietButton}>
                         Keep the link
                       </button>
                       <button type="button" onClick={() => onUnlink(p)} disabled={busy} className={dangerButton}>
-                        {pending ? 'Unlinking…' : 'Unlink'}
+                        Unlink
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </li>
+            )
+          })}
+          {written.map((p) => {
+            const mode = open?.id === p.id ? open.mode : null
+            const details = writtenDetails(p)
+            if (mode === 'edit') {
+              return (
+                <li key={p.id} aria-label={`Change ${fullName(p)}`}>
+                  <PersonForm
+                    kind={relation === 'child' ? 'child' : 'adult'}
+                    initial={draftOf(p)}
+                    busy={busy}
+                    onCancel={onShut}
+                    onSave={(draft) => onSave(p, draft)}
+                  />
+                </li>
+              )
+            }
+            return (
+              <li key={p.id} className="rounded-[var(--radius-row)] bg-raised px-3 py-2 hairline">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                  <div className="min-w-0">
+                    <p className="text-body-md text-on-surface [overflow-wrap:anywhere]">
+                      {fullName(p)}{' '}
+                      <span className="whitespace-nowrap font-mono text-label-sm text-on-surface-faint">No account</span>
+                    </p>
+                    {details && <p className="text-label-md text-on-surface-variant [overflow-wrap:anywhere]">{details}</p>}
+                  </div>
+                  {mode !== 'remove' && (
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onOpen(p.id, 'edit')}
+                        disabled={busy}
+                        aria-label={`Change ${fullName(p)}`}
+                        className={`${rowButton} text-on-surface hover:ring-black/20`}
+                      >
+                        Change
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onOpen(p.id, 'remove')}
+                        disabled={busy}
+                        aria-label={`Remove ${fullName(p)}`}
+                        className={`${rowButton} text-error hover:ring-error/40`}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {mode === 'remove' && (
+                  <div role="group" aria-label={`Remove ${fullName(p)}?`} className="mt-2">
+                    <p className="text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">
+                      {p.first_name || 'They'} is written in by hand, so this takes what is written about them off {first}’s family.
+                      It cannot be undone.
+                    </p>
+                    <div className="mt-2 flex flex-wrap justify-end gap-2">
+                      <button type="button" onClick={onShut} disabled={busy} className={quietButton}>
+                        Keep them
+                      </button>
+                      <button type="button" onClick={() => onRemove(p)} disabled={busy} className={dangerButton}>
+                        Remove
                       </button>
                     </div>
                   </div>
@@ -273,7 +414,6 @@ function LinkedList({
           })}
         </ul>
       )}
-      {note && <p className="mt-1 text-label-md text-on-surface-faint">{note}</p>}
     </section>
   )
 }
