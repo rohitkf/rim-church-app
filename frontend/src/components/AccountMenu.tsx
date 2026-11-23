@@ -8,13 +8,19 @@ import { useTheme } from '../lib/useTheme'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { THEME_CHOICES } from '../lib/theme'
 import { TEAM_STYLE_CHOICES } from '../lib/teamStyle'
-import { QuestionIcon, ReloadIcon, SettingsIcon, SparklesIcon, UserCircleIcon } from './icons'
+import { ChevronRightIcon, EyeIcon, QuestionIcon, ReloadIcon, SettingsIcon, SparklesIcon, UserCircleIcon } from './icons'
 import { useAppSettings } from '../lib/appSettings'
 import { safeVideoLink } from '../lib/videoTutorial'
 import { useStartTour } from '../lib/useStartTour'
 import { applyUpdate } from '../lib/pwa'
 import { ageFrom } from '../lib/celebrations'
 import { ROLE_NAME } from '../lib/roleNames'
+
+const itemClasses =
+  'flex w-full items-center gap-2.5 px-3 py-2 text-left text-body-sm text-on-surface hover:bg-surface-container'
+/** A line inside something the menu has unfolded: under the words of the line above, not under its icon. */
+const subItemClasses =
+  'w-full rounded-sm py-1.5 pl-[2.375rem] pr-3 text-left text-body-sm text-on-surface hover:bg-surface-container'
 
 interface AccountMenuProps {
   initials: string
@@ -74,9 +80,6 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
     }
   }, [open])
 
-  const itemClasses =
-    'flex w-full items-center gap-2.5 px-3 py-2 text-left text-body-sm text-on-surface hover:bg-surface-container'
-
   return (
     <div ref={wrapper} className="relative">
       <button
@@ -94,7 +97,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
         <div
           role="menu"
           // Never taller than the screen below the header: it grew past the
-          // bottom of a phone (View as, appearance, the tour, the video link)
+          // bottom of a phone (the previews, appearance, the tour, the video link)
           // and, pinned to a header that does not scroll, could not be reached.
           // It scrolls inside itself instead, without dragging the page, and
           // on a phone it stops above the bottom menu, which would otherwise
@@ -170,8 +173,6 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
             </div>
           </div>
 
-          {canPreview && <ViewAsSection onChosen={() => setOpen(false)} />}
-
           {/* Reload the app — onto the new version, if one has come down. An
               installed app on a phone has no address bar to pull down on. */}
           <button
@@ -206,6 +207,10 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
             <SettingsIcon width={16} height={16} className="shrink-0" />
             Settings
           </Link>
+
+          {/* Seeing the app as somebody else does, folded into one line: it
+              was a block of eight buttons in the middle of everybody's menu. */}
+          {canPreview && <PreviewAsItem onChosen={() => setOpen(false)} />}
 
           {/* The whole tour for your standing, again, whenever you like. */}
           <button
@@ -253,9 +258,19 @@ const TEAM_PICKS: { as: TeamPreview; chip: string; ask: string }[] = [
   { as: 'head', chip: `${ROLE_NAME.head}…`, ask: 'Head of which team?' },
 ]
 
-function ViewAsSection({ onChosen }: { onChosen: () => void }) {
+/**
+ * One line in the menu, "Preview as", which unfolds to the names (the
+ * Owner, November 2026: "collapse the preview as buttons into a menu ...
+ * with name PREVIEW AS and when i click it it should show the names like
+ * church member, pastor"). It was a block of chips that every Admin's
+ * menu opened on, for something used now and then.
+ *
+ * While a preview is on it starts unfolded, so the way out is in sight.
+ */
+function PreviewAsItem({ onChosen }: { onChosen: () => void }) {
   const { viewAs, setViewAs, isSuperAdmin } = useAuth()
   const navigate = useNavigate()
+  const [shown, setShown] = useState(!!viewAs)
   const [picking, setPicking] = useState<TeamPreview | null>(null)
   const departmentsQuery = useQuery({
     queryKey: ['departments'],
@@ -271,84 +286,94 @@ function ViewAsSection({ onChosen }: { onChosen: () => void }) {
     navigate('/')
   }
 
-  const chip =
-    'tap rounded-full hairline px-2.5 py-1 text-label-sm text-on-surface hover:bg-surface-container'
-
   return (
-    <div className="border-b border-border-subtle px-3 py-2.5">
-      <div className="font-mono text-label-sm text-on-surface-variant">
-        View as
-      </div>
-      {viewAs ? (
-        <div className="mt-2">
-          <p className="text-label-sm text-on-surface-variant">
-            Previewing as {viewAsLabel(viewAs)}.
-          </p>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => choose(null)}
-            className="tap mt-2 w-full rounded-full bg-primary px-3 py-1.5 text-label-md font-semibold text-on-primary"
-          >
-            Exit preview
-          </button>
-        </div>
-      ) : picking ? (
-        <div className="mt-2">
-          <p className="text-label-sm text-on-surface-variant">
-            {TEAM_PICKS.find((t) => t.as === picking)?.ask}
-          </p>
-          <ul className="mt-1.5 flex max-h-40 flex-col gap-1 overflow-y-auto">
-            {(departmentsQuery.data ?? []).map((d) => (
-              <li key={d.id}>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() =>
-                    choose({ as: picking, departmentId: d.id, departmentName: d.name })
-                  }
-                  className="w-full rounded-sm px-2 py-1 text-left text-label-md text-on-surface hover:bg-surface-container"
-                >
-                  {d.name}
+    <>
+      <button
+        type="button"
+        role="menuitem"
+        aria-expanded={shown}
+        onClick={() => {
+          setShown((s) => !s)
+          setPicking(null)
+        }}
+        className={itemClasses}
+      >
+        <EyeIcon width={16} height={16} className="shrink-0" />
+        Preview as
+        <ChevronRightIcon
+          width={14}
+          height={14}
+          className={`ml-auto shrink-0 text-on-surface-faint transition-transform duration-200 ${shown ? 'rotate-90' : ''}`}
+        />
+      </button>
+      {shown && (
+        <div role="group" aria-label="Preview as" className="border-b border-border-subtle pb-1.5">
+          {viewAs ? (
+            <div className="px-3 pb-1 pl-[2.375rem]">
+              <p className="text-label-sm text-on-surface-variant">Previewing as {viewAsLabel(viewAs)}.</p>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => choose(null)}
+                className="tap mt-2 w-full rounded-full bg-primary px-3 py-1.5 text-label-md font-semibold text-on-primary"
+              >
+                Exit preview
+              </button>
+            </div>
+          ) : picking ? (
+            <div>
+              <p className="py-1 pl-[2.375rem] pr-3 text-label-sm text-on-surface-variant">
+                {TEAM_PICKS.find((t) => t.as === picking)?.ask}
+              </p>
+              <ul className="flex max-h-40 flex-col overflow-y-auto">
+                {(departmentsQuery.data ?? []).map((d) => (
+                  <li key={d.id}>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => choose({ as: picking, departmentId: d.id, departmentName: d.name })}
+                      className={subItemClasses}
+                    >
+                      {d.name}
+                    </button>
+                  </li>
+                ))}
+                {departmentsQuery.isLoading && <li className="pl-[2.375rem] text-label-sm text-on-surface-faint">Loading…</li>}
+              </ul>
+              <button
+                type="button"
+                onClick={() => setPicking(null)}
+                className="tap mt-1 pl-[2.375rem] text-label-sm text-on-surface-faint hover:text-on-surface"
+              >
+                Back
+              </button>
+            </div>
+          ) : (
+            <>
+              <button type="button" role="menuitem" onClick={() => choose({ as: 'church' })} className={subItemClasses}>
+                Church Member
+              </button>
+              {TEAM_PICKS.map((t) => (
+                <button key={t.as} type="button" role="menuitem" onClick={() => setPicking(t.as)} className={subItemClasses}>
+                  {t.chip}
                 </button>
-              </li>
-            ))}
-            {departmentsQuery.isLoading && (
-              <li className="px-2 text-label-sm text-on-surface-faint">Loading…</li>
-            )}
-          </ul>
-          <button
-            type="button"
-            onClick={() => setPicking(null)}
-            className="tap mt-1 text-label-sm text-on-surface-faint hover:text-on-surface"
-          >
-            Back
-          </button>
-        </div>
-      ) : (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <button type="button" role="menuitem" onClick={() => choose({ as: 'church' })} className={chip}>
-            Church Member
-          </button>
-          {TEAM_PICKS.map((t) => (
-            <button key={t.as} type="button" role="menuitem" onClick={() => setPicking(t.as)} className={chip}>
-              {t.chip}
-            </button>
-          ))}
-          <button type="button" role="menuitem" onClick={() => choose({ as: 'overwatch' })} className={chip}>
-            Overwatch
-          </button>
-          <button type="button" role="menuitem" onClick={() => choose({ as: 'pastor' })} className={chip}>
-            Pastor
-          </button>
-          {isSuperAdmin && (
-            <button type="button" role="menuitem" onClick={() => choose({ as: 'admin' })} className={chip}>
-              Admin
-            </button>
+              ))}
+              <button type="button" role="menuitem" onClick={() => choose({ as: 'overwatch' })} className={subItemClasses}>
+                Overwatch
+              </button>
+              <button type="button" role="menuitem" onClick={() => choose({ as: 'pastor' })} className={subItemClasses}>
+                Pastor
+              </button>
+              {isSuperAdmin && (
+                <button type="button" role="menuitem" onClick={() => choose({ as: 'admin' })} className={subItemClasses}>
+                  Admin
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
-    </div>
+    </>
   )
 }
 

@@ -470,8 +470,8 @@ export const TOUR_CHAPTERS: TourChapter[] = [
       {
         path: '/',
         target: 'account',
-        title: 'View as',
-        body: 'From your account menu, see the app as somebody else would: a Church Member; a Team Member, Team Coordinator, Assisting Head or Head of a team you pick; Overwatch; a Pastor. The pages, the menu and the buttons are theirs. The data is still read as you, and anything you save is saved for real.',
+        title: 'Preview as',
+        body: 'From your account menu, press “Preview as” to see the app as somebody else would: a Church Member; a Team Member, Team Coordinator, Assisting Head or Head of a team you pick; Overwatch; a Pastor. The pages, the menu and the buttons are theirs. The data is still read as you, and anything you save is saved for real.',
       },
     ],
   },
@@ -501,8 +501,8 @@ export const TOUR_CHAPTERS: TourChapter[] = [
       {
         path: '/',
         target: 'account',
-        title: 'View as an Admin',
-        body: 'View as has one more for you: an Admin, without the Owner’s keys.',
+        title: 'Preview as an Admin',
+        body: '“Preview as” has one more for you: an Admin, without the Owner’s keys.',
       },
       {
         path: '/settings',

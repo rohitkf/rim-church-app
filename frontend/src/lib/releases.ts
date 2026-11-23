@@ -46,6 +46,31 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'families-joined',
+    date: '2026-11-23',
+    title: 'One family, one card',
+    lead: 'The Families list no longer shows the same family twice.',
+    points: [
+      'Somebody’s parents, their own household and their husband’s or wife’s parents are one family on the list, with everybody in it named once.',
+      'Open the card to see it as a tree, as before.',
+    ],
+    link: { to: '/families', label: 'Open Families' },
+    page: '/families',
+  },
+  {
+    key: 'preview-as-menu',
+    date: '2026-11-23',
+    title: '“Preview as” is one line',
+    lead: 'The buttons for seeing the app as somebody else are folded into your account menu.',
+    points: [
+      'Open your account menu and press “Preview as”, just above the tour.',
+      'It unfolds to the names: Church Member, Team Member, Team Head, Overwatch, Pastor and the rest.',
+      'While a preview is on it opens unfolded, with Exit preview in sight.',
+    ],
+    // Whoever runs the app: the same people who can preview.
+    page: '/volunteers',
+  },
+  {
     key: 'family-words',
     date: '2026-11-23',
     title: 'Husband, wife, son, sister',
