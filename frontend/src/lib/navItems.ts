@@ -1,5 +1,7 @@
 import type { DockItem } from '../components/DockNav'
 import {
+  FamilyTreeIcon,
+  ShieldIcon,
   BoxIcon,
   CakeIcon,
   UserCheckIcon,
@@ -116,5 +118,9 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/prayer', label: 'Prayer Requests', icon: PrayIcon, group: 'Church life' },
   { to: '/departments', label: 'Teams', icon: UsersIcon, group: 'People & things' },
   { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, group: 'People & things' },
+  // Who is linked to whom, drawn as a tree, and linking more (0326): whoever may link families.
+  { to: '/families', label: 'Families', icon: FamilyTreeIcon, group: 'People & things' },
+  // Everybody's DBS and marking one verified (0324): the Owner's, and whoever is given it.
+  { to: '/dbs', label: 'DBS Checks', icon: ShieldIcon, group: 'People & things' },
   { to: '/inventory', label: 'Inventory', icon: BoxIcon, group: 'People & things' },
 ]

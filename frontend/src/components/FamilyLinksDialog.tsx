@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Overlay } from './Surface'
 import { PersonForm } from './FamilyCard'
@@ -56,6 +56,43 @@ export function FamilyLinksDialog({
   person: { id: string; first_name: string; last_name: string }
   onClose: () => void
 }) {
+  const [busy, setBusy] = useState(false)
+  const name = fullName(person)
+  const first = person.first_name || 'them'
+  return (
+    <Overlay closable={!busy} onDismiss={onClose} label={`${name}’s family`}>
+      <div className="w-full max-w-md rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
+        <h2 className="break-words pr-8 text-headline-md">{name}’s family</h2>
+        <p className="mt-2 text-body-sm text-on-surface-variant">
+          Link {first} to the people on the app who are their family: they are linked straight away, with nobody having to
+          confirm. Somebody who is not on the app yet can be written in by hand. The family is told of each change.
+        </p>
+
+        <FamilyLinksPanel person={person} onBusyChange={setBusy} />
+
+        <div className="mt-5 flex justify-end">
+          <button type="button" onClick={onClose} disabled={busy} className={quietButton}>
+            Done
+          </button>
+        </div>
+      </div>
+    </Overlay>
+  )
+}
+
+/**
+ * The family itself and the box that adds to it, without the dialog round
+ * them: the Families page (0326) has the same thing under a family's tree.
+ * `onBusyChange` tells whoever holds it that a change is on its way, so a
+ * dialog does not shut under one.
+ */
+export function FamilyLinksPanel({
+  person,
+  onBusyChange,
+}: {
+  person: { id: string; first_name: string; last_name: string }
+  onBusyChange?: (busy: boolean) => void
+}) {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const [relation, setRelation] = useState<Relation>('spouse')
@@ -66,7 +103,6 @@ export function FamilyLinksDialog({
   const [error, setError] = useState<string | null>(null)
   const [said, setSaid] = useState<string | null>(null)
 
-  const name = fullName(person)
   const first = person.first_name || 'them'
 
   const query = useQuery({ queryKey: familyOfKey(person.id), queryFn: () => fetchFamilyOf(person.id) })
@@ -121,142 +157,133 @@ export function FamilyLinksDialog({
   const family = query.data
   const anyWritten = !!family && FAMILY_RELATIONS.some((r) => family.written_people[LIST_OF[r]].length > 0)
 
+
+  useEffect(() => {
+    onBusyChange?.(busy)
+  }, [busy, onBusyChange])
+
   return (
-    <Overlay closable={!busy} onDismiss={onClose} label={`${name}’s family`}>
-      <div className="w-full max-w-md rounded-[var(--radius-shell)] bg-surface-lowest p-6 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12">
-        <h2 className="break-words pr-8 text-headline-md">{name}’s family</h2>
-        <p className="mt-2 text-body-sm text-on-surface-variant">
-          Link {first} to the people on the app who are their family: they are linked straight away, with nobody having to
-          confirm. Somebody who is not on the app yet can be written in by hand. The family is told of each change.
-        </p>
-
-        <QueryState isLoading={query.isLoading} error={query.error}>
-          {family && (
-            <div className="mt-4 flex flex-col gap-4">
-              {FAMILY_RELATIONS.map((part) => (
-                <FamilyList
-                  key={part}
-                  relation={part}
-                  linked={family[LIST_OF[part]]}
-                  written={family.written_people[LIST_OF[part]]}
-                  person={person}
-                  family={family}
-                  open={open}
-                  busy={busy}
-                  onOpen={(id, mode) => {
-                    begin()
-                    setAdding(null)
-                    setOpen({ id, mode })
-                  }}
-                  onShut={() => setOpen(null)}
-                  onUnlink={(who) => unlink.mutate({ who })}
-                  onSave={(who, draft) => save.mutate({ id: who.id, relation: part, draft })}
-                  onRemove={(who) => remove.mutate({ who })}
-                />
-              ))}
-              {anyWritten && (
-                <p className="text-label-md text-on-surface-faint">
-                  When somebody written in joins the app, link their account here and it takes their place.
-                </p>
-              )}
-            </div>
+    <div>
+    <QueryState isLoading={query.isLoading} error={query.error}>
+      {family && (
+        <div className="mt-4 flex flex-col gap-4">
+          {FAMILY_RELATIONS.map((part) => (
+            <FamilyList
+              key={part}
+              relation={part}
+              linked={family[LIST_OF[part]]}
+              written={family.written_people[LIST_OF[part]]}
+              person={person}
+              family={family}
+              open={open}
+              busy={busy}
+              onOpen={(id, mode) => {
+                begin()
+                setAdding(null)
+                setOpen({ id, mode })
+              }}
+              onShut={() => setOpen(null)}
+              onUnlink={(who) => unlink.mutate({ who })}
+              onSave={(who, draft) => save.mutate({ id: who.id, relation: part, draft })}
+              onRemove={(who) => remove.mutate({ who })}
+            />
+          ))}
+          {anyWritten && (
+            <p className="text-label-md text-on-surface-faint">
+              When somebody written in joins the app, link their account here and it takes their place.
+            </p>
           )}
-        </QueryState>
-
-        {said && (
-          <p role="status" className="mt-4 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm text-on-surface hairline [overflow-wrap:anywhere]">
-            {said}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container [overflow-wrap:anywhere]">
-            {error}
-          </p>
-        )}
-
-        {family && (
-          <section aria-label="Add somebody" className="mt-5 border-t border-black/8 pt-4 dark:border-white/10">
-            <h3 className="text-label-md font-medium uppercase tracking-wide text-on-surface-faint">Add somebody</h3>
-            <div className="mt-2 flex flex-col gap-2">
-              <Select
-                value={relation}
-                onChange={(next) => {
-                  setRelation(next as Relation)
-                  setError(null)
-                }}
-                aria-label={`What they are to ${first}`}
-                options={FAMILY_RELATIONS.map((r) => ({ value: r, label: `${first}’s ${FAMILY_WORDS[r].one}` }))}
-              />
-              {adding && 'account' in adding ? (
-                <div role="group" aria-label="Confirm the link" className="rounded-[var(--radius-row)] bg-raised p-3 hairline">
-                  <p className="text-body-sm text-on-surface [overflow-wrap:anywhere]">
-                    Link <span className="font-semibold">{fullName(adding.account)}</span> as {first}’s {FAMILY_WORDS[relation].one}?
-                  </p>
-                  <div className="mt-3 flex flex-wrap justify-end gap-2">
-                    <button type="button" onClick={() => setAdding(null)} disabled={busy} className={quietButton}>
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setError(null)
-                        link.mutate({ to: adding.account, relation })
-                      }}
-                      disabled={busy}
-                      className={primaryButton}
-                    >
-                      {link.isPending ? 'Linking…' : 'Link'}
-                    </button>
-                  </div>
-                </div>
-              ) : adding ? (
-                <div role="group" aria-label={`Write in ${first}’s ${FAMILY_WORDS[relation].one}`}>
-                  <p className="mb-2 text-body-sm text-on-surface-variant">
-                    Not on the app: written in as {first}’s {FAMILY_WORDS[relation].one}, until they join.
-                  </p>
-                  <PersonForm
-                    // A child is asked a little more, so the form is the relation's.
-                    key={relation === 'child' ? 'child' : 'adult'}
-                    kind={relation === 'child' ? 'child' : 'adult'}
-                    initial={adding.draft}
-                    busy={busy}
-                    onCancel={() => setAdding(null)}
-                    onSave={(draft) => {
-                      setError(null)
-                      // Kept as typed, so a refusal leaves the form as it was.
-                      setAdding({ draft })
-                      save.mutate({ id: null, relation, draft })
-                    }}
-                  />
-                </div>
-              ) : (
-                <PersonPicker
-                  label="Name of the person to add"
-                  myId={person.id}
-                  onPick={(p) => {
-                    begin()
-                    setOpen(null)
-                    setAdding({ account: p })
-                  }}
-                  onWriteIn={(typed) => {
-                    begin()
-                    setOpen(null)
-                    const [given, ...rest] = typed.split(/\s+/)
-                    setAdding({ draft: { ...EMPTY_PERSON, first_name: given ?? '', last_name: rest.join(' ') } })
-                  }}
-                />
-              )}
-            </div>
-          </section>
-        )}
-
-        <div className="mt-5 flex justify-end">
-          <button type="button" onClick={onClose} disabled={busy} className={quietButton}>
-            Done
-          </button>
         </div>
-      </div>
-    </Overlay>
+      )}
+    </QueryState>
+
+    {said && (
+      <p role="status" className="mt-4 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-body-sm text-on-surface hairline [overflow-wrap:anywhere]">
+        {said}
+      </p>
+    )}
+    {error && (
+      <p role="alert" className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container [overflow-wrap:anywhere]">
+        {error}
+      </p>
+    )}
+
+    {family && (
+      <section aria-label="Add somebody" className="mt-5 border-t border-black/8 pt-4 dark:border-white/10">
+        <h3 className="text-label-md font-medium uppercase tracking-wide text-on-surface-faint">Add somebody</h3>
+        <div className="mt-2 flex flex-col gap-2">
+          <Select
+            value={relation}
+            onChange={(next) => {
+              setRelation(next as Relation)
+              setError(null)
+            }}
+            aria-label={`What they are to ${first}`}
+            options={FAMILY_RELATIONS.map((r) => ({ value: r, label: `${first}’s ${FAMILY_WORDS[r].one}` }))}
+          />
+          {adding && 'account' in adding ? (
+            <div role="group" aria-label="Confirm the link" className="rounded-[var(--radius-row)] bg-raised p-3 hairline">
+              <p className="text-body-sm text-on-surface [overflow-wrap:anywhere]">
+                Link <span className="font-semibold">{fullName(adding.account)}</span> as {first}’s {FAMILY_WORDS[relation].one}?
+              </p>
+              <div className="mt-3 flex flex-wrap justify-end gap-2">
+                <button type="button" onClick={() => setAdding(null)} disabled={busy} className={quietButton}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null)
+                    link.mutate({ to: adding.account, relation })
+                  }}
+                  disabled={busy}
+                  className={primaryButton}
+                >
+                  {link.isPending ? 'Linking…' : 'Link'}
+                </button>
+              </div>
+            </div>
+          ) : adding ? (
+            <div role="group" aria-label={`Write in ${first}’s ${FAMILY_WORDS[relation].one}`}>
+              <p className="mb-2 text-body-sm text-on-surface-variant">
+                Not on the app: written in as {first}’s {FAMILY_WORDS[relation].one}, until they join.
+              </p>
+              <PersonForm
+                // A child is asked a little more, so the form is the relation's.
+                key={relation === 'child' ? 'child' : 'adult'}
+                kind={relation === 'child' ? 'child' : 'adult'}
+                initial={adding.draft}
+                busy={busy}
+                onCancel={() => setAdding(null)}
+                onSave={(draft) => {
+                  setError(null)
+                  // Kept as typed, so a refusal leaves the form as it was.
+                  setAdding({ draft })
+                  save.mutate({ id: null, relation, draft })
+                }}
+              />
+            </div>
+          ) : (
+            <PersonPicker
+              label="Name of the person to add"
+              myId={person.id}
+              onPick={(p) => {
+                begin()
+                setOpen(null)
+                setAdding({ account: p })
+              }}
+              onWriteIn={(typed) => {
+                begin()
+                setOpen(null)
+                const [given, ...rest] = typed.split(/\s+/)
+                setAdding({ draft: { ...EMPTY_PERSON, first_name: given ?? '', last_name: rest.join(' ') } })
+              }}
+            />
+          )}
+        </div>
+      </section>
+    )}
+    </div>
   )
 }
 

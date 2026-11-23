@@ -46,6 +46,32 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'families-page',
+    date: '2026-11-23',
+    title: 'Families has its own page',
+    lead: 'Every family the church has linked, everybody who is not in one yet, and one family drawn as a tree.',
+    points: [
+      'Search for anybody by name, and open their family: parents above, husband or wife beside, children below. Press somebody in the tree to see it from them.',
+      'Under the tree, link another account as their husband or wife, child or parent, or write in somebody who is not on the app yet.',
+      'The Family button on each Volunteers card still works as before.',
+    ],
+    link: { to: '/families', label: 'Open Families' },
+    page: '/families',
+  },
+  {
+    key: 'dbs-checks-page',
+    date: '2026-11-23',
+    title: 'DBS Checks has its own page',
+    lead: 'Everybody’s DBS in one list: who is still to check, who has not given their certificate’s details, and who is verified.',
+    points: [
+      'Filter by where people stand, or search a name.',
+      'Each line has the certificate, how old it is, and who verified it and when.',
+      'Open one to see what a check needs and mark it verified, exactly as from Volunteers.',
+    ],
+    link: { to: '/dbs', label: 'Open DBS Checks' },
+    page: '/dbs',
+  },
+  {
     key: 'finished-events-count-down',
     date: '2026-11-22',
     title: 'A finished event counts down to its clear-up',

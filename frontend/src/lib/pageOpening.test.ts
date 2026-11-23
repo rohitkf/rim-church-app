@@ -130,3 +130,27 @@ describe('the pages that had one level and no choice (0277)', () => {
     expect(who('/feedback', { 'feedback.send': { admin: 'none' }, 'feedback.manage': { admin: 'all' } })).toContain('admin')
   })
 })
+
+/*
+ * Families (0326) and DBS Checks (0324): each page is one right, so it
+ * opens to whoever holds that right and to nobody by level.
+ */
+describe('the pages that open by one right', () => {
+  it('opens Families to whoever may link families: Admins and the Owner out of the box', () => {
+    expect(who('/families', {})).toEqual(['owner', 'admin'])
+    expect(who('/families', { 'people.family': { admin: 'none' } })).toEqual(['owner'])
+    expect(who('/families', { 'people.family': { head: 'all' } })).toEqual(['owner', 'admin', 'head'])
+  })
+
+  it('opens DBS Checks to the Owner alone, until “Safeguarding details” is given', () => {
+    expect(who('/dbs', {})).toEqual(['owner'])
+    expect(who('/dbs', { 'people.compliance': { admin: 'all' } })).toEqual(['owner', 'admin'])
+    expect(who('/dbs', { 'people.compliance': { head: 'all' } })).toEqual(['owner', 'head'])
+  })
+
+  it('opens neither by a page’s level: an Admin without the right has nothing to see', () => {
+    expect(who('/dbs', { 'people.family': { admin: 'all' } })).toEqual(['owner'])
+    expect(who('/families', { 'people.compliance': { member: 'all' }, 'people.family': { admin: 'none' } })).toEqual(['owner'])
+  })
+})
+

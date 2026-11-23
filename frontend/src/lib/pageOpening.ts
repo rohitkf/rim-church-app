@@ -66,6 +66,15 @@ export function pageOpening(path: string, who: PageWho, settings: AppSettings, l
   if (path === '/countdown') {
     return who.isOwner || !!who.opens?.('countdown.view') ? { open: true, via: 'grant', level } : { open: false, level }
   }
+  // Families (0326) and DBS checks (0324): each opens by the one right that
+  // is the page — linking families, seeing everybody's DBS — and to the
+  // Owner. Never by level: an Admin without the cell has nothing to see.
+  if (path === '/families') {
+    return who.isOwner || !!who.opens?.('people.family') ? { open: true, via: 'grant', level } : { open: false, level }
+  }
+  if (path === '/dbs') {
+    return who.isOwner || !!who.opens?.('people.compliance') ? { open: true, via: 'grant', level } : { open: false, level }
+  }
   // Feedback (0277): whoever the grid lets send it — anybody on a team out
   // of the box — and whoever reads everybody's. Asked by standing only
   // where the caller brought no grid to ask.
