@@ -6,8 +6,13 @@ import type { FamilyOf } from '../lib/familyLinks'
 
 /*
  * One family as a tree: parents above, the person beside their husband or
- * wife, children below. With nothing to measure it is three plain lists,
- * which is what a screen reader is given too.
+ * wife, children below. With nothing to measure it is plain lists, which
+ * is what a screen reader is given too.
+ *
+ * What somebody is to the person the tree is drawn from is written on the
+ * line that reaches them, which a test has no screen to measure. It is
+ * also in their box for whoever cannot see a line, and that is what is
+ * read here: "GTGran ThomasMother" is initials, name, word.
  */
 
 const ANNA = { id: 'anna', first_name: 'Anna', last_name: 'Jacob' }
@@ -52,16 +57,16 @@ describe('a family drawn as a tree', () => {
     expect(screen.getByRole('figure', { name: 'Family tree of Anna Jacob' })).toBeInTheDocument()
     const rows = screen.getAllByRole('list').map((l) => l.getAttribute('aria-label'))
     expect(rows).toEqual(['Anna’s parents', 'Anna and their husband or wife', 'Anna’s children'])
-    expect(names(screen.getByRole('list', { name: 'Anna’s parents' }))).toEqual(['GTGran ThomasParent', 'GTGrandad ThomasParent · written in'])
+    expect(names(screen.getByRole('list', { name: 'Anna’s parents' }))).toEqual(['GTGran ThomasParent', 'GTGrandad ThomasParentWritten in'])
     expect(names(screen.getByRole('list', { name: 'Anna and their husband or wife' }))).toEqual(['AJAnna JacobThis person', 'TJTom JacobHusband or wife'])
-    expect(names(screen.getByRole('list', { name: 'Anna’s children' }))).toEqual(['KJKid JacobChild', 'ZJZak JacobChild · written in'])
+    expect(names(screen.getByRole('list', { name: 'Anna’s children' }))).toEqual(['KJKid JacobChild', 'ZJZak JacobChildWritten in'])
   })
 
   it('says the word for each person once somebody has said it', () => {
     render(<FamilyTree person={ANNA} family={said} />)
-    expect(names(screen.getByRole('list', { name: 'Anna’s parents' }))).toEqual(['GTGran ThomasMother', 'GTGrandad ThomasFather · written in'])
+    expect(names(screen.getByRole('list', { name: 'Anna’s parents' }))).toEqual(['GTGran ThomasMother', 'GTGrandad ThomasFatherWritten in'])
     expect(names(screen.getByRole('list', { name: 'Anna and their husband or wife' }))).toEqual(['AJAnna JacobThis person', 'TJTom JacobHusband'])
-    expect(names(screen.getByRole('list', { name: 'Anna’s children' }))).toEqual(['KJKid JacobSon', 'ZJZoe JacobDaughter · written in'])
+    expect(names(screen.getByRole('list', { name: 'Anna’s children' }))).toEqual(['KJKid JacobSon', 'ZJZoe JacobDaughterWritten in'])
   })
 
   it('stands brothers and sisters on the person’s own row, before the couple', () => {
@@ -75,8 +80,8 @@ describe('a family drawn as a tree', () => {
     // Somebody nobody has said a word for is a brother or sister, not guessed at from a name.
     expect(names(screen.getByRole('list', { name: 'Anna’s brothers and sisters' }))).toEqual([
       'BTBill ThomasBrother',
-      'STSue ThomasSister · written in',
-      'LTLee ThomasBrother or sister · written in',
+      'STSue ThomasSisterWritten in',
+      'LTLee ThomasBrother or sisterWritten in',
     ])
   })
 
@@ -91,6 +96,14 @@ describe('a family drawn as a tree', () => {
   it('does not call somebody with only a brother alone', () => {
     render(<FamilyTree person={ANNA} family={{ ...nobody, siblings: said.siblings }} />)
     expect(screen.queryByText(/Nobody is linked/)).toBeNull()
+  })
+
+  it('keeps the word in the box for a screen reader only: on the screen it is on the line', () => {
+    render(<FamilyTree person={ANNA} family={said} />)
+    const word = screen.getByText('Mother')
+    expect(word).toHaveClass('sr-only')
+    // That somebody is written in is about them, not about a line, and stays in sight.
+    expect(screen.getAllByText('Written in')[0]).not.toHaveClass('sr-only')
   })
 
   it('marks the person it is drawn from, who is not a button', () => {
