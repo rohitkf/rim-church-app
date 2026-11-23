@@ -225,18 +225,18 @@ export const PAGE_RULES: Record<string, PageRule> = {
     note: 'Opens the page and who holds which role. What may be done on it — invite, give roles, remove, see contact or safeguarding details — is each its own row under People.',
   },
   '/families': {
-    default: 'admins',
-    choices: ['admins'],
+    default: 'owner',
+    choices: ['owner'],
     enforcement: 'permission',
     by: ['people.family'],
-    note: 'The Owner, and whoever Access & Privileges gives “Link families” — Admins out of the box. Every family by name, one family as a tree, and linking accounts together. Never a family’s address.',
+    note: 'The Owner, and whoever Access & Privileges gives “Link families” — a Pastor out of the box, and nobody else. Every family by name, one family as a tree, and linking accounts together. Never a family’s address.',
   },
   '/dbs': {
     default: 'owner',
     choices: ['owner'],
     enforcement: 'permission',
     by: ['people.compliance'],
-    note: 'The Owner, and whoever Access & Privileges gives “Safeguarding details” — nobody else out of the box. Everybody’s DBS: where each stands, the certificate, and marking it verified.',
+    note: 'The Owner, and whoever Access & Privileges gives “Safeguarding details” — a Pastor out of the box, and nobody else. Everybody’s DBS: where each stands, the certificate, and marking it verified.',
   },
   '/feedback': {
     default: 'team',

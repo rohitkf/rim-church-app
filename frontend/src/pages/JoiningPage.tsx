@@ -550,7 +550,7 @@ export function JoiningPage({ completing = false }: { completing?: boolean }) {
             Right to be here, and DBS
           </h2>
           <p className="mt-1 text-label-md text-on-surface-faint">
-            Only you and the Owner can see these.
+            Only you, the Owner and a Pastor can see these.
           </p>
           <div className="mt-4 flex flex-col gap-4">
             <label id={joiningFieldId('visaType')} className={labelClasses}>

@@ -166,7 +166,7 @@ describe('checking somebody’s DBS', () => {
   it('does not offer somebody their own to verify, and says who can', async () => {
     state.me = 'u1'
     show()
-    expect(await screen.findByText(/Somebody else has to check your own DBS: the Owner/)).toBeInTheDocument()
+    expect(await screen.findByText(/Somebody else has to check your own DBS: the Owner, a Pastor/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Mark as verified' })).toBeNull()
     expect(screen.queryByRole('checkbox')).toBeNull()
   })

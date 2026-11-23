@@ -230,8 +230,8 @@ export function DbsCheckDialog({
 
               {ownRefused ? (
                 <p className="text-body-sm text-on-surface-variant">
-                  Somebody else has to check your own DBS: the Owner, or anybody else the Owner has given “Safeguarding
-                  details” in Settings › Permissions.
+                  Somebody else has to check your own DBS: the Owner, a Pastor, or anybody else the Owner has given
+                  “Safeguarding details” in Settings › Permissions.
                 </p>
               ) : details.verified_at ? (
                 <div className="flex justify-end">

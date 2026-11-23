@@ -32,8 +32,8 @@ import {
  * "search and link accounts together". Until now a family was reached one
  * person at a time, from a button on their card on Volunteers.
  *
- * For whoever holds `people.family` (Admins and the Owner out of the
- * box). What it shows is names: the accounts, and the people written in
+ * For whoever holds `people.family`: the Owner and a Pastor out of the
+ * box (0327), and whoever else the Owner gives it. What it shows is names: the accounts, and the people written in
  * by hand. A family's address, and a child's date of birth and school,
  * stay with the family and `people.contacts`.
  *

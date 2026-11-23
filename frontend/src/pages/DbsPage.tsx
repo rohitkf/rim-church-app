@@ -28,7 +28,8 @@ import {
  * is, who verified it; filtered by where they stand and searched by name;
  * and the same dialog to check one and mark it verified.
  *
- * For whoever holds `people.compliance` (the Owner alone out of the box).
+ * For whoever holds `people.compliance`: the Owner and a Pastor out of
+ * the box (0327), and whoever else the Owner gives it.
  * The database decides what is sent: this page asks for everybody's and
  * shows what comes back.
  */

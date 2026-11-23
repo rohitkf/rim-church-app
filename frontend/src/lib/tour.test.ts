@@ -156,18 +156,30 @@ describe('the tour keeps up with the app', () => {
 describe('the chapter cut by a right', () => {
   const events = TOUR_CHAPTERS.find((c) => c.key === 'events')!
 
-  it('is shown to nobody who cannot open Registrations or Reception', () => {
-    const noDoor = { ...everyone, canOpen: (p: string) => p !== '/registrations' && p !== '/door', roomOpen: () => false }
-    expect(stepsOf(events, noDoor)).toEqual([])
+  /** The four pages that open by a right and by nothing else. */
+  const BY_RIGHT = ['/registrations', '/door', '/families', '/dbs']
+  const opens = (...pages: string[]) => ({ ...everyone, canOpen: (p: string) => !BY_RIGHT.includes(p) || pages.includes(p), roomOpen: () => false })
+
+  it('is shown to nobody who cannot open any of its pages', () => {
+    expect(stepsOf(events, opens())).toEqual([])
   })
 
   it('shows somebody given the door Reception, and not the office or its room in Settings', () => {
-    const door = { ...everyone, canOpen: (p: string) => p !== '/registrations', roomOpen: () => false }
-    expect(stepsOf(events, door).map((s) => s.title)).toEqual(['Reception'])
+    expect(stepsOf(events, opens('/door')).map((s) => s.title)).toEqual(['Reception'])
   })
 
-  it('shows whoever runs registrations all of it', () => {
-    expect(stepsOf(events, everyone).map((s) => s.title)).toEqual(['Registrations', 'Reception', 'Who works the door'])
+  // Families and DBS Checks are the Owner's and a Pastor's out of the box (0327): a
+  // Pastor is on no rung of the ladder that would show them, so they are here.
+  it('shows a Pastor Families and DBS Checks, and none of the door', () => {
+    expect(stepsOf(events, opens('/families', '/dbs')).map((s) => s.title)).toEqual(['Families', 'DBS Checks'])
+  })
+
+  it('shows somebody given only one of the two that one', () => {
+    expect(stepsOf(events, opens('/dbs')).map((s) => s.title)).toEqual(['DBS Checks'])
+  })
+
+  it('shows whoever opens all of them all of it', () => {
+    expect(stepsOf(events, everyone).map((s) => s.title)).toEqual(['Registrations', 'Reception', 'Who works the door', 'Families', 'DBS Checks'])
   })
 })
 

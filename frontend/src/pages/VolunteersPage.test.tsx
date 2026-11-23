@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { chooseOption } from '../test/select'
 import userEvent from '@testing-library/user-event'
@@ -269,10 +269,26 @@ describe('contact details on the volunteers page', () => {
 
 /*
  * Linking a family for them (0319): a Family button on a person's card,
- * for whoever holds `people.family` — an Admin, out of the box.
+ * for whoever holds `people.family` — the Owner and a Pastor out of the
+ * box (0327), and an Admin only once the Owner gives it.
  */
 describe('the Family button on a person’s card', () => {
-  it('is there for an Admin, and opens that person’s family', async () => {
+  beforeEach(() => {
+    who.owner = true
+  })
+  afterEach(() => {
+    who.owner = false
+  })
+
+  it('is not there for an Admin out of the box', async () => {
+    who.owner = false
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: /Media/ }))
+    await screen.findByText('Joel Skaria')
+    expect(screen.queryByRole('button', { name: /^Family of/ })).toBeNull()
+  })
+
+  it('is there for the Owner, and opens that person’s family', async () => {
     who.rpcs.length = 0
     const user = show()
     await user.click(await screen.findByRole('button', { name: 'Family of Nimmy Thomas' }))
@@ -305,7 +321,7 @@ describe('the DBS button on a person’s card', () => {
     who.owner = false
     const user = show()
     await user.click(await screen.findByRole('button', { name: /Media/ }))
-    expect(screen.getByRole('button', { name: 'Family of Joel Skaria' })).toBeInTheDocument()
+    await screen.findByText('Joel Skaria')
     expect(screen.queryByRole('button', { name: /^DBS of/ })).toBeNull()
   })
 

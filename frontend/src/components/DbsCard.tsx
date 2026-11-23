@@ -126,7 +126,7 @@ export function DbsCard() {
   const age = dbsAge(details?.issued_on, today)
 
   return (
-    <SectionTile title="DBS check" hint="Only you and whoever the Owner has checking these can see them.">
+    <SectionTile title="DBS check" hint="Only you, the Owner and a Pastor can see these, and whoever else the Owner has checking them.">
       <QueryState isLoading={query.isLoading} error={query.error}>
         <div className="flex flex-col gap-4">
           {error && (

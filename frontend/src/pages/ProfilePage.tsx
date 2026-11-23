@@ -370,7 +370,7 @@ export function ProfilePage() {
         ordinary text and cannot collide with anything.
       */}
       {sensitive && (
-        <SectionTile title="Compliance details" hint="Only you and the Owner can see these.">
+        <SectionTile title="Compliance details" hint="Only you, the Owner and a Pastor can see these.">
           <div className="flex flex-col gap-4">
             {/* The same list the joining form offers, so the two cannot
                 drift into describing the same person differently. */}
