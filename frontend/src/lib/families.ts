@@ -190,6 +190,69 @@ export function combineFamilies(families: readonly Family[]): FamilyGroup[] {
     .map((g) => g.group)
 }
 
+/**
+ * One household as a tree is drawn: its adults side by side, and under
+ * them its children. A child with a household of their own in the same
+ * family is drawn as that household (`unit`), so the tree goes down a
+ * generation at a time for as far as the family does.
+ */
+export interface TreeUnit {
+  household: Family
+  adults: FamilyMember[]
+  children: TreeChild[]
+}
+export interface TreeChild {
+  /** Their row in the parents' household. */
+  member: FamilyMember
+  /** Their own household, drawn under their parents; null for a child with none, or one drawn elsewhere. */
+  unit: TreeUnit | null
+}
+
+/**
+ * A family as trees, from the oldest generation down, for the page that
+ * shows the whole church (the Owner, November 2026: "a sort of VIEW ALL
+ * button which shows everyone in the church, with related people linked").
+ *
+ * Usually one tree. Two where a couple's parents on both sides are in the
+ * family: their household is drawn once, under the first, and under the
+ * second their child stands alone, since a box cannot hang from two
+ * places. Nothing is drawn twice as a household, and every household of
+ * the family is drawn.
+ */
+export function familyForest(group: FamilyGroup): TreeUnit[] {
+  const homeOf = new Map<string, Family>()
+  for (const h of group.households) {
+    for (const m of h.members) if (m.user_id && m.kind === 'adult') homeOf.set(m.user_id, h)
+  }
+  const drawn = new Set<string>()
+  const build = (h: Family): TreeUnit => {
+    drawn.add(h.id)
+    return {
+      household: h,
+      adults: h.members.filter((m) => m.kind === 'adult'),
+      children: h.members
+        .filter((m) => m.kind === 'child')
+        .map((member) => {
+          const home = member.user_id ? homeOf.get(member.user_id) : undefined
+          return { member, unit: home && !drawn.has(home.id) ? build(home) : null }
+        }),
+    }
+  }
+  // The top of a tree: a household none of whose adults is a child of another in the family.
+  const below = new Set<string>()
+  for (const h of group.households) {
+    for (const m of h.members) {
+      const home = m.user_id && m.kind === 'child' ? homeOf.get(m.user_id) : undefined
+      if (home && home.id !== h.id) below.add(home.id)
+    }
+  }
+  const roots: TreeUnit[] = []
+  for (const h of group.households) if (!below.has(h.id) && !drawn.has(h.id)) roots.push(build(h))
+  // Households that name each other as parents have no top: start wherever is left.
+  for (const h of group.households) if (!drawn.has(h.id)) roots.push(build(h))
+  return roots
+}
+
 /** What a family of several households is called: by the household it is headed by. */
 export const groupTitle = (g: FamilyGroup): string => familyTitle(g.head)
 

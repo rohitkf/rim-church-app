@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { wordLabel, type FamilyOf, type FamilyPart } from '../lib/familyLinks'
+import { boxOf, hangLines, joinLines, type Box } from '../lib/treeLines'
 
 /**
  * One family, drawn as a tree (the Owner's ask, November 2026: "node
@@ -34,14 +35,18 @@ import { wordLabel, type FamilyOf, type FamilyPart } from '../lib/familyLinks'
  * Somebody written in by hand has no family of their own to open.
  */
 
-interface TreePerson {
+export interface TreePerson {
   /** Unique in the tree: an account's id, or a written-in entry's. */
   key: string
   /** The account, where there is one. */
   userId: string | null
   first_name: string
   last_name: string
-  /** What they are to the person the tree is drawn from, said under the name for whoever cannot see the lines. */
+  /**
+   * What they are to the person the tree is drawn from, said under the
+   * name for whoever cannot see the lines. Empty where the tree is drawn
+   * from nobody (the whole church, components/FamilyForest).
+   */
   word: string
 }
 
@@ -67,7 +72,7 @@ function tier(part: FamilyPart, linked: FamilyOf['spouse'], written: FamilyOf['w
   ]
 }
 
-function Node({
+export function TreeNode({
   person,
   me,
   onOpen,
@@ -78,6 +83,8 @@ function Node({
   onOpen?: (userId: string) => void
 }) {
   const { word } = person
+  // Said in words, not by a colour: who has no account.
+  const label = person.userId ? word : word ? `${word} · written in` : 'Written in'
   const inner = (
     <>
       <span
@@ -91,9 +98,7 @@ function Node({
       <span className="w-full text-center text-label-md font-medium leading-tight text-on-surface [overflow-wrap:anywhere]">
         {nameOf(person)}
       </span>
-      <span className="text-center font-mono text-[0.6875rem] leading-tight text-on-surface-faint">
-        {person.userId ? word : `${word} · written in`}
-      </span>
+      {label && <span className="text-center font-mono text-[0.6875rem] leading-tight text-on-surface-faint">{label}</span>}
     </>
   )
   const box = `flex w-[5.75rem] flex-col items-center gap-1 rounded-[var(--radius-row)] bg-surface-lowest px-1.5 py-2 hairline sm:w-32 ${
@@ -105,7 +110,7 @@ function Node({
         <button
           type="button"
           onClick={() => onOpen(person.userId!)}
-          aria-label={`${nameOf(person)}, ${word}. Show their family`}
+          aria-label={`${nameOf(person)}${word ? `, ${word}` : ''}. Show their family`}
           className={`tap ${box} transition-shadow duration-200 hover:ring-1 hover:ring-secondary`}
         >
           {inner}
@@ -155,58 +160,16 @@ export function FamilyTree({
     const measure = () => {
       const base = el.getBoundingClientRect()
       if (base.width === 0) return
-      const at = (key: string) => {
-        const node = el.querySelector<HTMLElement>(`[data-tree-node="${CSS.escape(key)}"]`)
-        if (!node) return null
-        const r = node.getBoundingClientRect()
-        return { x: r.left - base.left, y: r.top - base.top, w: r.width, h: r.height, cx: r.left - base.left + r.width / 2 }
-      }
+      const at = (key: string) => boxOf(el, base, key)
       const out: Line[] = []
       const me = at(self.key)
       if (!me) return
-      // A couple: a line between the two boxes, half way up.
-      const join = (keys: string[]) => {
-        const boxes = keys.map(at).filter((b): b is NonNullable<typeof b> => !!b)
-        for (let i = 0; i + 1 < boxes.length; i += 1) {
-          const y = boxes[i].y + Math.min(boxes[i].h, boxes[i + 1].h) / 2
-          out.push({ d: `M ${boxes[i].x + boxes[i].w} ${y} H ${boxes[i + 1].x}` })
-        }
-      }
-      type Box = NonNullable<ReturnType<typeof at>>
       const boxes = (people: TreePerson[]) => people.map((p) => at(p.key)).filter((b): b is Box => !!b)
-      /*
-       * One generation hung from the one above: a stem from `from` (where
-       * there is somebody above) to a bar, and a drop from the bar to each
-       * box. The boxes are taken as the screen laid them out: one row, or
-       * several where they wrapped. A second row cannot be reached through
-       * the first, so a rail runs down the side and a bar along each row.
-       */
-      const hang = (from: { x: number; y: number } | null, floor: number, below: Box[]) => {
-        const rows: Box[][] = []
-        for (const b of [...below].sort((a, c) => a.y - c.y || a.x - c.x)) {
-          const last = rows[rows.length - 1]
-          if (last && Math.abs(last[0].y - b.y) < 4) last.push(b)
-          else rows.push([b])
-        }
-        // Clear of every box.
-        const rail = Math.min(...below.map((b) => b.x)) - 9
-        let firstBar = 0
-        rows.forEach((row, i) => {
-          const bar = floor + (row[0].y - floor) / 2
-          const xs = row.map((b) => b.cx)
-          if (i === 0) {
-            firstBar = bar
-            if (from) out.push({ d: `M ${from.x} ${from.y} V ${bar}` })
-            const reach = [...(from ? [from.x] : []), ...(rows.length > 1 ? [rail] : []), ...xs]
-            if (Math.max(...reach) > Math.min(...reach)) out.push({ d: `M ${Math.min(...reach)} ${bar} H ${Math.max(...reach)}` })
-          } else {
-            out.push({ d: `M ${rail} ${bar} H ${Math.max(...xs)}` })
-            if (i === rows.length - 1) out.push({ d: `M ${rail} ${firstBar} V ${bar}` })
-          }
-          for (const b of row) out.push({ d: `M ${b.cx} ${bar} V ${b.y}` })
-          floor = Math.max(...row.map((b) => b.y + b.h))
-        })
-      }
+      const draw = (paths: string[]) => out.push(...paths.map((d) => ({ d })))
+      // A couple: a line between the two boxes, half way up.
+      const join = (keys: string[]) => draw(joinLines(keys.map(at).filter((b): b is Box => !!b)))
+      // One generation hung from the one above (lib/treeLines).
+      const hang = (from: { x: number; y: number } | null, floor: number, below: Box[]) => draw(hangLines(from, floor, below))
 
       join(parents.map((p) => p.key))
       join([self.key, ...partners.map((p) => p.key)])
@@ -264,7 +227,7 @@ export function FamilyTree({
     people.length > 0 && (
       <ul aria-label={label} className={`${row} ${extra}`}>
         {people.map((p) => (
-          <Node key={p.key} person={p} me={p.key === self.key} onOpen={onOpen} />
+          <TreeNode key={p.key} person={p} me={p.key === self.key} onOpen={onOpen} />
         ))}
       </ul>
     )

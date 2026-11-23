@@ -46,6 +46,20 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'families-view-all',
+    date: '2026-11-23',
+    title: 'The whole church on one page',
+    lead: 'Families has a “View all” button: every family drawn as a tree, and everybody else beside them.',
+    points: [
+      'Each family is drawn from the oldest generation down, with lines joining parents, couples and children.',
+      'Everybody who is not linked to anybody yet is listed after the families.',
+      'Press anybody with an account to open their own family, where you link people.',
+      'The button is at the top of the Families page.',
+    ],
+    link: { to: '/families', label: 'Open Families' },
+    page: '/families',
+  },
+  {
     key: 'families-joined',
     date: '2026-11-23',
     title: 'One family, one card',
