@@ -449,6 +449,12 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         body: 'Everybody with an account. Invite people, make somebody a Head or an Admin, and export everything that is known about everybody to a spreadsheet. Block stops an account without removing it, and Unblock puts everything back. Each card says how old the person is, and “Under 18” beside the name where they are. Family on a person’s card links them to their husband or wife, children or parents on the app, with nobody having to confirm, and writes in the ones who are not on the app yet.',
       },
       {
+        path: '/families',
+        target: 'page-title',
+        title: 'Families',
+        body: 'Every family the church has linked, and everybody who is not in one yet. Search for anybody, open their family and it is drawn as a tree: parents above, husband or wife beside, children below. The box under the tree links another account to it, or writes in somebody who is not on the app.',
+      },
+      {
         path: '/departments',
         target: 'page-title',
         title: 'Teams',
@@ -472,6 +478,12 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         target: 'people-export',
         title: 'The contact book',
         body: 'Only you see email addresses, phone numbers, visa and DBS details and families, on the page and in the export. The DBS button on each card says where that person stands, opens what a check needs, and is where you mark it verified once you have seen the certificate. You can mark your own, too.',
+      },
+      {
+        path: '/dbs',
+        target: 'page-title',
+        title: 'DBS Checks',
+        body: 'Everybody’s DBS on one page: who is still to check, who has not given their certificate’s details, and who is verified. Filter by where they stand or search a name, and open one to see what a check needs and mark it verified. Nobody else sees this page until you give them “Safeguarding details”.',
       },
       {
         path: '/volunteers',

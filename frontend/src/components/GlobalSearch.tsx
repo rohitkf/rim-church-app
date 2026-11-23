@@ -42,6 +42,8 @@ const PAGES: { label: string; detail: string; to: string; keywords: string }[] =
   { label: 'Team Rota', detail: 'Who is doing what', to: '/rota', keywords: 'assign roles duty' },
   { label: 'Teams', detail: 'Departments, roles and handbooks', to: '/departments', keywords: 'departments handbook roles' },
   { label: 'Volunteers', detail: 'Everyone, their teams and permissions', to: '/volunteers', keywords: 'people members admin permissions' },
+  { label: 'Families', detail: 'Who is linked to whom, as a tree', to: '/families', keywords: 'family families husband wife spouse child children parents link tree household' },
+  { label: 'DBS Checks', detail: 'Everybody’s DBS, and marking one verified', to: '/dbs', keywords: 'dbs safeguarding certificate check verify verified compliance' },
   { label: 'Inventory', detail: 'Equipment registers and value', to: '/inventory', keywords: 'equipment kit assets stock' },
   { label: 'Messages', detail: 'The message board', to: '/messages', keywords: 'announcements board post' },
   { label: 'Feedback', detail: 'Report a bug or suggest an improvement', to: '/feedback', keywords: 'feedback bug report suggestion idea improvement problem broken' },

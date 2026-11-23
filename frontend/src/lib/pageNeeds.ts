@@ -48,7 +48,7 @@ function opensTo(path: string, role: GridRole, grid: Overrides): boolean {
   // Countdown and Feedback open by their own rights, which is the right
   // being given.
   if (path === '/clock-in') return on('clockin.view', role)
-  if (path === '/registrations' || path === '/door' || path === '/countdown' || path === '/feedback') return true
+  if (path === '/registrations' || path === '/door' || path === '/countdown' || path === '/feedback' || path === '/families' || path === '/dbs') return true
   const rule = PAGE_RULES[path]
   if (!rule) return true
   if (rule.default === 'everyone') return true

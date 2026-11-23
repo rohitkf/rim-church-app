@@ -571,3 +571,15 @@ export function HeartIcon(props: IconProps) {
     </svg>
   )
 }
+
+/** A family drawn as a tree: one above, two below, joined. */
+export function FamilyTreeIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="9" y="3" width="6" height="5" rx="1" />
+      <rect x="3" y="16" width="6" height="5" rx="1" />
+      <rect x="15" y="16" width="6" height="5" rx="1" />
+      <path d="M12 8v4M6 16v-4h12v4" />
+    </svg>
+  )
+}

@@ -213,6 +213,10 @@ const router = createBrowserRouter(
             <Route path="/departments" lazy={page(() => import('./pages/DepartmentsPage'), 'DepartmentsPage')} />
             <Route path="/departments/:id" lazy={page(() => import('./pages/DepartmentDetailPage'), 'DepartmentDetailPage')} />
             <Route path="/volunteers" lazy={page(() => import('./pages/VolunteersPage'), 'VolunteersPage')} />
+            {/* Every family, one family as a tree, and linking (0326): whoever holds people.family. */}
+            <Route path="/families" lazy={page(() => import('./pages/FamiliesPage'), 'FamiliesPage')} />
+            {/* Everybody's DBS, and marking one verified (0324): whoever holds people.compliance. */}
+            <Route path="/dbs" lazy={page(() => import('./pages/DbsPage'), 'DbsPage')} />
             {/* Answer, get put on, tick it off: three pages of their own.
                 /serving was the one menu entry that held them as tabs; a
                 link kept from then still opens somewhere. */}

@@ -169,6 +169,8 @@ export const LIVE_TABLES: LiveTable[] = [
       'volunteers',
       // Who is under 18 follows a date of birth (0321).
       'minors',
+      // Everybody by name, for the Families and DBS pages (0326).
+      'people-names',
       'profile-options',
       'mentionable-people',
       'announcement-people',
