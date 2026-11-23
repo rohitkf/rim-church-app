@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { edgeSentence, edgeText, type Graph, type GraphNode } from '../lib/familyGraph'
 import { CIRCLE, LETTER, layoutGraph, type Point } from '../lib/graphLayout'
 
@@ -21,10 +21,17 @@ import { CIRCLE, LETTER, layoutGraph, type Point } from '../lib/graphLayout'
  * This draws it, and is how it is moved about in:
  *
  *   - It scrolls inside its own box, both ways, with a finger or a wheel.
- *     Dragging to pan would take the finger that scrolls the page.
- *   - Zoom in, Zoom out and Fit are buttons. It opens at a size its words
- *     can be read at, on the person it is about where there is one, even
- *     when that means the far side of a big family is a scroll away.
+ *     Dragging the background to pan would take the finger that scrolls
+ *     the page.
+ *   - Zoom in, Zoom out and Fit are buttons; two fingers pinch it bigger
+ *     and smaller on a phone, and Ctrl or ⌘ with the wheel does on a
+ *     computer. It opens at a size its words can be read at, on the
+ *     person it is about where there is one, even when that means the far
+ *     side of a big family is a scroll away.
+ *   - Somebody can be dragged to another place with a mouse or a pen, and
+ *     their lines follow; Reset puts everybody back. Not with a finger:
+ *     a finger on somebody is as likely to be scrolling as moving them,
+ *     and scrolling is what a phone cannot do without.
  *   - Pressing somebody with an account goes to their own page.
  *
  * A line is a picture, so every one is also a sentence in a list a screen
@@ -37,6 +44,8 @@ const WORD_SIZE = 10.5
 /** No smaller than this to start with: under it the words on the lines cannot be read. */
 const READABLE = 0.75
 const ZOOM = { least: 0.3, most: 2, step: 1.25 }
+/** How far a press has to travel before it is a drag and not a press. */
+const DRAG = 5
 
 /** The middle of the line between two people: where a couple's children's lines start. */
 const middle = (a: Point | undefined, b: Point | undefined): Point | undefined => (a && b ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : undefined)
@@ -73,6 +82,13 @@ export function FamilyGraph({
   /** How big it is drawn; null until the box has been measured. */
   const [zoom, setZoom] = useState<number | null>(null)
   const [fit, setFit] = useState(1)
+  /** Where whoever has been dragged now is. Nobody, until somebody is; and nobody again for a new picture. */
+  const [moved, setMoved] = useState<Record<string, Point>>({})
+  const dragging = useRef<{ id: string; x: number; y: number; from: Point; far: boolean } | null>(null)
+  /** A drag has just ended: the press that ends it is not a press on that person. */
+  const dragged = useRef(false)
+  /** What to keep still while the size changes: a place in the picture, and where in the box it is. */
+  const hold = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
   // Which picture has been put in place: a new family, or a new person in it, opens on them again.
   const placedFor = useRef('')
   const shape = `${graph.nodes.map((n) => n.id).join(',')}|${focus ?? ''}`
@@ -87,6 +103,7 @@ export function FamilyGraph({
     placedFor.current = shape
     const start = Math.max(whole, Math.min(1, READABLE))
     setZoom(start)
+    setMoved((was) => (Object.keys(was).length ? {} : was))
     // On the person it is about; with nobody, on the middle of the top.
     const centre = focus ? layout.at.get(focus) : undefined
     requestAnimationFrame(() => {
@@ -97,43 +114,115 @@ export function FamilyGraph({
   }, [layout, shape, focus])
 
   const scale = zoom ?? 1
-  const to = (next: number) => {
+  // Never smaller than the smallest size, except to fit: the whole of a big family on a phone is smaller still.
+  const least = Math.min(ZOOM.least, fit)
+  /** Change the size, keeping the place under `at` (a point on the screen) where it is; the middle of the box by default. */
+  const to = (next: number, at?: { x: number; y: number }) => {
     const el = box.current
-    // Never smaller than the smallest size, except to fit: the whole of a big family on a phone is smaller still.
-    const clamped = Math.min(ZOOM.most, Math.max(Math.min(ZOOM.least, fit), next))
+    const clamped = Math.min(ZOOM.most, Math.max(least, next))
+    // Nothing to change: nothing to hold either, or it would be put back at some later change of size.
+    if (clamped === scale) return
     if (el) {
-      // What is in the middle stays in the middle.
-      const cx = (el.scrollLeft + el.clientWidth / 2) / scale
-      const cy = (el.scrollTop + el.clientHeight / 2) / scale
-      requestAnimationFrame(() => {
-        el.scrollLeft = cx * clamped - el.clientWidth / 2
-        el.scrollTop = cy * clamped - el.clientHeight / 2
-      })
+      const r = el.getBoundingClientRect()
+      const left = at ? at.x - r.left : el.clientWidth / 2
+      const top = at ? at.y - r.top : el.clientHeight / 2
+      hold.current = { x: (el.scrollLeft + left) / scale, y: (el.scrollTop + top) / scale, left, top }
     }
     setZoom(clamped)
   }
+  // Once it is drawn at the new size, the place that was held is put back where it was.
+  useLayoutEffect(() => {
+    const el = box.current
+    const h = hold.current
+    if (!el || !h || zoom === null) return
+    hold.current = null
+    el.scrollLeft = h.x * zoom - h.left
+    el.scrollTop = h.y * zoom - h.top
+  }, [zoom])
+
+  // The latest size and the way to change it, for listeners that are set up once.
+  const live = useRef({ scale, to })
+  useLayoutEffect(() => {
+    live.current = { scale, to }
+  })
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    // Two fingers: bigger and smaller, about the place between them. One finger is left alone to scroll.
+    let pinch: { apart: number; scale: number } | null = null
+    const spread = (e: TouchEvent) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY)
+    const start = (e: TouchEvent) => {
+      if (e.touches.length === 2) pinch = { apart: spread(e), scale: live.current.scale }
+    }
+    const move = (e: TouchEvent) => {
+      if (!pinch || e.touches.length !== 2) return
+      // Ours, not the browser's: it would scroll the box, or zoom the whole page.
+      e.preventDefault()
+      const between = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2 }
+      live.current.to((pinch.scale * spread(e)) / (pinch.apart || 1), between)
+    }
+    const end = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinch = null
+    }
+    // Ctrl or ⌘ with the wheel, which is also what a pinch on a trackpad sends.
+    const wheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+      live.current.to(live.current.scale * Math.exp(-e.deltaY * 0.0025), { x: e.clientX, y: e.clientY })
+    }
+    // Not passive: they have to be able to stop the browser doing its own thing with the gesture.
+    el.addEventListener('touchstart', start, { passive: true })
+    el.addEventListener('touchmove', move, { passive: false })
+    el.addEventListener('touchend', end, { passive: true })
+    el.addEventListener('touchcancel', end, { passive: true })
+    el.addEventListener('wheel', wheel, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', start)
+      el.removeEventListener('touchmove', move)
+      el.removeEventListener('touchend', end)
+      el.removeEventListener('touchcancel', end)
+      el.removeEventListener('wheel', wheel)
+    }
+  }, [])
+
+  /** Where somebody is: where they were dragged to, or where the layout put them. */
+  const place = (id: string): Point | undefined => moved[id] ?? layout.at.get(id)
+  const anyMoved = Object.keys(moved).length > 0
 
   return (
     <figure aria-label={label} className="m-0">
       <div className="relative rounded-[var(--radius-card)] bg-raised hairline">
         {/* In a strip of their own over the picture, not floating on it: there they sat on whoever was top right. */}
-        <div role="group" aria-label="Size of the picture" className="flex justify-end gap-1.5 px-2 pt-2">
-          <button type="button" onClick={() => to(scale / ZOOM.step)} disabled={scale <= Math.min(ZOOM.least, fit) + 0.001} aria-label="Zoom out" className={controlButton}>
-            <span aria-hidden="true">−</span>
-          </button>
-          <button type="button" onClick={() => to(scale * ZOOM.step)} disabled={scale >= ZOOM.most - 0.001} aria-label="Zoom in" className={controlButton}>
-            <span aria-hidden="true">+</span>
-          </button>
-          <button type="button" onClick={() => to(fit)} disabled={Math.abs(scale - fit) < 0.001} aria-label="Fit the whole picture in" className={controlButton}>
-            Fit
-          </button>
+        <div className="flex items-center justify-between gap-2 px-2 pt-2">
+          {/* How it is moved about in, said once and briefly, for whichever of the two is in the hand. */}
+          <p className="min-w-0 pl-1.5 text-label-sm text-on-surface-faint">
+            <span className="[@media(pointer:fine)]:hidden">Pinch to zoom</span>
+            <span className="hidden [@media(pointer:fine)]:inline">Drag somebody to move them</span>
+          </p>
+          <div role="group" aria-label="Size of the picture" className="flex shrink-0 gap-1.5">
+            {anyMoved && (
+              <button type="button" onClick={() => setMoved({})} aria-label="Put everybody back where they were" className={controlButton}>
+                Reset
+              </button>
+            )}
+            <button type="button" onClick={() => to(scale / ZOOM.step)} disabled={scale <= least + 0.001} aria-label="Zoom out" className={controlButton}>
+              <span aria-hidden="true">−</span>
+            </button>
+            <button type="button" onClick={() => to(scale * ZOOM.step)} disabled={scale >= ZOOM.most - 0.001} aria-label="Zoom in" className={controlButton}>
+              <span aria-hidden="true">+</span>
+            </button>
+            <button type="button" onClick={() => to(fit)} disabled={Math.abs(scale - fit) < 0.001} aria-label="Fit the whole picture in" className={controlButton}>
+              Fit
+            </button>
+          </div>
         </div>
 
         <div
           ref={box}
           data-graph-box
           // Its own scrolling, both ways; and it does not hand the scroll on to the page at its edge sideways.
-          className="max-h-[70dvh] overflow-auto overscroll-x-contain rounded-b-[var(--radius-card)]"
+          // `touch-action`: one finger scrolls it; two are ours to make it bigger and smaller, not the browser's to zoom the page.
+          className="max-h-[70dvh] touch-pan-x touch-pan-y overflow-auto overscroll-x-contain rounded-b-[var(--radius-card)]"
         >
           {/* As big as the picture is at this size, so the box scrolls by exactly that much. */}
           <div className="relative mx-auto" style={{ width: layout.width * scale, height: layout.height * scale }}>
@@ -142,7 +231,7 @@ export function FamilyGraph({
                 {graph.edges.map((e) => {
                   // From where to where: between two people, or from the middle of a couple's line to their child.
                   const ends: [Point | undefined, Point | undefined] =
-                    e.kind === 'hub' ? [middle(layout.at.get(e.couple[0]), layout.at.get(e.couple[1])), layout.at.get(e.child)] : [layout.at.get(e.a), layout.at.get(e.b)]
+                    e.kind === 'hub' ? [middle(place(e.couple[0]), place(e.couple[1])), place(e.child)] : [place(e.a), place(e.b)]
                   const [a, b] = ends
                   if (!a || !b) return null
                   // The words run left to right, so the start of the line is whoever is on the left (or above, for one straight down).
@@ -188,7 +277,7 @@ export function FamilyGraph({
 
               <ul aria-label="People" className="m-0 list-none p-0">
                 {graph.nodes.map((n) => {
-                  const p = layout.at.get(n.id)
+                  const p = place(n.id)
                   if (!p) return null
                   const me = n.id === focus
                   const circle = `flex shrink-0 items-center justify-center rounded-full font-mono text-label-md ${
@@ -217,8 +306,44 @@ export function FamilyGraph({
                       key={n.id}
                       data-graph-node={n.id}
                       // The middle of the circle is where the lines meet.
-                      className="absolute z-[1] -translate-x-1/2"
+                      className="absolute z-[1] -translate-x-1/2 [@media(pointer:fine)]:cursor-grab [@media(pointer:fine)]:select-none"
                       style={{ left: p.x, top: p.y - CIRCLE / 2 }}
+                      // Dragged to another place, with a mouse or a pen: a finger on somebody is left to scroll.
+                      onPointerDown={(e) => {
+                        dragged.current = false
+                        if (e.pointerType === 'touch' || e.button !== 0) return
+                        dragging.current = { id: n.id, x: e.clientX, y: e.clientY, from: p, far: false }
+                      }}
+                      onPointerMove={(e) => {
+                        const d = dragging.current
+                        if (!d || d.id !== n.id) return
+                        const dx = e.clientX - d.x
+                        const dy = e.clientY - d.y
+                        if (!d.far) {
+                          if (Math.hypot(dx, dy) < DRAG) return
+                          d.far = true
+                          // From here every move is theirs, wherever the pointer gets to.
+                          e.currentTarget.setPointerCapture?.(e.pointerId)
+                        }
+                        // Inside the picture, with room for the name under them.
+                        const x = Math.min(layout.width - CIRCLE / 2, Math.max(CIRCLE / 2, d.from.x + dx / scale))
+                        const y = Math.min(layout.height - CIRCLE / 2 - 30, Math.max(CIRCLE / 2, d.from.y + dy / scale))
+                        setMoved((was) => ({ ...was, [n.id]: { x, y } }))
+                      }}
+                      onPointerUp={() => {
+                        dragged.current = !!dragging.current?.far
+                        dragging.current = null
+                      }}
+                      onPointerCancel={() => {
+                        dragging.current = null
+                      }}
+                      // The press that ends a drag is not a press on them: it does not open their page.
+                      onClickCapture={(e) => {
+                        if (!dragged.current) return
+                        dragged.current = false
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }}
                     >
                       {n.userId && !me && onOpen ? (
                         <button type="button" onClick={() => onOpen(n.userId!)} aria-label={`${nameOf(n)}. Open their family`} className={`${shell} tap`}>

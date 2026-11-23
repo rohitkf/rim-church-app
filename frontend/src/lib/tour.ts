@@ -349,7 +349,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/families',
         target: 'page-title',
         title: 'Families',
-        body: 'Every family the church has linked, and everybody who is not in one yet. Search for anybody, open their family and it is drawn out: everybody a circle, and a line between two people with what they are to each other written on it. The box under it links another account as their husband, wife, son, daughter, father, mother, brother or sister, or writes in somebody who is not on the app. “View all” draws the whole church on one page. The Owner’s and a Pastor’s, and whoever else the Owner gives “Link families”.',
+        body: 'Every family the church has linked, and everybody who is not in one yet. Search for anybody, open their family and it is drawn out: everybody a circle, and a line between two people with what they are to each other written on it. The box under it links another account as their husband, wife, son, daughter, father, mother, brother or sister, or writes in somebody who is not on the app. “View all” draws the whole church on one page. Pinch the picture to make it bigger or smaller, or hold Ctrl and turn the wheel; with a mouse, anybody in it can be dragged to another place. The Owner’s and a Pastor’s, and whoever else the Owner gives “Link families”.',
       },
       {
         path: '/dbs',
