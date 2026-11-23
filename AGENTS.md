@@ -1821,10 +1821,10 @@ So a session that starts from nothing works the way the last one did:
 
 ## 12. The skills installed in this repo
 
-`.claude/skills/` holds ten skill sets copied in at a pinned commit, each
+`.claude/skills/` holds eleven skill sets copied in at a pinned commit, each
 with a `SOURCE.md` saying where it came from, its licence and what was
 left out: `superpowers`, `mattpocock-skills`, `ponytail`, `caveman`,
-`impeccable`, `hallmark`, `unslop`, `i-have-adhd`, `brag` and `graphify`
+`impeccable`, `hallmark`, `unslop`, `i-have-adhd`, `brag`, `headroom` and `graphify`
 (beside `security-audit`, and `frontend/.claude/skills/verify`). All but
 `graphify` and `security-audit` are plugin folders: they load as
 `<set>@skills-dir` and their skills are called `<set>:<skill>`.
@@ -1885,6 +1885,36 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   may fix without asking is drift from `DESIGN.md` itself: a curve that
   is not `--ease-glide`, a glow, a stripe down one side of a card, a size
   or a tracking written by hand where a token exists.
+- **Long, repetitive output goes through `scripts/hr`, every time.** The
+  Owner asked for Headroom to be installed and "always" used (23
+  November 2026). Headroom makes what a model is sent smaller, and
+  `scripts/hr <command>` (or `<command> | scripts/hr`) is how this
+  repository uses it: it runs the command and prints its output through
+  Headroom, before the output is read, which is the only place there is
+  anything to save. **Use it for** rows read from the database (the
+  Management API's JSON, an MCP `execute_sql` saved to a file), a CI
+  job's log, the local database build (`cidb`), and any build or install
+  log that runs to hundreds of lines. Measured here: rows as JSON come
+  out about half the size as a table with every row kept; a log that
+  repeats itself goes from 20,000 tokens to about 100 with the error
+  line kept. **It does nothing for** this repo's test output, `git log`,
+  a diff, source code or prose (0% on each, measured), so those are
+  still cut with `tail` and `grep` as before; `hr` prints them untouched
+  rather than pretend. **What it promises**: the command's own exit
+  code; the whole output kept in a file, named on the last line; the
+  output untouched when Headroom would save less than a tenth, or is not
+  installed (one line on stderr says how: `uv tool install --python 3.13
+  "headroom-ai==0.45.0"`); and Headroom run with its usage beacon off and
+  its network off. **A gate's verdict is its exit code and its totals
+  line, never the smaller text**: Headroom keeps errors and the odd ones
+  out but may leave rows out of a long table, so when the answer is in
+  the detail, read the file. **Headroom's proxy, hooks, band and MCP
+  server are not installed**, and `.claude/skills/headroom/SOURCE.md`
+  says why: the proxy is the part that would work without being asked,
+  and a cloud session cannot be started behind it from inside a
+  repository. On a computer of their own it is the Owner's one command
+  (`headroom wrap claude`, beacon off). The `headroom:headroom` skill is
+  for adding `compress()` to an app, which this one has not needed.
 - **The code graph is not committed.** `graphify extract . --code-only`
   then `graphify cluster-only . --no-label` rebuilds `graphify-out/` in
   about twenty seconds with no model calls (`pip install

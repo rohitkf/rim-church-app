@@ -5,7 +5,7 @@ description: Use at the start of any piece of work in this repository (a feature
 
 # Working here with the installed skills
 
-Nine skill sets are installed in `.claude/skills/` (each folder's `SOURCE.md` says where it came
+Ten skill sets are installed in `.claude/skills/` (each folder's `SOURCE.md` says where it came
 from and what was left out). They were written for other projects. This file says how they fit
 this one.
 
@@ -27,6 +27,7 @@ A skill that says MUST is still fourth. The collisions that matter:
 | Send work to subagents (`dispatching-parallel-agents`, `subagent-driven-development`, `caveman:cavecrew`) | Only when the Owner asks for it or the session's own rules allow it. |
 | Write the commit as one compressed line (`caveman:caveman-commit`) | Take its subject line. Keep the body: commits here explain why, in prose, and end with the attribution lines. |
 | Write a plan or a spec to a file | Only when the Owner asks for the file. Otherwise the plan is said and tracked in the task list. |
+| Point Claude Code at Headroom's proxy, or install its hooks, band or MCP server (`headroom:headroom`, upstream's README) | Not from this repository: `.claude/skills/headroom/SOURCE.md` says why. Here Headroom is `scripts/hr`, and the skill is for an app's own calls to a model. |
 | Pick a theme, a typeface or a new look (`hallmark`, `impeccable`, `unslop`) | The app has a design system (`DESIGN.md`, AGENTS §5): the device's own typeface, the app's tokens. Use these skills to judge and polish against it, never to replace it. `unslop` says the same of itself: a product with a real brand gets polish mode. Where a skill's rule and `DESIGN.md` disagree (capital labels, pills, a greeting), it is the Owner's choice: list it, do not change it. |
 
 The voice modes (`caveman`, `ultracave`, `megacave`, `i-have-adhd`, ponytail's reply style) shape
@@ -38,6 +39,7 @@ messages, PR bodies, migrations, `AGENTS.md`.
 | Job | Use, in this order |
 | --- | --- |
 | Find what a change touches | `graphify` (see below), then read the files it names |
+| Read rows from the database, a CI log, a long build log | Through `scripts/hr <command>` (Headroom, AGENTS §12): smaller before it is read, exit code kept, the whole output in a file. Not for test output, diffs or code: it leaves those as they are |
 | Shape a feature before building | `superpowers:brainstorming` for the design, `superpowers:writing-plans` when it has more than a few steps |
 | Build | `ponytail:ponytail` rules: reuse what exists, the smallest change that fully does the job. Logic in `frontend/src/lib` test-first with `superpowers:test-driven-development` (or `mattpocock-skills:tdd`; pick one, they say the same) |
 | A bug or a failing test | `superpowers:systematic-debugging` first. A hard one or a slow path: `mattpocock-skills:diagnosing-bugs` |
