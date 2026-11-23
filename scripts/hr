@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""
+hr: run a command and print its output through Headroom, so a long,
+repetitive output costs less of the conversation.
+
+    scripts/hr <command> [arguments…]     run it, print what it printed, made smaller
+    scripts/hr '<a line for the shell>'   the same, for a line with a pipe or a redirect in it
+    <command> | scripts/hr                make smaller what is piped in
+
+What it promises, because a check that lies is worse than a long one:
+
+  - It exits with the command's own exit code.
+  - The whole output is always kept in a file, and the last line says
+    where. Headroom keeps errors, the first and last items and the odd
+    ones out, but it may leave rows out of a long table: when the answer
+    is in the detail, read the file.
+  - It only prints the smaller version when that is at least a tenth
+    smaller. Otherwise the output is printed exactly as it came.
+  - If Headroom is not installed, the output is printed as it came, with
+    one line on stderr saying how to install it. Nothing fails for want
+    of it.
+  - Headroom is run with its usage beacon off and its network off: it
+    works on this machine and sends nothing anywhere.
+
+What it is for (measured here, November 2026): rows from the database
+as JSON (about half), a long log that repeats itself (a CI job, a build;
+20,000 tokens to under 100 on Headroom's own example). What it does
+nothing for: this repo's test output, `git log`, source code, prose. See
+AGENTS.md §12.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import time
+
+# Where `uv tool install headroom-ai` puts its own Python, which is where the library is.
+TOOL_PYTHON = os.path.expanduser('~/.local/share/uv/tools/headroom-ai/bin/python')
+INSTALL = 'uv tool install --python 3.13 "headroom-ai==0.45.0"'
+# Under this there is nothing worth making smaller.
+SMALL = 2000
+# The smaller version is only printed when it is at most this much of the whole.
+WORTH = 0.9
+ANSI = re.compile(r'\x1b\[[0-9;?]*[ -/]*[@-~]')
+
+
+def engine(child_env):
+    """Headroom's compress(), or None where it is not installed. Started again under Headroom's own Python when that is where it is."""
+    # Before it is imported: no beacon, no update check, no downloads.
+    os.environ.update(HEADROOM_BEACON='off', HEADROOM_TELEMETRY='off', DO_NOT_TRACK='1', HEADROOM_OFFLINE='1')
+    try:
+        from headroom import compress  # type: ignore
+
+        return compress
+    except Exception:
+        pass
+    here = os.path.realpath(sys.executable)
+    if os.path.exists(TOOL_PYTHON) and os.path.realpath(TOOL_PYTHON) != here and not os.environ.get('HR_AGAIN'):
+        os.environ.clear()
+        os.environ.update(child_env)
+        os.environ['HR_AGAIN'] = '1'
+        os.execv(TOOL_PYTHON, [TOOL_PYTHON, os.path.abspath(__file__), *sys.argv[1:]])
+    return None
+
+
+def smaller(compress, text):
+    """The text as Headroom would send it, with the tokens before and after; None when it could not."""
+    messages = [
+        {'role': 'user', 'content': 'What does this say? Keep every error, every failure and every total.'},
+        {'role': 'assistant', 'content': None, 'tool_calls': [{'id': 'hr', 'type': 'function', 'function': {'name': 'run', 'arguments': '{}'}}]},
+        {'role': 'tool', 'tool_call_id': 'hr', 'content': text},
+    ]
+    try:
+        result = compress(messages, model='claude-sonnet-4-5')
+        out = result.messages[-1].get('content')
+        if not isinstance(out, str) or not out.strip():
+            return None
+        # A table comes back written as one JSON string: print it as the lines it is.
+        if out.startswith('"') and out.rstrip().endswith('"'):
+            try:
+                plain = json.loads(out)
+                out = plain if isinstance(plain, str) else out
+            except ValueError:
+                pass
+        return out, int(result.tokens_before), int(result.tokens_after)
+    except Exception as error:  # Never the reason a command's output is lost.
+        print(f'[hr] headroom could not read this ({type(error).__name__}): printed as it came', file=sys.stderr)
+        return None
+
+
+def main():
+    args = sys.argv[1:]
+    if args and args[0] in ('-h', '--help'):
+        print(__doc__.strip())
+        return 0
+    # The command gets the environment hr was given, not the one Headroom is run with.
+    child_env = {k: v for k, v in os.environ.items() if k != 'HR_AGAIN'}
+    compress = engine(child_env)
+
+    folder = os.environ.get('HR_DIR') or os.path.join(tempfile.gettempdir(), 'hr')
+    os.makedirs(folder, exist_ok=True)
+    kept = os.path.join(folder, f'{time.strftime("%H%M%S")}-{os.getpid()}.txt')
+    with open(kept, 'wb') as whole:
+        if args:
+            # One argument with a space in it is a line for the shell; otherwise a command and its arguments.
+            line = len(args) == 1 and any(c.isspace() for c in args[0])
+            try:
+                code = subprocess.run(args[0] if line else args, shell=line, stdout=whole, stderr=subprocess.STDOUT, env=child_env).returncode
+            except FileNotFoundError:
+                print(f'[hr] no such command: {args[0]}', file=sys.stderr)
+                return 127
+        else:
+            whole.write(sys.stdin.buffer.read())
+            code = 0
+    with open(kept, 'rb') as whole:
+        text = ANSI.sub('', whole.read().decode('utf-8', errors='replace'))
+
+    if compress is None:
+        sys.stdout.write(text)
+        print(f'[hr] headroom is not installed here, so this is as it came. To install: {INSTALL}', file=sys.stderr)
+        return code
+    made = smaller(compress, text) if len(text) >= SMALL else None
+    if made is None or made[2] > made[1] * WORTH:
+        sys.stdout.write(text)
+        return code
+    out, before, after = made
+    sys.stdout.write(out if out.endswith('\n') else out + '\n')
+    print(f'[hr] {before:,} to {after:,} tokens ({round(100 * (before - after) / before)}% smaller); exit code {code}. Rows may be left out. All of it: {kept}')
+    return code
+
+
+if __name__ == '__main__':
+    sys.exit(main())

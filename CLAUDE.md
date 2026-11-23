@@ -10,7 +10,7 @@ already carries an apology in its own source for two lists of notification
 types that fell out of step — a second list of house rules would go the
 same way.
 
-## The six that apply every session
+## The seven that apply every session
 
 1. **Work on `develop`, and only `develop`.** Never create a branch. Never
    push to `main` — it is protected and moves only by a pull request.
@@ -39,6 +39,10 @@ same way.
    or does something on screen reads it the way a preview narrows it, a
    new standing gets a preview in the change that makes it, and each
    previewed role is checked before the pull request (AGENTS.md §3).
-6. **The app cannot boot here** — there is no `.env`. So nothing can be
+6. **Long, repetitive output goes through `scripts/hr`** (Headroom,
+   AGENTS.md §12): rows read from the database, a CI job's log, a long
+   build log. It keeps the exit code and the whole output in a file.
+   Test output, diffs and code it leaves alone, so cut those as before.
+7. **The app cannot boot here** — there is no `.env`. So nothing can be
    verified by eye. Check claims against real output (tests, the build,
    `dist/`, the live schema) and say plainly what is still unverified.
