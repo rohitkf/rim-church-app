@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import type { FamilyOf } from '../lib/familyLinks'
+import { wordLabel, type FamilyOf, type FamilyPart } from '../lib/familyLinks'
 
 /**
  * One family, drawn as a tree (the Owner's ask, November 2026: "node
@@ -9,6 +9,13 @@ import type { FamilyOf } from '../lib/familyLinks'
  * person beside their husband or wife, their children below. It is drawn
  * from `family_of()`, which reads somebody's own household and their
  * parents' together, so it is the same family the list under it changes.
+ *
+ * Brothers and sisters (0328) stand on the person's own row, to their
+ * left, hanging from the same parents; with no parents listed a bar over
+ * them is what says they are one family. Each box says what that person
+ * is to the one the tree is drawn from, by the word the church has said
+ * ("Wife", "Son", "Mother"), or by the pair ("Husband or wife") where
+ * nobody has yet.
  *
  * The boxes are laid out by the page, as rows; the lines are measured off
  * the boxes once they are on the screen and drawn behind them. So a long
@@ -34,6 +41,8 @@ interface TreePerson {
   userId: string | null
   first_name: string
   last_name: string
+  /** What they are to the person the tree is drawn from, said under the name for whoever cannot see the lines. */
+  word: string
 }
 
 interface Line {
@@ -45,26 +54,30 @@ const initials = (p: { first_name: string; last_name: string }) =>
 
 const nameOf = (p: { first_name: string; last_name: string }) => `${p.first_name} ${p.last_name}`.trim() || 'No name'
 
-function tier(linked: FamilyOf['spouse'], written: FamilyOf['written_people']['spouse']): TreePerson[] {
+function tier(part: FamilyPart, linked: FamilyOf['spouse'], written: FamilyOf['written_people']['spouse']): TreePerson[] {
   return [
-    ...linked.map((p) => ({ key: p.id, userId: p.id, first_name: p.first_name, last_name: p.last_name })),
-    ...written.map((p) => ({ key: `w-${p.id}`, userId: null, first_name: p.first_name, last_name: p.last_name })),
+    ...linked.map((p) => ({ key: p.id, userId: p.id, first_name: p.first_name, last_name: p.last_name, word: wordLabel(part, p.gender) })),
+    ...written.map((p) => ({
+      key: `w-${p.id}`,
+      userId: null,
+      first_name: p.first_name,
+      last_name: p.last_name,
+      word: wordLabel(part, p.gender),
+    })),
   ]
 }
 
 function Node({
   person,
   me,
-  word,
   onOpen,
 }: {
   person: TreePerson
   /** The one the tree is drawn from. */
   me: boolean
-  /** What they are to that person, said under the name for whoever cannot see the lines. */
-  word: string
   onOpen?: (userId: string) => void
 }) {
+  const { word } = person
   const inner = (
     <>
       <span
@@ -116,18 +129,25 @@ export function FamilyTree({
   /** Somebody else in the tree was pressed: draw it from them. */
   onOpen?: (userId: string) => void
 }) {
-  const parents = tier(family.parents, family.written_people.parents)
-  const partners = tier(family.spouse, family.written_people.spouse)
-  const children = tier(family.children, family.written_people.children)
-  const self: TreePerson = { key: person.id, userId: person.id, first_name: person.first_name, last_name: person.last_name }
+  const parents = tier('parent', family.parents, family.written_people.parents)
+  const partners = tier('spouse', family.spouse, family.written_people.spouse)
+  const children = tier('child', family.children, family.written_people.children)
+  const siblings = tier('sibling', family.siblings, family.written_people.siblings)
+  const self: TreePerson = {
+    key: person.id,
+    userId: person.id,
+    first_name: person.first_name,
+    last_name: person.last_name,
+    word: 'This person',
+  }
   const first = person.first_name || 'them'
-  const alone = parents.length + partners.length + children.length === 0
+  const alone = parents.length + partners.length + children.length + siblings.length === 0
 
   const frame = useRef<HTMLDivElement>(null)
   const [lines, setLines] = useState<Line[]>([])
   const [size, setSize] = useState({ w: 0, h: 0 })
   // What the lines depend on, as one string: who is where.
-  const shape = [parents, [self], partners, children].map((t) => t.map((p) => p.key).join(',')).join('|')
+  const shape = [parents, siblings, [self], partners, children].map((t) => t.map((p) => p.key).join(',')).join('|')
 
   useLayoutEffect(() => {
     const el = frame.current
@@ -152,54 +172,80 @@ export function FamilyTree({
           out.push({ d: `M ${boxes[i].x + boxes[i].w} ${y} H ${boxes[i + 1].x}` })
         }
       }
-      join(parents.map((p) => p.key))
-      join([self.key, ...partners.map((p) => p.key)])
-      // The parents, down to the person: a stem from each to a bar, and one stem from the bar.
-      const up = parents.map((p) => at(p.key)).filter((b): b is NonNullable<typeof b> => !!b)
-      if (up.length > 0) {
-        const bottom = Math.max(...up.map((b) => b.y + b.h))
-        const bar = bottom + (me.y - bottom) / 2
-        const from = up.length === 2 ? (up[0].cx + up[1].cx) / 2 : up[0].cx
-        const start = up.length === 2 ? up[0].y + Math.min(up[0].h, up[1].h) / 2 : bottom
-        out.push({ d: `M ${from} ${start} V ${bar} H ${me.cx} V ${me.y}` })
-        // More than two written in above (it should not happen): each still reaches the bar.
-        if (up.length > 2) for (const b of up) out.push({ d: `M ${b.cx} ${b.y + b.h} V ${bar} H ${me.cx}` })
-      }
-      // The children, down from the couple (or from the person alone).
-      const down = children.map((p) => at(p.key)).filter((b): b is NonNullable<typeof b> => !!b)
-      if (down.length > 0) {
-        // A partner on the same line as the person: the children come from between the two.
-        const beside = partners.length > 0 ? at(partners[0].key) : null
-        const partner = beside && Math.abs(beside.y - me.y) < 4 ? beside : null
-        const from = partner ? (me.x + me.w + partner.x) / 2 : me.cx
-        const start = partner ? me.y + Math.min(me.h, partner.h) / 2 : me.y + me.h
-        // The children as the screen laid them out: one row, or several where they wrapped.
-        const lines: (typeof down)[] = []
-        for (const b of [...down].sort((a, c) => a.y - c.y || a.x - c.x)) {
-          const last = lines[lines.length - 1]
+      type Box = NonNullable<ReturnType<typeof at>>
+      const boxes = (people: TreePerson[]) => people.map((p) => at(p.key)).filter((b): b is Box => !!b)
+      /*
+       * One generation hung from the one above: a stem from `from` (where
+       * there is somebody above) to a bar, and a drop from the bar to each
+       * box. The boxes are taken as the screen laid them out: one row, or
+       * several where they wrapped. A second row cannot be reached through
+       * the first, so a rail runs down the side and a bar along each row.
+       */
+      const hang = (from: { x: number; y: number } | null, floor: number, below: Box[]) => {
+        const rows: Box[][] = []
+        for (const b of [...below].sort((a, c) => a.y - c.y || a.x - c.x)) {
+          const last = rows[rows.length - 1]
           if (last && Math.abs(last[0].y - b.y) < 4) last.push(b)
-          else lines.push([b])
+          else rows.push([b])
         }
-        const above = Math.max(...[me, ...partners.map((p) => at(p.key))].filter((b): b is NonNullable<typeof b> => !!b).map((b) => b.y + b.h))
-        // A rail down the side for the rows after the first, clear of every box.
-        const rail = Math.min(...down.map((b) => b.x)) - 9
-        let floor = above
+        // Clear of every box.
+        const rail = Math.min(...below.map((b) => b.x)) - 9
         let firstBar = 0
-        lines.forEach((line, i) => {
-          const bar = floor + (line[0].y - floor) / 2
-          const xs = line.map((b) => b.cx)
+        rows.forEach((row, i) => {
+          const bar = floor + (row[0].y - floor) / 2
+          const xs = row.map((b) => b.cx)
           if (i === 0) {
             firstBar = bar
-            out.push({ d: `M ${from} ${start} V ${bar}` })
-            const reach = lines.length > 1 ? [rail, from, ...xs] : [from, ...xs]
-            out.push({ d: `M ${Math.min(...reach)} ${bar} H ${Math.max(...reach)}` })
+            if (from) out.push({ d: `M ${from.x} ${from.y} V ${bar}` })
+            const reach = [...(from ? [from.x] : []), ...(rows.length > 1 ? [rail] : []), ...xs]
+            if (Math.max(...reach) > Math.min(...reach)) out.push({ d: `M ${Math.min(...reach)} ${bar} H ${Math.max(...reach)}` })
           } else {
             out.push({ d: `M ${rail} ${bar} H ${Math.max(...xs)}` })
-            if (i === lines.length - 1) out.push({ d: `M ${rail} ${firstBar} V ${bar}` })
+            if (i === rows.length - 1) out.push({ d: `M ${rail} ${firstBar} V ${bar}` })
           }
-          for (const b of line) out.push({ d: `M ${b.cx} ${bar} V ${b.y}` })
-          floor = Math.max(...line.map((b) => b.y + b.h))
+          for (const b of row) out.push({ d: `M ${b.cx} ${bar} V ${b.y}` })
+          floor = Math.max(...row.map((b) => b.y + b.h))
         })
+      }
+
+      join(parents.map((p) => p.key))
+      join([self.key, ...partners.map((p) => p.key)])
+
+      // The person and their brothers and sisters, down from the parents.
+      const up = boxes(parents)
+      const beside = boxes(siblings)
+      const born = [...beside, me]
+      if (up.length > 0) {
+        const bottom = Math.max(...up.map((b) => b.y + b.h))
+        // Two parents: from the line between them. One: from under them.
+        const from =
+          up.length === 2
+            ? { x: (up[0].cx + up[1].cx) / 2, y: up[0].y + Math.min(up[0].h, up[1].h) / 2 }
+            : { x: up[0].cx, y: bottom }
+        hang(from, bottom, born)
+        // More than two written in above (it should not happen): each still reaches the bar.
+        if (up.length > 2) {
+          const top = Math.min(...born.map((b) => b.y))
+          const bar = bottom + (top - bottom) / 2
+          for (const b of up) out.push({ d: `M ${b.cx} ${b.y + b.h} V ${bar} H ${from.x}` })
+        }
+      } else if (beside.length > 0) {
+        // Nobody above them: a bar over the top says they are one family.
+        hang(null, Math.min(...born.map((b) => b.y)) - 20, born)
+      }
+
+      // The children, down from the couple (or from the person alone).
+      const down = boxes(children)
+      if (down.length > 0) {
+        // A partner on the same line as the person: the children come from between the two.
+        const first = partners.length > 0 ? at(partners[0].key) : null
+        const partner = first && Math.abs(first.y - me.y) < 4 ? first : null
+        const from = partner
+          ? { x: (me.x + me.w + partner.x) / 2, y: me.y + Math.min(me.h, partner.h) / 2 }
+          : { x: me.cx, y: me.y + me.h }
+        // Under everybody on the rows above, a tall box of a brother's included.
+        const above = Math.max(...[...born, ...boxes(partners)].map((b) => b.y + b.h))
+        hang(from, above, down)
       }
       setLines(out)
       setSize({ w: base.width, h: base.height })
@@ -213,11 +259,15 @@ export function FamilyTree({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shape])
 
-  const rows: { label: string; word: string; people: TreePerson[] }[] = [
-    { label: `${first}’s parents`, word: 'Parent', people: parents },
-    { label: `${first} and their husband or wife`, word: 'Husband or wife', people: [self, ...partners] },
-    { label: `${first}’s children`, word: 'Child', people: children },
-  ]
+  const row = 'm-0 flex max-w-full list-none flex-wrap items-start justify-center gap-x-2 gap-y-8 p-0 sm:gap-x-5'
+  const list = (label: string, people: TreePerson[], extra = '') =>
+    people.length > 0 && (
+      <ul aria-label={label} className={`${row} ${extra}`}>
+        {people.map((p) => (
+          <Node key={p.key} person={p} me={p.key === self.key} onOpen={onOpen} />
+        ))}
+      </ul>
+    )
 
   return (
     <figure aria-label={`Family tree of ${nameOf(person)}`} className="m-0">
@@ -238,20 +288,18 @@ export function FamilyTree({
               <path key={i} d={line.d} />
             ))}
           </svg>
-          {rows
-            .filter((row) => row.people.length > 0)
-            .map((row) => (
-              <ul key={row.label} aria-label={row.label} className="m-0 flex max-w-full list-none flex-wrap items-start justify-center gap-x-2 gap-y-8 p-0 sm:gap-x-5">
-                {row.people.map((p) => (
-                  <Node key={p.key} person={p} me={p.key === self.key} word={p.key === self.key ? 'This person' : row.word} onOpen={onOpen} />
-                ))}
-              </ul>
-            ))}
+          {list(`${first}’s parents`, parents)}
+          {/* One generation, two lists: the couple stay side by side when the row is too wide and wraps. */}
+          <div className="flex max-w-full flex-wrap items-start justify-center gap-x-2 gap-y-8 sm:gap-x-5">
+            {list(`${first}’s brothers and sisters`, siblings)}
+            {list(`${first} and their husband or wife`, [self, ...partners], 'flex-nowrap')}
+          </div>
+          {list(`${first}’s children`, children)}
         </div>
       </div>
       {alone && (
         <figcaption className="mt-2 text-body-sm text-on-surface-variant">
-          Nobody is linked to {first} yet. Add their husband or wife, a child or a parent below.
+          Nobody is linked to {first} yet. Add their husband or wife, a child, a parent, or a brother or sister below.
         </figcaption>
       )}
     </figure>

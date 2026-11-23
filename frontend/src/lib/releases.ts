@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'family-words',
+    date: '2026-11-23',
+    title: 'Husband, wife, son, sister',
+    lead: 'Linking a family now says exactly who somebody is, and brothers and sisters can be linked.',
+    points: [
+      'Choose husband, wife, son, daughter, father, mother, brother or sister, then the name.',
+      'The tree and the lists say it back: “Wife”, “Son”, “Mother”. Brothers and sisters stand beside the person.',
+      'Families linked before today say “Husband or wife” or “Child” until you choose: the word is beside each name.',
+    ],
+    link: { to: '/families', label: 'Open Families' },
+    page: '/families',
+  },
+  {
     key: 'families-page',
     date: '2026-11-23',
     title: 'Families has its own page',

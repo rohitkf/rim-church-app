@@ -316,7 +316,9 @@ function MemberRow({
   const linked = !!member.user_id
   const dob = dobOf(member)
   const extras = [
-    member.kind === 'child' && member.gender ? (member.gender === 'male' ? 'Boy' : 'Girl') : null,
+    // Of a child written in by hand. An account's is whoever links families saying
+    // son or daughter (0328), and a grown son is not a boy.
+    !linked && member.kind === 'child' && member.gender ? (member.gender === 'male' ? 'Boy' : 'Girl') : null,
     member.year_group,
     member.school,
   ].filter(Boolean)

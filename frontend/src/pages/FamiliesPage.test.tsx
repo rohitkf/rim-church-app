@@ -153,8 +153,9 @@ describe('one family on the Families page', () => {
     expect(await screen.findByRole('heading', { name: 'Rose Mathew’s family' })).toBeInTheDocument()
     expect(await screen.findByText(/Nobody is linked to Rose yet/)).toBeInTheDocument()
     const add = await screen.findByRole('region', { name: 'Add somebody' })
-    expect(within(add).getByRole('combobox', { name: 'What they are to Rose' })).toBeInTheDocument()
-    expect(within(add).getByLabelText('Name of the person to add')).toBeInTheDocument()
+    // The word first (0328), and then the name.
+    expect(within(add).getByRole('combobox', { name: 'What they are to Rose' })).toHaveTextContent('Choose what they are')
+    expect(within(add).queryByLabelText('Name of the person to add')).not.toBeInTheDocument()
   })
 
   it('says so for somebody who is not on the app any more', async () => {

@@ -677,7 +677,8 @@ function familySheets(
             m.person?.last_name ?? m.last_name ?? '',
             blank(d),
             age(d),
-            m.gender === 'male' ? 'Boy' : m.gender === 'female' ? 'Girl' : '',
+            // A child written in by hand. An account's is a word somebody linking families said (0328), of any age.
+            m.user_id ? '' : m.gender === 'male' ? 'Boy' : m.gender === 'female' ? 'Girl' : '',
             blank(m.year_group),
             blank(m.school),
             parents.map(name).join(', '),

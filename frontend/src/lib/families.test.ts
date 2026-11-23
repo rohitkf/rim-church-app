@@ -38,6 +38,14 @@ describe('what a family is called', () => {
     expect(familyCount(family('h', [m('g', 'adult', 'Gran', 'T'), m('a', 'child', 'Anna', 'J')]))).toBe('1 adult, 1 child')
     expect(familyCount(family('h', [m('a', 'adult', 'A', 'J'), m('b', 'adult', 'B', 'J')]))).toBe('2 adults')
   })
+
+  it('calls brothers and sisters with no parent listed by all of them (0328)', () => {
+    const two = family('h', [m('s', 'child', 'Sue', 'Thomas'), m('t', 'child', 'Tom', 'Thomas')])
+    expect(familyTitle(two)).toBe('Sue & Tom Thomas')
+    expect(familyCount(two)).toBe('2 brothers and sisters')
+    // One child left behind in a household is not brothers and sisters.
+    expect(familyCount(family('h', [m('s', 'child', 'Sue', 'Thomas')]))).toBe('1 child')
+  })
 })
 
 describe('finding somebody', () => {

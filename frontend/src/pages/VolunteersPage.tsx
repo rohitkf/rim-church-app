@@ -810,8 +810,9 @@ export function VolunteersPage() {
                 Transfer ownership
               </button>
             )}
-            {/* Their husband or wife, children and parents on the app, linked
-                for them (0319). On everybody's card, your own included. */}
+            {/* Their husband or wife, children, parents, brothers and sisters
+                on the app, linked for them (0319, 0328). On everybody's
+                card, your own included. */}
             {linksFamilies && (
               <button
                 onClick={() => {
