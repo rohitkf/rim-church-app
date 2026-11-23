@@ -4,24 +4,35 @@ import { Overlay } from './Surface'
 import { PersonForm } from './FamilyCard'
 import { PersonPicker } from './PersonPicker'
 import { QueryState } from './QueryState'
-import { Select } from './Select'
+import { Select, reachPickerClasses } from './Select'
 import { useErrorText } from '../lib/useErrorText'
-import { EMPTY_PERSON, type PersonDraft, type Relation, type Suggestion } from '../lib/family'
+import { EMPTY_PERSON, type PersonDraft, type Suggestion } from '../lib/family'
 import {
   FAMILY_RELATIONS,
   FAMILY_WORDS,
+  FAMILY_WORD_LIST,
   LIST_OF,
+  WORDS_OF,
+  WORD_MEANS,
   draftOf,
   familyOfKey,
   fetchFamilyOf,
   fullName,
+  linkAlso,
   linkFamily,
+  linkedWords,
   removeFamilyPerson,
   saveFamilyPerson,
+  sayFamilyWord,
   unlinkFamily,
   unlinkWords,
+  wordFor,
+  wordLabel,
+  wordOf,
   writtenDetails,
   type FamilyOf,
+  type FamilyPart,
+  type FamilyWord,
   type LinkedPerson,
   type WrittenPerson,
 } from '../lib/familyLinks'
@@ -43,6 +54,13 @@ import {
  *
  * It shows who is linked and who is written in, with what is written
  * about them, and never a family's address (lib/familyLinks).
+ *
+ * Somebody is added by a word (0328: "separate options as husband, wife,
+ * son, sister"), and the word is chosen before the name: with eight of
+ * them a list that started on one would be wrong seven times in eight.
+ * Each person already there has their word beside them, to be said or
+ * put right without unlinking: the families linked before the words
+ * have none.
  *
  * Nothing here is one tap. Choosing a name shows what is about to be
  * linked and asks; Unlink and Remove say what they take away and ask. A
@@ -95,7 +113,8 @@ export function FamilyLinksPanel({
 }) {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
-  const [relation, setRelation] = useState<Relation>('spouse')
+  // What the person being added is to this one. Nothing until it is chosen.
+  const [word, setWord] = useState<FamilyWord | ''>('')
   // What is being added: an account that was chosen, or somebody being written in.
   const [adding, setAdding] = useState<{ account: Suggestion } | { draft: PersonDraft } | null>(null)
   // The one row that is open: asked about, or being changed.
@@ -127,8 +146,8 @@ export function FamilyLinksPanel({
   }
 
   const link = useMutation({
-    mutationFn: (v: { to: Suggestion; relation: Relation }) => linkFamily(person.id, v.to.id, v.relation),
-    onSuccess: (_d, v) => settled(`${fullName(v.to)} is now linked as ${first}’s ${FAMILY_WORDS[v.relation].one}. They have both been told.`),
+    mutationFn: (v: { to: Suggestion; word: FamilyWord }) => linkFamily(person.id, v.to.id, v.word),
+    onSuccess: (answer, v) => settled(linkedWords(person, v.to, v.word, answer)),
     onError: failed('Could not link them.'),
   })
   const unlink = useMutation({
@@ -137,13 +156,14 @@ export function FamilyLinksPanel({
     onError: failed('Could not unlink them.'),
   })
   const save = useMutation({
-    mutationFn: (v: { id: string | null; relation: Relation; draft: PersonDraft }) =>
-      saveFamilyPerson({ personId: person.id, relation: v.relation, id: v.id, draft: v.draft }),
+    mutationFn: (v: { id: string | null; word: FamilyWord | null; draft: PersonDraft }) =>
+      saveFamilyPerson({ personId: person.id, word: v.word, id: v.id, draft: v.draft }),
     onSuccess: (_d, v) =>
       settled(
-        v.id
+        v.id || !v.word
           ? `${fullName(v.draft)}’s details are saved.`
-          : `${fullName(v.draft)} is written in as ${first}’s ${FAMILY_WORDS[v.relation].one}. The family has been told.`,
+          : // A child's form asks boy or girl, and what it says is what is kept.
+            `${fullName(v.draft)} is written in as ${first}’s ${wordFor(WORD_MEANS[v.word].part, v.draft.gender || WORD_MEANS[v.word].gender)}. The family has been told.`,
       ),
     onError: failed('Could not save their details.'),
   })
@@ -152,7 +172,13 @@ export function FamilyLinksPanel({
     onSuccess: (_d, v) => settled(`${fullName(v.who)} is taken off ${first}’s family.`),
     onError: failed('Could not remove them.'),
   })
-  const busy = link.isPending || unlink.isPending || save.isPending || remove.isPending
+  const say = useMutation({
+    mutationFn: (v: { who: { account: string } | { written: string }; name: string; word: FamilyWord }) =>
+      sayFamilyWord(person.id, v.who, v.word),
+    onSuccess: (_d, v) => settled(`${v.name} is down as ${first}’s ${v.word}.`),
+    onError: failed('Could not save that.'),
+  })
+  const busy = link.isPending || unlink.isPending || save.isPending || remove.isPending || say.isPending
 
   const family = query.data
   const anyWritten = !!family && FAMILY_RELATIONS.some((r) => family.written_people[LIST_OF[r]].length > 0)
@@ -184,8 +210,14 @@ export function FamilyLinksPanel({
               }}
               onShut={() => setOpen(null)}
               onUnlink={(who) => unlink.mutate({ who })}
-              onSave={(who, draft) => save.mutate({ id: who.id, relation: part, draft })}
+              onSave={(who, draft) => save.mutate({ id: who.id, word: null, draft })}
               onRemove={(who) => remove.mutate({ who })}
+              onSay={(who, name, said) => {
+                begin()
+                setAdding(null)
+                setOpen(null)
+                say.mutate({ who, name, word: said })
+              }}
             />
           ))}
           {anyWritten && (
@@ -213,19 +245,30 @@ export function FamilyLinksPanel({
         <h3 className="text-label-md font-medium uppercase tracking-wide text-on-surface-faint">Add somebody</h3>
         <div className="mt-2 flex flex-col gap-2">
           <Select
-            value={relation}
+            value={word}
             onChange={(next) => {
-              setRelation(next as Relation)
+              setWord(next as FamilyWord)
               setError(null)
+              // A form that is open starts again from the new word: a child's asks more than an adult's.
+              if (adding && 'draft' in adding) setAdding({ draft: { ...adding.draft, gender: '' } })
             }}
             aria-label={`What they are to ${first}`}
-            options={FAMILY_RELATIONS.map((r) => ({ value: r, label: `${first}’s ${FAMILY_WORDS[r].one}` }))}
+            // Short: the field is as wide as a phone, and the label already names the person.
+            placeholder="Choose what they are"
+            options={FAMILY_WORD_LIST.map((w) => ({ value: w, label: `${first}’s ${w}` }))}
           />
-          {adding && 'account' in adding ? (
+          {!word ? (
+            <p className="text-body-sm text-on-surface-variant">Then give their name: somebody on the app, or somebody to write in.</p>
+          ) : adding && 'account' in adding ? (
             <div role="group" aria-label="Confirm the link" className="rounded-[var(--radius-row)] bg-raised p-3 hairline">
               <p className="text-body-sm text-on-surface [overflow-wrap:anywhere]">
-                Link <span className="font-semibold">{fullName(adding.account)}</span> as {first}’s {FAMILY_WORDS[relation].one}?
+                Link <span className="font-semibold">{fullName(adding.account)}</span> as {first}’s {word}?
               </p>
+              {family && linkAlso(person, adding.account, word, family) && (
+                <p className="mt-1.5 text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">
+                  {linkAlso(person, adding.account, word, family)}
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap justify-end gap-2">
                 <button type="button" onClick={() => setAdding(null)} disabled={busy} className={quietButton}>
                   Cancel
@@ -234,7 +277,7 @@ export function FamilyLinksPanel({
                   type="button"
                   onClick={() => {
                     setError(null)
-                    link.mutate({ to: adding.account, relation })
+                    link.mutate({ to: adding.account, word })
                   }}
                   disabled={busy}
                   className={primaryButton}
@@ -244,22 +287,25 @@ export function FamilyLinksPanel({
               </div>
             </div>
           ) : adding ? (
-            <div role="group" aria-label={`Write in ${first}’s ${FAMILY_WORDS[relation].one}`}>
+            <div role="group" aria-label={`Write in ${first}’s ${word}`}>
               <p className="mb-2 text-body-sm text-on-surface-variant">
-                Not on the app: written in as {first}’s {FAMILY_WORDS[relation].one}, until they join.
+                Not on the app: written in as {first}’s {word}, until they join.
               </p>
               <PersonForm
-                // A child is asked a little more, so the form is the relation's.
-                key={relation === 'child' ? 'child' : 'adult'}
-                kind={relation === 'child' ? 'child' : 'adult'}
-                initial={adding.draft}
+                // The form is the word's: a child's asks a little more, and starts on what the word says.
+                key={word}
+                kind={formKind(WORD_MEANS[word].part)}
+                initial={{
+                  ...adding.draft,
+                  gender: formKind(WORD_MEANS[word].part) === 'child' ? adding.draft.gender || WORD_MEANS[word].gender : '',
+                }}
                 busy={busy}
                 onCancel={() => setAdding(null)}
                 onSave={(draft) => {
                   setError(null)
                   // Kept as typed, so a refusal leaves the form as it was.
                   setAdding({ draft })
-                  save.mutate({ id: null, relation, draft })
+                  save.mutate({ id: null, word, draft })
                 }}
               />
             </div>
@@ -296,10 +342,46 @@ const dangerButton =
 const rowButton =
   'tap shrink-0 rounded-full px-3 py-1.5 text-label-md font-medium ring-1 ring-black/8 disabled:opacity-50 dark:ring-white/10'
 
+/** A child of a household is asked a little more than an adult of it; a brother or sister is a child of theirs. */
+const formKind = (part: FamilyPart): 'adult' | 'child' => (part === 'child' || part === 'sibling' ? 'child' : 'adult')
+
 /**
- * One of the three lists: the accounts linked that way, then the people
+ * The word beside somebody already in the family: which of the list's two
+ * they are, to be said or put right. Until somebody says, it shows the
+ * pair ("Husband or wife") and holds neither.
+ */
+function WordPicker({
+  part,
+  gender,
+  name,
+  first,
+  busy,
+  onSay,
+}: {
+  part: FamilyPart
+  gender: 'male' | 'female' | null | undefined
+  name: string
+  first: string
+  busy: boolean
+  onSay: (word: FamilyWord) => void
+}) {
+  return (
+    <Select
+      value={wordOf(part, gender) ?? ''}
+      onChange={(next) => onSay(next as FamilyWord)}
+      aria-label={`What ${name} is to ${first}`}
+      placeholder={wordLabel(part, null)}
+      options={WORDS_OF[part].map((w) => ({ value: w, label: wordLabel(part, WORD_MEANS[w].gender) }))}
+      disabled={busy}
+      className={`${reachPickerClasses} mt-1 max-w-full`}
+    />
+  )
+}
+
+/**
+ * One of the four lists: the accounts linked that way, then the people
  * written in by hand. An account is unlinked; somebody written in is
- * changed or removed.
+ * changed or removed; either has their word beside them.
  */
 function FamilyList({
   relation,
@@ -314,8 +396,9 @@ function FamilyList({
   onUnlink,
   onSave,
   onRemove,
+  onSay,
 }: {
-  relation: Relation
+  relation: FamilyPart
   linked: LinkedPerson[]
   written: WrittenPerson[]
   person: { first_name: string }
@@ -327,6 +410,7 @@ function FamilyList({
   onUnlink: (who: LinkedPerson) => void
   onSave: (who: WrittenPerson, draft: PersonDraft) => void
   onRemove: (who: WrittenPerson) => void
+  onSay: (who: { account: string } | { written: string }, name: string, word: FamilyWord) => void
 }) {
   const words = FAMILY_WORDS[relation]
   const first = person.first_name || 'them'
@@ -342,7 +426,17 @@ function FamilyList({
             return (
               <li key={p.id} className="rounded-[var(--radius-row)] bg-raised px-3 py-2 hairline">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="min-w-0 text-body-md text-on-surface [overflow-wrap:anywhere]">{fullName(p)}</span>
+                  <div className="min-w-0">
+                    <p className="text-body-md text-on-surface [overflow-wrap:anywhere]">{fullName(p)}</p>
+                    <WordPicker
+                      part={relation}
+                      gender={p.gender}
+                      name={fullName(p)}
+                      first={first}
+                      busy={busy}
+                      onSay={(said) => onSay({ account: p.id }, fullName(p), said)}
+                    />
+                  </div>
                   {!asking && (
                     <button
                       type="button"
@@ -378,7 +472,7 @@ function FamilyList({
               return (
                 <li key={p.id} aria-label={`Change ${fullName(p)}`}>
                   <PersonForm
-                    kind={relation === 'child' ? 'child' : 'adult'}
+                    kind={formKind(relation)}
                     initial={draftOf(p)}
                     busy={busy}
                     onCancel={onShut}
@@ -396,6 +490,14 @@ function FamilyList({
                       <span className="whitespace-nowrap font-mono text-label-sm text-on-surface-faint">No account</span>
                     </p>
                     {details && <p className="text-label-md text-on-surface-variant [overflow-wrap:anywhere]">{details}</p>}
+                    <WordPicker
+                      part={relation}
+                      gender={p.gender}
+                      name={fullName(p)}
+                      first={first}
+                      busy={busy}
+                      onSay={(said) => onSay({ written: p.id }, fullName(p), said)}
+                    />
                   </div>
                   {mode !== 'remove' && (
                     <div className="flex shrink-0 gap-2">

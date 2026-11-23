@@ -60,12 +60,12 @@ export const nameOf = (p: { first_name: string; last_name: string }) => `${p.fir
 /**
  * What a family is called on its card: its adults, sharing a last name
  * where they do. "Anna & Tom Jacob", "Anna Jacob & Tom Mathew", "Gran
- * Thomas". A household with only children written in is "The family of"
- * nobody, so it falls back to its first member.
+ * Thomas". A household with no adults in it is brothers and sisters with
+ * no parent listed (0328), and is called by all of them the same way.
  */
 export function familyTitle(family: Family): string {
   const adults = family.members.filter((m) => m.kind === 'adult')
-  const named = (adults.length > 0 ? adults : family.members.slice(0, 1)).filter((m) => nameOf(m))
+  const named = (adults.length > 0 ? adults : family.members).filter((m) => nameOf(m))
   if (named.length === 0) return 'A family'
   if (named.length === 1) return nameOf(named[0])
   const last = named[0].last_name
@@ -78,6 +78,8 @@ export function familyTitle(family: Family): string {
 export function familyCount(family: Family): string {
   const adults = family.members.filter((m) => m.kind === 'adult').length
   const children = family.members.length - adults
+  // Nobody above them: they are each other's brothers and sisters, of whatever age.
+  if (adults === 0 && children > 1) return `${children} brothers and sisters`
   const parts = [
     adults > 0 ? `${adults} ${adults === 1 ? 'adult' : 'adults'}` : '',
     children > 0 ? `${children} ${children === 1 ? 'child' : 'children'}` : '',

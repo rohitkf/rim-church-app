@@ -143,7 +143,7 @@ function AllFamilies({
             <span className="font-mono text-label-sm text-on-surface-faint">{shownAlone.length}</span>
           </h2>
           <p className="mt-1 text-body-sm text-on-surface-variant">
-            Everybody with an account who is in no family yet. Choose one to link them to their husband or wife, children or parents.
+            Everybody with an account who is in no family yet. Choose one to link them to their husband or wife, children, parents, or brothers and sisters.
           </p>
           {shownAlone.length === 0 ? (
             <p className="mt-3 text-body-sm text-on-surface-variant">
@@ -248,7 +248,7 @@ function OneFamily({
       <PageHeader
         back={back}
         title={`${name}’s family`}
-        description={`Their parents above, ${first} beside their husband or wife, their children below. Press anybody with an account to see the tree from them.`}
+        description={`Their parents above, ${first} beside their brothers and sisters and their husband or wife, their children below. Press anybody with an account to see the tree from them.`}
       />
       <QueryState isLoading={family.isLoading} error={family.error}>
         {family.data && <FamilyTree person={person} family={family.data} onOpen={onOpen} />}

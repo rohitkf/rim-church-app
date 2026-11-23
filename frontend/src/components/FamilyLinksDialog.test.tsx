@@ -10,6 +10,9 @@ import { FamilyLinksDialog } from './FamilyLinksDialog'
  * somebody else, and unlinking. Somebody not on the app is written in by
  * hand, changed and taken off (0320). Nothing is one tap, because a
  * change tells a family something about itself.
+ *
+ * Somebody is added by one of eight words (0328), chosen before the
+ * name, and each person already there has their word beside them.
  */
 
 type Answer = { data?: unknown; error: unknown }
@@ -34,7 +37,7 @@ const cara = { id: 'u-cara', first_name: 'Cara', last_name: 'Thomas' }
 const dan = { id: 'u-dan', first_name: 'Dan', last_name: 'Jacob' }
 
 let family: Record<string, unknown>
-const nobody = () => ({ spouse: [] as unknown[], children: [] as unknown[], parents: [] as unknown[] })
+const nobody = () => ({ spouse: [] as unknown[], children: [] as unknown[], parents: [] as unknown[], siblings: [] as unknown[] })
 /** A family as the database hands it over: linked accounts, and people written in. */
 const fam = (linked: Partial<ReturnType<typeof nobody>> = {}, written: Partial<ReturnType<typeof nobody>> = {}) => ({
   ...nobody(),
@@ -77,9 +80,9 @@ describe('somebody’s family, for whoever links families', () => {
     expect(calls('family_of')).toEqual([{ p_person: 'u-anna' }])
   })
 
-  it('says nobody is listed, three times, for somebody on their own', async () => {
+  it('says nobody is listed, four times, for somebody on their own', async () => {
     open()
-    for (const name of ['Husband or wife', 'Children', 'Parents']) {
+    for (const name of ['Husband or wife', 'Children', 'Parents', 'Brothers and sisters']) {
       expect(within(await section(name)).getByText('Nobody listed.')).toBeInTheDocument()
     }
   })
@@ -92,6 +95,16 @@ describe('somebody’s family, for whoever links families', () => {
     expect(within(await section('Parents')).getByText('Dan Jacob')).toBeInTheDocument()
   })
 
+  it('lists brothers and sisters, linked or written in', async () => {
+    family = fam({ siblings: [{ ...dan, gender: 'male' }] }, { siblings: [{ ...ravi, gender: null }] })
+    open()
+    const list = await section('Brothers and sisters')
+    expect(within(list).getByText('Dan Jacob')).toBeInTheDocument()
+    expect(within(list).getByText(/Ravi Kumar/)).toHaveTextContent('No account')
+    expect(within(list).getByRole('combobox', { name: 'What Dan Jacob is to Anna' })).toHaveTextContent('Brother')
+    expect(within(list).getByRole('combobox', { name: 'What Ravi Kumar is to Anna' })).toHaveTextContent('Brother or sister')
+  })
+
   it('says so when the reader may not link families', async () => {
     db.admin = false
     answers({ family_of: { data: null, error: { code: 'P0001', message: 'You do not have permission to link families.' } } })
@@ -102,75 +115,176 @@ describe('somebody’s family, for whoever links families', () => {
 })
 
 describe('linking somebody', () => {
+  const word = async (user: ReturnType<typeof userEvent.setup>, label: string) =>
+    chooseOption(user, await screen.findByRole('combobox', { name: 'What they are to Anna' }), label)
   const pick = async (user: ReturnType<typeof userEvent.setup>, typed: string, name: string) => {
     await user.type(await screen.findByRole('textbox', { name: 'Name of the person to add' }), typed)
     await user.click(await screen.findByRole('button', { name: new RegExp(name) }))
   }
 
-  it('offers the three ways, in the person’s own name', async () => {
+  it('offers the eight words, in the person’s own name, and starts on none of them', async () => {
     const { user } = open()
     const select = await screen.findByRole('combobox', { name: 'What they are to Anna' })
-    expect(select).toHaveTextContent('Anna’s husband or wife')
+    expect(select).toHaveTextContent('Choose what they are')
     await user.click(select)
     const options = within(await screen.findByRole('listbox')).getAllByRole('option')
-    expect(options.map((o) => (o.textContent ?? '').replace('✓', ''))).toEqual(['Anna’s husband or wife', 'Anna’s child', 'Anna’s parent'])
+    expect(options.map((o) => (o.textContent ?? '').replace('✓', ''))).toEqual([
+      'Anna’s husband',
+      'Anna’s wife',
+      'Anna’s son',
+      'Anna’s daughter',
+      'Anna’s father',
+      'Anna’s mother',
+      'Anna’s brother',
+      'Anna’s sister',
+    ])
+  })
+
+  it('asks for the word before the name', async () => {
+    const { user } = open()
+    await section('Add somebody')
+    expect(screen.queryByRole('textbox', { name: 'Name of the person to add' })).not.toBeInTheDocument()
+    expect(screen.getByText('Then give their name: somebody on the app, or somebody to write in.')).toBeInTheDocument()
+    await word(user, 'Anna’s wife')
+    expect(screen.getByRole('textbox', { name: 'Name of the person to add' })).toBeInTheDocument()
   })
 
   it('does not link on choosing a name: it says what it is about to do and asks', async () => {
     db.found = [ben]
     const { user } = open()
+    await word(user, 'Anna’s husband')
     await pick(user, 'be', 'Ben Thomas')
     const confirm = screen.getByRole('group', { name: 'Confirm the link' })
-    expect(confirm).toHaveTextContent('Link Ben Thomas as Anna’s husband or wife?')
-    expect(calls('link_family')).toEqual([])
+    expect(confirm).toHaveTextContent('Link Ben Thomas as Anna’s husband?')
+    expect(calls('link_family_as')).toEqual([])
     // And can be backed out of.
     await user.click(within(confirm).getByRole('button', { name: 'Cancel' }))
     expect(screen.queryByRole('group', { name: 'Confirm the link' })).not.toBeInTheDocument()
-    expect(calls('link_family')).toEqual([])
+    expect(calls('link_family_as')).toEqual([])
   })
 
-  it('links husband and wife, says so, and reads the family again', async () => {
+  it('links a husband, says so, and reads the family again', async () => {
     db.found = [ben]
     const { user, invalidate } = open()
+    await word(user, 'Anna’s husband')
     await pick(user, 'be', 'Ben Thomas')
-    family = fam({ spouse: [ben] })
+    family = fam({ spouse: [{ ...ben, gender: 'male' }] })
     await user.click(screen.getByRole('button', { name: 'Link' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Ben Thomas is now linked as Anna’s husband or wife. They have both been told.')
-    expect(calls('link_family')).toEqual([{ p_person: 'u-anna', p_relative: 'u-ben', p_relation: 'spouse' }])
+    expect(await screen.findByRole('status')).toHaveTextContent('Ben Thomas is now linked as Anna’s husband. They have both been told.')
+    expect(calls('link_family_as')).toEqual([{ p_person: 'u-anna', p_relative: 'u-ben', p_word: 'husband' }])
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['family'] })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['married-couples'] })
-    expect(within(await section('Husband or wife')).getByText('Ben Thomas')).toBeInTheDocument()
+    const list = await section('Husband or wife')
+    expect(within(list).getByText('Ben Thomas')).toBeInTheDocument()
+    expect(within(list).getByRole('combobox', { name: 'What Ben Thomas is to Anna' })).toHaveTextContent('Husband')
   })
 
-  it('links a child as a child, and a parent as a parent', async () => {
+  it('links a daughter as a daughter, and a father as a father', async () => {
     db.found = [cara]
     const { user } = open()
-    await chooseOption(user, await screen.findByRole('combobox', { name: 'What they are to Anna' }), 'Anna’s child')
+    await word(user, 'Anna’s daughter')
     await pick(user, 'ca', 'Cara Thomas')
-    expect(screen.getByRole('group', { name: 'Confirm the link' })).toHaveTextContent('Link Cara Thomas as Anna’s child?')
+    expect(screen.getByRole('group', { name: 'Confirm the link' })).toHaveTextContent('Link Cara Thomas as Anna’s daughter?')
     await user.click(screen.getByRole('button', { name: 'Link' }))
     await screen.findByRole('status')
 
     db.found = [dan]
-    await chooseOption(user, screen.getByRole('combobox', { name: 'What they are to Anna' }), 'Anna’s parent')
+    await word(user, 'Anna’s father')
     await pick(user, 'da', 'Dan Jacob')
     await user.click(screen.getByRole('button', { name: 'Link' }))
-    await waitFor(() => expect(calls('link_family')).toHaveLength(2))
-    expect(calls('link_family')).toEqual([
-      { p_person: 'u-anna', p_relative: 'u-cara', p_relation: 'child' },
-      { p_person: 'u-anna', p_relative: 'u-dan', p_relation: 'parent' },
+    await waitFor(() => expect(calls('link_family_as')).toHaveLength(2))
+    expect(calls('link_family_as')).toEqual([
+      { p_person: 'u-anna', p_relative: 'u-cara', p_word: 'daughter' },
+      { p_person: 'u-anna', p_relative: 'u-dan', p_word: 'father' },
     ])
+  })
+
+  it('says, before linking a brother, whose child that makes him', async () => {
+    family = fam({ parents: [dan] })
+    db.found = [ben]
+    const { user } = open()
+    await word(user, 'Anna’s brother')
+    await pick(user, 'be', 'Ben Thomas')
+    expect(screen.getByRole('group', { name: 'Confirm the link' })).toHaveTextContent(
+      'Link Ben Thomas as Anna’s brother?That makes Ben the child of Dan too, as Anna is.',
+    )
+  })
+
+  it('says, once a brother is linked, what the database says moved with him', async () => {
+    db.found = [ben]
+    answers({ link_family_as: { data: { came: ['Cara'], parents: ['Dan'] }, error: null } })
+    const { user } = open()
+    await word(user, 'Anna’s brother')
+    await pick(user, 'be', 'Ben Thomas')
+    await user.click(screen.getByRole('button', { name: 'Link' }))
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Ben Thomas is now linked as Anna’s brother. They are both down as children of Dan. Cara, already linked as a brother or sister, came too. Everybody it changes has been told.',
+    )
+  })
+
+  it('says, before linking a mother, that the brothers and sisters become hers too', async () => {
+    family = fam({ siblings: [ben] })
+    db.found = [dan]
+    const { user } = open()
+    await word(user, 'Anna’s mother')
+    await pick(user, 'da', 'Dan Jacob')
+    expect(screen.getByRole('group', { name: 'Confirm the link' })).toHaveTextContent('Ben, Anna’s brother or sister, becomes Dan’s child too.')
   })
 
   it('shows what the database says when it refuses, and keeps the choice to try another way', async () => {
     db.found = [dan]
-    answers({ link_family: { error: { code: 'P0001', message: 'Anna already has a husband or wife linked. Unlink them first.' } } })
+    answers({ link_family_as: { error: { code: 'P0001', message: 'Anna already has a husband or wife linked. Unlink them first.' } } })
     const { user } = open()
+    await word(user, 'Anna’s husband')
     await pick(user, 'da', 'Dan Jacob')
     await user.click(screen.getByRole('button', { name: 'Link' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Anna already has a husband or wife linked. Unlink them first.')
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Confirm the link' })).toBeInTheDocument()
+  })
+})
+
+describe('the word beside somebody already there', () => {
+  it('shows the pair for somebody linked before the words, and holds neither', async () => {
+    family = fam({ spouse: [ben], children: [cara], parents: [dan] })
+    const { user } = open()
+    const picker = await screen.findByRole('combobox', { name: 'What Ben Thomas is to Anna' })
+    expect(picker).toHaveTextContent('Husband or wife')
+    expect(screen.getByRole('combobox', { name: 'What Cara Thomas is to Anna' })).toHaveTextContent('Child')
+    expect(screen.getByRole('combobox', { name: 'What Dan Jacob is to Anna' })).toHaveTextContent('Parent')
+    await user.click(picker)
+    const options = within(await screen.findByRole('listbox')).getAllByRole('option')
+    expect(options.map((o) => (o.textContent ?? '').replace('✓', ''))).toEqual(['Husband', 'Wife'])
+    expect(options.every((o) => o.getAttribute('aria-selected') !== 'true')).toBe(true)
+  })
+
+  it('says which they are without unlinking them, and tells nobody', async () => {
+    family = fam({ spouse: [ben] })
+    const { user } = open()
+    const picker = await screen.findByRole('combobox', { name: 'What Ben Thomas is to Anna' })
+    family = fam({ spouse: [{ ...ben, gender: 'male' }] })
+    await chooseOption(user, picker, 'Husband')
+    expect(await screen.findByRole('status')).toHaveTextContent('Ben Thomas is down as Anna’s husband.')
+    expect(calls('say_family_word')).toEqual([{ p_person: 'u-anna', p_relative: 'u-ben', p_written: null, p_word: 'husband' }])
+    expect(calls('unlink_family')).toEqual([])
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'What Ben Thomas is to Anna' })).toHaveTextContent('Husband'))
+  })
+
+  it('says it of somebody written in by their entry, not by an account', async () => {
+    family = fam({}, { parents: [ravi] })
+    const { user } = open()
+    await chooseOption(user, await screen.findByRole('combobox', { name: 'What Ravi Kumar is to Anna' }), 'Father')
+    await screen.findByRole('status')
+    expect(calls('say_family_word')).toEqual([{ p_person: 'u-anna', p_relative: null, p_written: 'w-ravi', p_word: 'father' }])
+  })
+
+  it('shows a refusal and leaves the word as it was', async () => {
+    family = fam({ children: [{ ...cara, gender: 'female' }] })
+    answers({ say_family_word: { error: { code: 'P0001', message: 'That person is not linked to Anna.' } } })
+    const { user } = open()
+    await chooseOption(user, await screen.findByRole('combobox', { name: 'What Cara Thomas is to Anna' }), 'Son')
+    expect(await screen.findByRole('alert')).toHaveTextContent('That person is not linked to Anna.')
+    expect(screen.getByRole('combobox', { name: 'What Cara Thomas is to Anna' })).toHaveTextContent('Daughter')
   })
 })
 
@@ -226,7 +340,8 @@ describe('unlinking somebody', () => {
 })
 
 describe('somebody who is not on the app', () => {
-  const writeIn = async (user: ReturnType<typeof userEvent.setup>, typed: string) => {
+  const writeIn = async (user: ReturnType<typeof userEvent.setup>, typed: string, as = 'Anna’s husband') => {
+    await chooseOption(user, await screen.findByRole('combobox', { name: 'What they are to Anna' }), as)
     await user.type(await screen.findByRole('textbox', { name: 'Name of the person to add' }), typed)
     await user.click(await screen.findByRole('button', { name: /Not on the app\? Add/ }))
   }
@@ -238,7 +353,10 @@ describe('somebody who is not on the app', () => {
     expect(husband).toHaveTextContent('Ravi Kumar No account')
     const children = await section('Children')
     expect(within(children).getByText(/Zak Thomas/)).toHaveTextContent('No account')
-    expect(within(children).getByText(/Boy · Year 3 · Hill Primary/)).toHaveTextContent(/2018 \(\d+\)/)
+    expect(within(children).getByText(/Year 3 · Hill Primary/)).toHaveTextContent(/2018 \(\d+\)/)
+    // Boy or girl is the word beside him, not one more thing in the line.
+    expect(within(children).queryByText(/Boy/)).not.toBeInTheDocument()
+    expect(within(children).getByRole('combobox', { name: 'What Zak Thomas is to Anna' })).toHaveTextContent('Son')
     // And what happens when they join is said once.
     expect(screen.getByText('When somebody written in joins the app, link their account here and it takes their place.')).toBeInTheDocument()
   })
@@ -253,41 +371,61 @@ describe('somebody who is not on the app', () => {
   it('is offered as soon as a name is typed, and opens the form with the name split', async () => {
     const { user } = open()
     await writeIn(user, 'ravi kumar')
-    const form = screen.getByRole('group', { name: 'Write in Anna’s husband or wife' })
-    expect(form).toHaveTextContent('Not on the app: written in as Anna’s husband or wife, until they join.')
+    const form = screen.getByRole('group', { name: 'Write in Anna’s husband' })
+    expect(form).toHaveTextContent('Not on the app: written in as Anna’s husband, until they join.')
     expect(within(form).getByRole('textbox', { name: 'First name' })).toHaveValue('ravi')
     expect(within(form).getByRole('textbox', { name: 'Last name' })).toHaveValue('kumar')
-    // A husband or wife is asked no school.
+    // A husband is asked no school.
     expect(within(form).queryByRole('textbox', { name: 'School' })).not.toBeInTheDocument()
     expect(calls('save_family_person')).toEqual([])
   })
 
-  it('writes a husband or wife in, says so, and reads the family again', async () => {
+  it('writes a husband in, says so, and reads the family again', async () => {
     const { user, invalidate } = open()
     await writeIn(user, 'ravi kumar')
     family = fam({}, { spouse: [ravi] })
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Ravi Kumar is written in as Anna’s husband or wife. The family has been told.')
+    expect(await screen.findByRole('status')).toHaveTextContent('Ravi Kumar is written in as Anna’s husband. The family has been told.')
     expect(calls('save_family_person')).toEqual([
-      { p_person: 'u-anna', p_relation: 'spouse', p_id: null, p_first: 'Ravi', p_last: 'Kumar', p_dob: null, p_gender: null, p_school: '', p_year: '' },
+      { p_person: 'u-anna', p_relation: 'husband', p_id: null, p_first: 'Ravi', p_last: 'Kumar', p_dob: null, p_gender: null, p_school: '', p_year: '' },
     ])
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['family'] })
     expect(within(await section('Husband or wife')).getByText(/Ravi Kumar/)).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: /Write in/ })).not.toBeInTheDocument()
   })
 
-  it('asks a child’s school and year, and writes them in as a child', async () => {
+  it('asks a son’s school and year, and starts the form on what the word says', async () => {
     const { user } = open()
-    await chooseOption(user, await screen.findByRole('combobox', { name: 'What they are to Anna' }), 'Anna’s child')
-    await writeIn(user, 'zak')
-    const form = screen.getByRole('group', { name: 'Write in Anna’s child' })
+    await writeIn(user, 'zak', 'Anna’s son')
+    const form = screen.getByRole('group', { name: 'Write in Anna’s son' })
+    expect(within(form).getByRole('combobox', { name: 'Gender' })).toHaveTextContent('Boy')
     await user.type(within(form).getByRole('textbox', { name: 'School' }), 'Hill Primary')
     await user.type(within(form).getByRole('textbox', { name: 'Year group' }), 'Year 3')
     await user.click(within(form).getByRole('button', { name: 'Save' }))
-    await screen.findByRole('status')
+    expect(await screen.findByRole('status')).toHaveTextContent('Zak is written in as Anna’s son. The family has been told.')
     expect(calls('save_family_person')).toEqual([
-      { p_person: 'u-anna', p_relation: 'child', p_id: null, p_first: 'Zak', p_last: '', p_dob: null, p_gender: null, p_school: 'Hill Primary', p_year: 'Year 3' },
+      { p_person: 'u-anna', p_relation: 'son', p_id: null, p_first: 'Zak', p_last: '', p_dob: null, p_gender: 'male', p_school: 'Hill Primary', p_year: 'Year 3' },
     ])
+  })
+
+  it('writes a sister in with a child’s form, as she is a child of the same household', async () => {
+    const { user } = open()
+    await writeIn(user, 'sue', 'Anna’s sister')
+    const form = screen.getByRole('group', { name: 'Write in Anna’s sister' })
+    expect(within(form).getByRole('combobox', { name: 'Gender' })).toHaveTextContent('Girl')
+    await user.click(within(form).getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Sue is written in as Anna’s sister. The family has been told.')
+    expect(calls('save_family_person')[0]).toMatchObject({ p_relation: 'sister', p_gender: 'female' })
+  })
+
+  it('says what the form says when it differs from the word: the form is what was last looked at', async () => {
+    const { user } = open()
+    await writeIn(user, 'sam', 'Anna’s son')
+    const form = screen.getByRole('group', { name: 'Write in Anna’s son' })
+    await chooseOption(user, within(form).getByRole('combobox', { name: 'Gender' }), 'Girl')
+    await user.click(within(form).getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Sam is written in as Anna’s daughter. The family has been told.')
+    expect(calls('save_family_person')[0]).toMatchObject({ p_relation: 'son', p_gender: 'female' })
   })
 
   it('shows a refusal and keeps what was typed', async () => {
@@ -320,7 +458,7 @@ describe('somebody who is not on the app', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Zak Thomas’s details are saved.')
     expect(calls('save_family_person')).toEqual([
-      { p_person: 'u-anna', p_relation: 'child', p_id: 'w-zak', p_first: 'Zak', p_last: 'Thomas', p_dob: '2018-01-02', p_gender: 'male', p_school: 'Park Academy', p_year: 'Year 3' },
+      { p_person: 'u-anna', p_relation: null, p_id: 'w-zak', p_first: 'Zak', p_last: 'Thomas', p_dob: '2018-01-02', p_gender: 'male', p_school: 'Park Academy', p_year: 'Year 3' },
     ])
   })
 
