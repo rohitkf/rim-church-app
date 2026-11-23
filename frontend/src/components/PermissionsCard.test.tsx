@@ -337,7 +337,7 @@ describe('PermissionsCard', () => {
   })
 
   describe('the answers it gives', () => {
-    it('keeps everybody else’s visa and DBS to the Owner out of the box, and lets the church give it (0277)', async () => {
+    it('keeps everybody else’s visa and DBS to the Owner and a Pastor out of the box, and lets the church give it (0277, 0327)', async () => {
       // Verified against production (0126 dry run): a Head, and an Admin
       // who is not the Owner, reading profile_sensitive get exactly their
       // own row and zero of anybody else's; the Owner gets every row. Since
@@ -346,9 +346,11 @@ describe('PermissionsCard', () => {
       await compare(user)
       const row = within(rowFor('See everybody’s visa and DBS details, and mark a DBS verified'))
       expect(within(row.getAllByRole('cell')[0]).getByLabelText('Yes')).toBeInTheDocument() // Owner
-      for (const role of ['Admin', 'Team Head', 'Team Member', 'Pastor']) {
+      for (const role of ['Admin', 'Team Head', 'Team Member']) {
         expect(row.getByRole('combobox', { name: new RegExp(`— ${role}$`) }), role).toHaveTextContent('No')
       }
+      // A Pastor's too since 0327 (the Owner: "As well as pastor"), and still a choice.
+      expect(row.getByRole('combobox', { name: /— Pastor$/ })).toHaveTextContent('All')
     })
 
     it('keeps everybody else’s email addresses and phone numbers to the Owner out of the box, and lets the church give them (0277)', async () => {

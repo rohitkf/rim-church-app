@@ -191,7 +191,9 @@ export const CATALOG = {
   // Everybody's contact details and households, and everybody's visa and
   // DBS details (0277): the Owner's alone until the Owner says otherwise.
   'people.contacts': given('none'),
-  'people.compliance': given('none'),
+  // Visa and DBS details are a Pastor's too out of the box (0327, the Owner:
+  // "As well as pastor. The rest of the access can be controlled later in settings").
+  'people.compliance': { ...given('none'), pastor: offer('none all', 'all') },
   'rota.assign': {
     admin: offer('none all', 'all'),
     head: offer('none team all', 'team'),
@@ -895,7 +897,9 @@ export const CATALOG = {
   'people.block': given('all'),
   // Linking two accounts as family for them, husband and wife or a child
   // and their parents (0319): the family could only ever link themselves.
-  'people.family': given('all'),
+  // The Owner's and a Pastor's out of the box since 0327; an Admin's cell is
+  // still a choice, and no longer starts at yes.
+  'people.family': { ...given('none'), pastor: offer('none all', 'all') },
   // Opening a page (0215), one per page with a choice of who may.
   'page.service_planner': page('everyone team leads', 'everyone'),
   'page.rota': page('everyone team leads', 'team'),

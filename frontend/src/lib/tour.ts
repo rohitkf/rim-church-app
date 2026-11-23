@@ -16,7 +16,8 @@ import { ROLE_NAME } from './roleNames'
  *
  * One chapter is cut by a right instead of a standing: Registrations and
  * Reception open to whoever the grid names, a Church Member working the
- * door as much as the Owner. It sits at the bottom of the ladder, so
+ * door as much as the Owner; Families and DBS Checks (0326, 0327) to the
+ * Owner, a Pastor and whoever is given them. It sits at the bottom of the ladder, so
  * everybody is offered it, and its steps are on pages only its people may
  * open — so nobody else is shown it, and somebody given the door next
  * month is walked round it then.
@@ -324,7 +325,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
     // is on a page or in a room that opens only to whoever the grid names.
     key: 'events',
     standing: 'church',
-    title: 'Events and the door',
+    title: 'Events, families and DBS',
     steps: [
       {
         path: '/registrations',
@@ -343,6 +344,18 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         target: 'settings:/settings/reception',
         title: 'Who works the door',
         body: 'Who works the door, and what each of them may press: check people in, take payments, register walk-ins, sort out problems — or look only. Somebody new starts with all four ticked, for every event; “Chosen events” keeps a person or a team to the events ticked for them. A door right is given once and holds every day, so whoever runs registrations can lock Reception between events: while it is locked the door’s rights give nothing, and nobody’s rights are changed.',
+      },
+      {
+        path: '/families',
+        target: 'page-title',
+        title: 'Families',
+        body: 'Every family the church has linked, and everybody who is not in one yet. Search for anybody, open their family and it is drawn as a tree: parents above, husband or wife beside, children below. The box under the tree links another account to it, or writes in somebody who is not on the app. The Owner’s and a Pastor’s, and whoever else the Owner gives “Link families”.',
+      },
+      {
+        path: '/dbs',
+        target: 'page-title',
+        title: 'DBS Checks',
+        body: 'Everybody’s DBS on one page: who is still to check, who has not given their certificate’s details, and who is verified. Filter by where they stand or search a name, and open one to see what a check needs and mark it verified. The Owner’s and a Pastor’s, and whoever else the Owner gives “Safeguarding details”.',
       },
     ],
   },
@@ -449,12 +462,6 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         body: 'Everybody with an account. Invite people, make somebody a Head or an Admin, and export everything that is known about everybody to a spreadsheet. Block stops an account without removing it, and Unblock puts everything back. Each card says how old the person is, and “Under 18” beside the name where they are. Family on a person’s card links them to their husband or wife, children or parents on the app, with nobody having to confirm, and writes in the ones who are not on the app yet.',
       },
       {
-        path: '/families',
-        target: 'page-title',
-        title: 'Families',
-        body: 'Every family the church has linked, and everybody who is not in one yet. Search for anybody, open their family and it is drawn as a tree: parents above, husband or wife beside, children below. The box under the tree links another account to it, or writes in somebody who is not on the app.',
-      },
-      {
         path: '/departments',
         target: 'page-title',
         title: 'Teams',
@@ -477,13 +484,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/volunteers',
         target: 'people-export',
         title: 'The contact book',
-        body: 'Only you see email addresses, phone numbers, visa and DBS details and families, on the page and in the export. The DBS button on each card says where that person stands, opens what a check needs, and is where you mark it verified once you have seen the certificate. You can mark your own, too.',
-      },
-      {
-        path: '/dbs',
-        target: 'page-title',
-        title: 'DBS Checks',
-        body: 'Everybody’s DBS on one page: who is still to check, who has not given their certificate’s details, and who is verified. Filter by where they stand or search a name, and open one to see what a check needs and mark it verified. Nobody else sees this page until you give them “Safeguarding details”.',
+        body: 'Only you see email addresses, phone numbers and households, on the page and in the export; visa and DBS details are yours and a Pastor’s. The DBS button on each card says where that person stands, opens what a check needs, and is where you mark it verified once you have seen the certificate. You can mark your own, too.',
       },
       {
         path: '/volunteers',

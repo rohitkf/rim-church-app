@@ -94,9 +94,10 @@ describe('the permission catalog', () => {
     for (const cap of ['prayer.pastoral', 'prayer.assign', 'prayer.lists'] as const) {
       expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'all' })
     }
-    // Out of the box: reading both registrations pages, verifying payments, and commenting on a session (0308).
+    // Out of the box: reading both registrations pages, verifying payments, commenting on a session (0308),
+    // and everybody's visa and DBS details and linking families (0327: "As well as pastor").
     const yes = CAPABILITY_KEYS.filter((cap) => hasCell(cap, 'pastor') && ruleFor(cap, 'pastor').byDefault !== 'none').sort()
-    expect(yes).toEqual(['prayer.assign', 'prayer.lists', 'prayer.pastoral', 'reg.door_view', 'reg.verify', 'reg.view', 'svc.comment'])
+    expect(yes).toEqual(['people.compliance', 'people.family', 'prayer.assign', 'prayer.lists', 'prayer.pastoral', 'reg.door_view', 'reg.verify', 'reg.view', 'svc.comment'])
     // Every other cell is a choice, and starts at No.
     for (const cap of CAPABILITY_KEYS.filter((c) => hasCell(c, 'pastor') && !yes.includes(c))) {
       expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'none' })
@@ -153,9 +154,18 @@ describe('the permission catalog', () => {
     for (const cap of [...admins, ...owners]) {
       for (const role of GRID_ROLES) {
         expect(ruleFor(cap, role).reaches, `${cap} ${role}`).toEqual(['none', 'all'])
+        // Visa and DBS details are a Pastor's too out of the box (0327).
+        if (cap === 'people.compliance' && role === 'pastor') {
+          expect(ruleFor(cap, role).byDefault, `${cap} ${role}`).toBe('all')
+          continue
+        }
         if (role !== 'admin' || owners.includes(cap as (typeof owners)[number])) expect(ruleFor(cap, role).byDefault, `${cap} ${role}`).toBe('none')
       }
     }
+    // Linking families (0319) started as every Admin's; since 0327 it is the Owner's and a Pastor's, and an Admin's to be given.
+    expect(GRID_ROLES.filter((role) => ruleFor('people.family', role).byDefault === 'all')).toEqual(['pastor'])
+    expect(GRID_ROLES.filter((role) => ruleFor('people.compliance', role).byDefault === 'all')).toEqual(['pastor'])
+    for (const role of GRID_ROLES) expect(ruleFor('people.family', role).reaches, role).toEqual(['none', 'all'])
     // Sending feedback was anybody's on a team.
     expect(GRID_ROLES.filter((role) => ruleFor('feedback.send', role).byDefault === 'all')).toEqual(['admin', 'head', 'assistant', 'member'])
     // Since 0269 a Church Member's cell is the church's to set wherever

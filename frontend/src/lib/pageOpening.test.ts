@@ -18,6 +18,8 @@ const people = {
   head: { ...base, ledTeams: ['t'], headTeams: ['t'], assistTeams: [], memberTeams: ['t'] },
   member: { ...base, memberTeams: ['t'] },
   church: base,
+  // A Pastor on no team: what the role alone opens (0214).
+  pastor: { ...base, pastor: true },
 } satisfies Record<string, Holder>
 
 function opens(who: keyof typeof people, path: string, overrides: Overrides) {
@@ -136,21 +138,28 @@ describe('the pages that had one level and no choice (0277)', () => {
  * opens to whoever holds that right and to nobody by level.
  */
 describe('the pages that open by one right', () => {
-  it('opens Families to whoever may link families: Admins and the Owner out of the box', () => {
-    expect(who('/families', {})).toEqual(['owner', 'admin'])
-    expect(who('/families', { 'people.family': { admin: 'none' } })).toEqual(['owner'])
-    expect(who('/families', { 'people.family': { head: 'all' } })).toEqual(['owner', 'admin', 'head'])
+  const withPastor = (path: string, overrides: Overrides) => ([...everyone, 'pastor'] as const).filter((p) => opens(p, path, overrides))
+
+  // The Owner, November 2026: "I hope only owner has access to this ... As well as pastor.
+  // The rest of the access can be controlled later in settings." (0327)
+  it('opens Families to the Owner and a Pastor out of the box, and to whoever else is given it', () => {
+    expect(withPastor('/families', {})).toEqual(['owner', 'pastor'])
+    expect(withPastor('/families', { 'people.family': { pastor: 'none' } })).toEqual(['owner'])
+    expect(withPastor('/families', { 'people.family': { admin: 'all' } })).toEqual(['owner', 'admin', 'pastor'])
+    expect(withPastor('/families', { 'people.family': { head: 'all' } })).toEqual(['owner', 'head', 'pastor'])
   })
 
-  it('opens DBS Checks to the Owner alone, until “Safeguarding details” is given', () => {
+  it('opens DBS Checks to the Owner and a Pastor out of the box, and to whoever else is given it', () => {
+    expect(withPastor('/dbs', {})).toEqual(['owner', 'pastor'])
+    expect(withPastor('/dbs', { 'people.compliance': { pastor: 'none' } })).toEqual(['owner'])
+    expect(withPastor('/dbs', { 'people.compliance': { admin: 'all' } })).toEqual(['owner', 'admin', 'pastor'])
+  })
+
+  it('opens neither by a page’s level, nor by the other page’s right', () => {
+    expect(withPastor('/dbs', { 'people.family': { admin: 'all' }, 'people.compliance': { pastor: 'none' } })).toEqual(['owner'])
+    expect(withPastor('/families', { 'people.compliance': { member: 'all' }, 'people.family': { pastor: 'none' } })).toEqual(['owner'])
+    expect(who('/families', {})).toEqual(['owner'])
     expect(who('/dbs', {})).toEqual(['owner'])
-    expect(who('/dbs', { 'people.compliance': { admin: 'all' } })).toEqual(['owner', 'admin'])
-    expect(who('/dbs', { 'people.compliance': { head: 'all' } })).toEqual(['owner', 'head'])
-  })
-
-  it('opens neither by a page’s level: an Admin without the right has nothing to see', () => {
-    expect(who('/dbs', { 'people.family': { admin: 'all' } })).toEqual(['owner'])
-    expect(who('/families', { 'people.compliance': { member: 'all' }, 'people.family': { admin: 'none' } })).toEqual(['owner'])
   })
 })
 

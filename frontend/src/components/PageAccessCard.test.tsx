@@ -66,11 +66,11 @@ describe('who sees what', () => {
     // Reception (0247) the same, plus whoever it gives "Work the door".
     expect(labels).toContain('Registrations: cannot open')
     expect(labels).toContain('Reception: cannot open')
-    // DBS Checks (0324) opens by "Safeguarding details", the Owner's alone out of the box;
-    // Families (0326) by "Link families", which an Admin has.
+    // DBS Checks (0324) opens by "Safeguarding details" and Families (0326) by "Link families":
+    // each the Owner's and a Pastor's out of the box (0327), and an Admin's only when given.
     expect(labels).toContain('DBS Checks: cannot open')
-    expect(labels).toContain('Families: can open')
-    for (const label of labels.filter((l) => !l?.startsWith('Registrations') && !l?.startsWith('Reception') && !l?.startsWith('DBS Checks'))) expect(label).toMatch(/can open$/)
+    expect(labels).toContain('Families: cannot open')
+    for (const label of labels.filter((l) => !/^(Registrations|Reception|DBS Checks|Families)/.test(l ?? ''))) expect(label).toMatch(/can open$/)
   })
 
   it('arrives with the church’s saved choices, and marks what moved from the app’s own', async () => {

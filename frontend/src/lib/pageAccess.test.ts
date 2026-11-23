@@ -96,12 +96,12 @@ describe('who may open what', () => {
 
   it('never lets a setting lock an Admin out', () => {
     for (const path of Object.keys(PAGE_RULES)) {
-      // DBS Checks (0324) is not closed by a setting: it is the Owner's until the
-      // Owner gives "Safeguarding details", which is a right and not a level.
+      // DBS Checks (0324) and Families (0326) are not closed by a setting: each is the
+      // Owner's and a Pastor's (0327) until its right is given, which is not a level.
       if (PAGE_RULES[path].default === 'owner') continue
       expect(mayOpen(path, 'admin', { inventory: 'leads', messages: 'leads' }), path).toBe(true)
     }
-    expect(Object.keys(PAGE_RULES).filter((p) => PAGE_RULES[p].default === 'owner')).toEqual(['/dbs'])
+    expect(Object.keys(PAGE_RULES).filter((p) => PAGE_RULES[p].default === 'owner')).toEqual(['/families', '/dbs'])
   })
 
   it('ignores a stored choice the page does not offer, rather than trusting it', () => {

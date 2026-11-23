@@ -41,8 +41,15 @@ vi.mock('../lib/usePageAccess', () => ({
     settled: access.settled,
     // Registrations and Reception open by a right, not a standing: shut
     // to the people in these tests unless one is given the door.
+    // Families and DBS Checks (0327) are the Owner's and a Pastor's: nobody here is either.
     canOpen: (path: string) =>
-      path === '/registrations' ? false : path === '/door' ? access.door : access.open ? access.open.has(path) : true,
+      path === '/registrations' || path === '/families' || path === '/dbs'
+        ? false
+        : path === '/door'
+          ? access.door
+          : access.open
+            ? access.open.has(path)
+            : true,
   }),
 }))
 vi.mock('../lib/useMyTeams', () => ({ useMyTeams: () => teams }))
@@ -142,7 +149,7 @@ describe('starting itself', () => {
     show()
     expect(await screen.findByText('Reception')).toBeInTheDocument()
     expect(screen.getByTestId('where')).toHaveTextContent('/door')
-    expect(dialog().textContent).toContain('Events and the door · Part 1 of 1')
+    expect(dialog().textContent).toContain('Events, families and DBS · Part 1 of 1')
   })
 
   it('starts over from the welcome when the tour was sent after it was seen', async () => {
