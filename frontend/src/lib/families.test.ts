@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import migration from '../../../supabase/migrations/0326_every_family_on_one_page.sql?raw'
+import migration from '../../../supabase/migrations/0329_every_family_says_who_is_a_man_and_who_a_woman.sql?raw'
 
 vi.mock('./supabaseClient', () => ({ supabase: {} }))
 
@@ -7,7 +7,6 @@ import {
   anchorOf,
   combineFamilies,
   familyCount,
-  familyForest,
   familyMatches,
   familyTitle,
   groupAnchor,
@@ -18,7 +17,6 @@ import {
   onTheirOwn,
   type Family,
   type FamilyMember,
-  type TreeUnit,
 } from './families'
 
 const m = (id: string, kind: 'adult' | 'child', first: string, last: string, account = true): FamilyMember => ({
@@ -121,10 +119,15 @@ describe('what families() hands over', () => {
     expect(body).toContain('revoke all on function public.families() from public, anon;')
   })
 
-  it('is names: no address, date of birth, school or year', () => {
-    const built = [...body.matchAll(/'([a-z_]+)',/g)].map((x) => x[1])
-    expect(built).toEqual(['id', 'members', 'id', 'user_id', 'kind', 'first_name', 'last_name'])
-    for (const kept of ['address', 'postcode', 'town', 'dob', 'school', 'year_group', 'gender', 'phone', 'email']) expect(body).not.toContain(kept)
+  it('is names, and what a word has said each is (0329): no address, date of birth, school or year', () => {
+    const fn = body.slice(0, body.indexOf('$function$;'))
+    const built = [...fn.matchAll(/'([a-z_]+)',/g)].map((x) => x[1])
+    expect(built).toEqual(['id', 'members', 'id', 'user_id', 'kind', 'first_name', 'last_name', 'gender'])
+    for (const kept of ['address', 'postcode', 'town', 'dob', 'school', 'year_group', 'phone', 'email']) expect(fn).not.toContain(kept)
+  })
+
+  it('reads an account’s word from wherever it was said, and a written-in person’s from their own row', () => {
+    expect(body).toContain("'gender', case when m.user_id is not null then public.family_gender_of(m.user_id) else m.gender end")
   })
 
   it('leaves out a household of one, which is somebody not linked to anybody', () => {
@@ -217,57 +220,3 @@ describe('households that are one family', () => {
     expect(combineFamilies([])).toEqual([])
   })
 })
-
-describe('a family as trees, for the page that shows everybody', () => {
-  const row = (id: string, account: string | null, kind: 'adult' | 'child', first: string): FamilyMember => ({
-    id,
-    user_id: account,
-    kind,
-    first_name: first,
-    last_name: 'T',
-  })
-  /** "Gran [Anna+Tom [Kid, Zak*], Wren*]": a tree as one line, a household's children in brackets. */
-  const line = (u: TreeUnit): string => {
-    const names = (ms: FamilyMember[]) => ms.map((x) => `${x.first_name}${x.user_id ? '' : '*'}`).join('+')
-    const kids = u.children.map((c) => (c.unit ? line(c.unit) : `${c.member.first_name}${c.member.user_id ? '' : '*'}`))
-    return `${names(u.adults) || '()'}${kids.length > 0 ? ` [${kids.join(', ')}]` : ''}`
-  }
-  const forest = (households: Family[]) => combineFamilies(households).flatMap((g) => familyForest(g).map(line))
-
-  const grans = family('g', [row('g1', 'gran', 'adult', 'Gran'), row('a1', 'anna', 'child', 'Anna'), row('w', null, 'child', 'Wren')])
-  const annas = family('a', [row('a2', 'anna', 'adult', 'Anna'), row('t', 'tom', 'adult', 'Tom'), row('k', 'kid', 'child', 'Kid'), row('z', null, 'child', 'Zak')])
-
-  it('is one household for a couple and their children', () => {
-    expect(forest([annas])).toEqual(['Anna+Tom [Kid, Zak*]'])
-  })
-
-  it('draws a child’s own household under their parents, whichever order they came in', () => {
-    expect(forest([grans, annas])).toEqual(['Gran [Anna+Tom [Kid, Zak*], Wren*]'])
-    expect(forest([annas, grans])).toEqual(['Gran [Anna+Tom [Kid, Zak*], Wren*]'])
-  })
-
-  it('goes down as many generations as there are', () => {
-    const kids = family('k', [row('k2', 'kid', 'adult', 'Kid'), row('b', null, 'child', 'Baby')])
-    expect(forest([kids, annas, grans])).toEqual(['Gran [Anna+Tom [Kid [Baby*], Zak*], Wren*]'])
-  })
-
-  it('draws a couple once when both of them have parents in the family: under the first, and alone under the second', () => {
-    const toms = family('tp', [row('tf', 'tdad', 'adult', 'Dad'), row('t1', 'tom', 'child', 'Tom')])
-    expect(forest([grans, annas, toms])).toEqual(['Gran [Anna+Tom [Kid, Zak*], Wren*]', 'Dad [Tom]'])
-  })
-
-  it('has brothers and sisters with no parent listed as a tree with nobody at the top', () => {
-    const siblings = family('s', [row('b1', 'bill', 'child', 'Bill'), row('m1', 'mary', 'child', 'Mary')])
-    const bills = family('hb', [row('b2', 'bill', 'adult', 'Bill'), row('w2', null, 'adult', 'Wendy')])
-    expect(forest([siblings, bills])).toEqual(['() [Bill+Wendy*, Mary]'])
-  })
-
-  it('draws every household once, even when two name each other as parents', () => {
-    const a = family('a', [row('a1', 'ann', 'adult', 'Ann'), row('b1', 'bob', 'child', 'Bob')])
-    const b = family('b', [row('b2', 'bob', 'adult', 'Bob'), row('a2', 'ann', 'child', 'Ann')])
-    const [group] = combineFamilies([a, b])
-    const ids = (u: TreeUnit): string[] => [u.household.id, ...u.children.flatMap((c) => (c.unit ? ids(c.unit) : []))]
-    expect(familyForest(group).flatMap(ids).sort()).toEqual(['a', 'b'])
-  })
-})
-

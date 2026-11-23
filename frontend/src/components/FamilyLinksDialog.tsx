@@ -100,7 +100,7 @@ export function FamilyLinksDialog({
 
 /**
  * The family itself and the box that adds to it, without the dialog round
- * them: the Families page (0326) has the same thing under a family's tree.
+ * them: the Families page (0326) has the same thing under a family's picture.
  * `onBusyChange` tells whoever holds it that a change is on its way, so a
  * dialog does not shut under one.
  */

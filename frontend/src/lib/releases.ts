@@ -46,13 +46,26 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'families-as-a-graph',
+    date: '2026-11-23',
+    title: 'Families, drawn as a graph',
+    lead: 'A family is now drawn as circles joined by lines, with what two people are to each other written on the line between them.',
+    points: [
+      '“Husband · Wife” is over the line between the two; a child’s line runs from the middle of their parents’ and says “Son” or “Daughter”.',
+      'Opening one person shows the whole family they are in, in-laws included, with that person marked.',
+      '“View all” is one picture of the whole church. Zoom in, Zoom out and Fit are at the top of the picture; slide it to move about.',
+    ],
+    link: { to: '/families', label: 'Open Families' },
+    page: '/families',
+  },
+  {
     key: 'family-words-on-lines',
     date: '2026-11-23',
     title: 'The word is on the line',
-    lead: 'In a family’s tree, what somebody is (wife, son, father) is now written on the line that joins them, not inside their box.',
+    lead: 'In a family’s picture, what somebody is (wife, son, father) is written on the line that joins them, not beside their name.',
     points: [
-      '“Husband” or “Wife” is on the line between the two; “Son”, “Daughter”, “Brother” and “Sister” on the line down to each; “Father” and “Mother” on the line down from them.',
-      'A box now holds only who somebody is: their name, and “Written in” for somebody not on the app.',
+      '“Husband” and “Wife” are on the line between the two; “Son” and “Daughter” on the line that runs to each child.',
+      'Under a name there is only “Written in”, for somebody not on the app.',
     ],
     link: { to: '/families', label: 'Open Families' },
     page: '/families',
@@ -61,10 +74,9 @@ export const RELEASES: Release[] = [
     key: 'families-view-all',
     date: '2026-11-23',
     title: 'The whole church on one page',
-    lead: 'Families has a “View all” button: every family drawn as a tree, and everybody else beside them.',
+    lead: 'Families has a “View all” button: one picture of everybody, each family joined by its lines.',
     points: [
-      'Each family is drawn from the oldest generation down, with lines joining parents, couples and children.',
-      'Everybody who is not linked to anybody yet is listed after the families.',
+      'Everybody who is not linked to anybody yet stands after the families.',
       'Press anybody with an account to open their own family, where you link people.',
       'The button is at the top of the Families page.',
     ],

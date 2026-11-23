@@ -1,12 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ActionLink, FitFigure, PageHeader, SectionTile, Statistic, Tile, inputClasses } from '../components/Surface'
 import { QueryState } from '../components/QueryState'
-import { FamilyTree, TreeNode } from '../components/FamilyTree'
-import { FamilyForest } from '../components/FamilyForest'
+import { FamilyGraph } from '../components/FamilyGraph'
 import { FamilyLinksPanel } from '../components/FamilyLinksDialog'
-import { familyOfKey, fetchFamilyOf } from '../lib/familyLinks'
+import { accountNode, familyGraph } from '../lib/familyGraph'
 import {
   FAMILIES_KEY,
   PEOPLE_NAMES_KEY,
@@ -27,7 +26,7 @@ import {
 
 /**
  * Families (0326): every family the church has linked, who is still on
- * their own, and one family drawn as a tree with the box that links more
+ * their own, and one family drawn as a graph with the box that links more
  * people to it.
  *
  * The Owner asked (November 2026) for "a page for seeing and linking
@@ -47,9 +46,13 @@ import {
  *
  * One page, three views, told apart by the address: `/families` is the
  * list, `/families?person=<id>` is that person's family, and
- * `/families?view=all` is the whole church with every family drawn as a
- * tree. So a tree can be linked to, the back button works, and pressing
- * somebody in a tree is just going to theirs.
+ * `/families?view=all` is the whole church as one graph. So a family can
+ * be linked to, the back button works, and pressing somebody in a graph
+ * is just going to theirs.
+ *
+ * A family is drawn as a graph (components/FamilyGraph): everybody a
+ * node, every relationship a line between two people with what each is
+ * to the other written on it.
  */
 export function FamiliesPage() {
   const [params, setParams] = useSearchParams()
@@ -62,8 +65,9 @@ export function FamiliesPage() {
       <OneFamily
         personId={personId}
         people={people.data}
-        loading={people.isLoading}
-        error={people.error}
+        families={families.data ?? []}
+        loading={people.isLoading || families.isLoading}
+        error={people.error ?? families.error}
         onOpen={(id) => setParams({ person: id })}
       />
     )
@@ -113,7 +117,7 @@ function AllFamilies({
     <div>
       <PageHeader
         title="Families"
-        description="Who is linked to whom: husbands and wives, children and parents. Find anybody, see their family as a tree, and link accounts together."
+        description="Who is linked to whom: husbands and wives, children and parents. Find anybody, see their family drawn out, and link accounts together."
         action={
           // The Owner asked for it by this name: everybody in the church on one page, the related ones joined up.
           <ActionLink as={Link} to="/families?view=all">
@@ -202,14 +206,15 @@ function AllFamilies({
 /**
  * The whole church on one page (the Owner, November 2026: "a sort of VIEW
  * ALL button which shows everyone in the church, with related people
- * linked and all that"): every family drawn as a tree, generation under
- * generation, and after them everybody who is linked to nobody.
+ * linked and all that"): one graph of everybody. Each family is a cluster
+ * of people joined by their lines, and whoever is linked to nobody stands
+ * after them with no line at all.
  *
  * It is the list's own data, drawn instead of listed: `families()` and
  * the church's names, which whoever opens this page already reads. So it
- * shows names and who is joined to whom, and nothing else about anybody.
- * Pressing somebody with an account goes to their own family, where the
- * words (wife, son, mother) and the box that links people are.
+ * shows names, who is joined to whom, and what each is to the other, and
+ * nothing else about anybody. Pressing somebody with an account goes to
+ * their own family, where the box that links people is.
  */
 function Everybody({
   families,
@@ -231,6 +236,13 @@ function Everybody({
   const shownAlone = alone.filter((p) => nameMatches(nameOf(p), typed))
   const searching = typed.trim() !== ''
   const writtenIn = new Set(families.flatMap((f) => f.members.filter((m) => !m.user_id).map((m) => m.id))).size
+  // One picture of whoever is shown: the families whole, and then whoever is on their own.
+  const graph = useMemo(
+    () => familyGraph(shownFamilies.flatMap((f) => f.households), shownAlone),
+    // The two lists are made afresh each time; who is in them is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [families, people, typed],
+  )
 
   return (
     <div>
@@ -241,7 +253,7 @@ function Everybody({
           </Link>
         }
         title="Everybody"
-        description="The whole church on one page: each family drawn as a tree, and then everybody who is not linked to anybody yet. Press somebody with an account to open their own family."
+        description="The whole church on one page. Each family is joined by its lines, with what two people are to each other written on the line between them; whoever is not linked to anybody yet stands after them. Press somebody with an account to open their own family."
         context={
           loading || error
             ? undefined
@@ -262,61 +274,16 @@ function Everybody({
           />
         </label>
 
-        <section aria-labelledby="everybody-families" className="mt-8">
-          <h2 id="everybody-families" className="flex items-baseline gap-2 text-headline-md text-on-surface">
-            Families
-            <span className="font-mono text-label-sm text-on-surface-faint">{shownFamilies.length}</span>
-          </h2>
-          {shownFamilies.length === 0 ? (
-            <p className="mt-3 text-body-sm text-on-surface-variant">
-              {searching ? 'No family has anybody by that name.' : 'No families are linked yet.'}
-            </p>
-          ) : (
-            <ul aria-label="Families" className="mt-3 grid grid-cols-1 gap-4 xl:grid-cols-2">
-              {shownFamilies.map((family) => {
-                const title = groupTitle(family)
-                return (
-                  // `min-w-0`: a wide tree scrolls inside its own card and does not push the page out.
-                  // A family of several households is a wide tree: it has the whole row on a wide screen.
-                  <li
-                    key={family.id}
-                    aria-label={title}
-                    className={`min-w-0 rounded-[var(--radius-card)] bg-raised hairline ${family.households.length > 1 ? 'xl:col-span-2' : ''}`}
-                  >
-                    <div className="px-4 pt-4 sm:px-5 sm:pt-5">
-                      <h3 className="text-headline-md text-on-surface [overflow-wrap:anywhere]">{title}</h3>
-                      <p className="mt-0.5 font-mono text-label-sm text-on-surface-faint">{groupCount(family)}</p>
-                    </div>
-                    <FamilyForest family={family} title={title} onOpen={onOpen} />
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </section>
-
-        <section aria-labelledby="everybody-alone" className="mt-8">
-          <h2 id="everybody-alone" className="flex items-baseline gap-2 text-headline-md text-on-surface">
-            Not linked to anybody
-            <span className="font-mono text-label-sm text-on-surface-faint">{shownAlone.length}</span>
-          </h2>
-          {shownAlone.length === 0 ? (
-            <p className="mt-3 text-body-sm text-on-surface-variant">
-              {searching ? 'Nobody by that name is on their own.' : 'Everybody is in a family.'}
-            </p>
-          ) : (
-            <ul aria-label="Not linked to anybody" className="mt-3 flex list-none flex-wrap gap-2 p-0 sm:gap-3">
-              {shownAlone.map((p) => (
-                <TreeNode
-                  key={p.id}
-                  person={{ key: p.id, userId: p.id, first_name: p.first_name, last_name: p.last_name, word: '' }}
-                  me={false}
-                  onOpen={onOpen}
-                />
-              ))}
-            </ul>
-          )}
-        </section>
+        <p className="mt-4 font-mono text-label-sm text-on-surface-faint" role="status">
+          {shownFamilies.length} {shownFamilies.length === 1 ? 'family' : 'families'} · {shownAlone.length} not linked to anybody
+        </p>
+        {graph.nodes.length === 0 ? (
+          <p className="mt-3 text-body-sm text-on-surface-variant">{searching ? 'Nobody by that name.' : 'Nobody is on the app yet.'}</p>
+        ) : (
+          <div className="mt-3">
+            <FamilyGraph graph={graph} label="Everybody in the church, and who is linked to whom" onOpen={onOpen} />
+          </div>
+        )}
       </QueryState>
     </div>
   )
@@ -365,18 +332,30 @@ function FamilyCard({ family }: { family: FamilyGroup }) {
 function OneFamily({
   personId,
   people,
+  families,
   loading,
   error,
   onOpen,
 }: {
   personId: string
   people: PersonName[] | undefined
+  families: Family[]
   loading: boolean
   error: unknown
   onOpen: (id: string) => void
 }) {
   const person = people?.find((p) => p.id === personId)
-  const family = useQuery({ queryKey: familyOfKey(personId), queryFn: () => fetchFamilyOf(personId), enabled: !!person })
+  // The whole family they are in, in-laws and all (`combineFamilies`); somebody in none is drawn alone.
+  const group = useMemo(
+    () => combineFamilies(families).find((f) => f.members.some((m) => m.user_id === personId)),
+    [families, personId],
+  )
+  const graph = useMemo(
+    () => (person ? familyGraph(group?.households ?? [], group ? [] : [person]) : null),
+    // `person` is found afresh each time; who they are is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [group, person?.id, person?.first_name, person?.last_name],
+  )
   const back = (
     <Link to="/families" className="tap hover:underline">
       <span aria-hidden="true">← </span>Families
@@ -399,10 +378,15 @@ function OneFamily({
       <PageHeader
         back={back}
         title={`${name}’s family`}
-        description={`Their parents above, ${first} beside their brothers and sisters and their husband or wife, their children below. Press anybody with an account to see the tree from them.`}
+        description={`Everybody ${first} is linked to, and everybody they are linked to in turn. What two people are to each other is written on the line between them. Press anybody with an account to open theirs.`}
       />
-      <QueryState isLoading={family.isLoading} error={family.error}>
-        {family.data && <FamilyTree person={person} family={family.data} onOpen={onOpen} />}
+      <QueryState isLoading={loading} error={error}>
+        {graph && <FamilyGraph graph={graph} label={`Family of ${name}`} focus={accountNode(person.id)} onOpen={onOpen} />}
+        {!group && (
+          <p className="mt-2 text-body-sm text-on-surface-variant">
+            Nobody is linked to {first} yet. Add their husband or wife, a child, a parent, or a brother or sister below.
+          </p>
+        )}
       </QueryState>
       <div className="mt-6">
         <SectionTile
