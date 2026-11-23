@@ -164,3 +164,80 @@ describe('one family on the Families page', () => {
     expect(state.rpcs.some((r) => r.name === 'family_of')).toBe(false)
   })
 })
+
+describe('everybody in the church, on one page', () => {
+  beforeEach(() => {
+    // Gran's household, with Anna a child of it; Anna's own, with Tom and two children.
+    state.people = [...state.people, person('gran', 'Gran', 'Thomas')]
+    state.families = [
+      ...state.families,
+      { id: 'h0', members: [member('gran', 'adult', 'Gran', 'Thomas'), { ...member('anna', 'child', 'Anna', 'Jacob'), id: 'row-anna-child' }, member('wren', 'child', 'Wren', 'Thomas', false)] },
+    ]
+  })
+
+  it('is reached from a button on the list, by its own address', async () => {
+    const user = show()
+    await user.click(await screen.findByRole('link', { name: 'View all' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/families?view=all')
+    expect(await screen.findByRole('heading', { name: 'Everybody' })).toBeInTheDocument()
+  })
+
+  it('draws each family as a tree, a household under the household its adult is a child of', async () => {
+    show('/families?view=all')
+    const tree = await screen.findByRole('figure', { name: 'Family tree of Anna & Tom Jacob' })
+    const lists = within(tree).getAllByRole('list').map((l) => l.getAttribute('aria-label'))
+    // Gran's children: Wren, who has no household of her own, and then Anna, drawn as hers.
+    expect(lists).toEqual(['Gran', 'Children of Gran', 'Children of Gran, with their own families', 'Anna and Tom', 'Children of Anna and Tom'])
+    // Anna is drawn once: beside Tom, under Gran, and not a second time among Gran's children.
+    expect(within(tree).getAllByText('Anna Jacob')).toHaveLength(1)
+    expect(within(within(tree).getByRole('list', { name: 'Children of Anna and Tom' })).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'KJKid Jacob',
+      'ZJZak JacobWritten in',
+    ])
+  })
+
+  it('says how many people it is showing, and lists whoever is linked to nobody as themselves', async () => {
+    show('/families?view=all')
+    expect(await screen.findByText('6 on the app · 2 written in · 1 family')).toBeInTheDocument()
+    const alone = screen.getByRole('list', { name: 'Not linked to anybody' })
+    expect(within(alone).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['RMRose Mathew', 'JSJoel Skaria'])
+  })
+
+  it('goes to somebody’s own family when they are pressed, in a tree or on their own', async () => {
+    const user = show('/families?view=all')
+    await user.click(await screen.findByRole('button', { name: 'Tom Jacob. Show their family' }))
+    expect(screen.getByTestId('where')).toHaveTextContent('/families?person=tom')
+  })
+
+  it('has nothing to press on somebody written in', async () => {
+    show('/families?view=all')
+    await screen.findByRole('figure', { name: 'Family tree of Anna & Tom Jacob' })
+    expect(screen.queryByRole('button', { name: /Zak Jacob/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Wren Thomas/ })).toBeNull()
+  })
+
+  it('finds a family by anybody in it, and somebody alone by their name', async () => {
+    const user = show('/families?view=all')
+    const box = await screen.findByRole('searchbox', { name: 'Find a person or a family' })
+    await user.type(box, 'wren')
+    expect(screen.getByRole('figure', { name: 'Family tree of Anna & Tom Jacob' })).toBeInTheDocument()
+    expect(screen.getByText('Nobody by that name is on their own.')).toBeInTheDocument()
+    await user.clear(box)
+    await user.type(box, 'rose')
+    expect(screen.queryByRole('figure')).toBeNull()
+    expect(screen.getByText('No family has anybody by that name.')).toBeInTheDocument()
+    expect(within(screen.getByRole('list', { name: 'Not linked to anybody' })).getAllByRole('listitem')).toHaveLength(1)
+  })
+
+  it('asks the database for nothing the list does not already read', async () => {
+    show('/families?view=all')
+    await screen.findByRole('figure', { name: 'Family tree of Anna & Tom Jacob' })
+    expect([...new Set(state.rpcs.map((r) => r.name))]).toEqual(['families'])
+  })
+
+  it('has the way back to the list', async () => {
+    const user = show('/families?view=all')
+    await user.click(await screen.findByRole('link', { name: /Families/ }))
+    expect(screen.getByTestId('where')).toHaveTextContent(/\/families$/)
+  })
+})

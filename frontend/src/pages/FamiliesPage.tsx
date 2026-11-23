@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
-import { FitFigure, PageHeader, SectionTile, Statistic, Tile, inputClasses } from '../components/Surface'
+import { ActionLink, FitFigure, PageHeader, SectionTile, Statistic, Tile, inputClasses } from '../components/Surface'
 import { QueryState } from '../components/QueryState'
-import { FamilyTree } from '../components/FamilyTree'
+import { FamilyTree, TreeNode } from '../components/FamilyTree'
+import { FamilyForest } from '../components/FamilyForest'
 import { FamilyLinksPanel } from '../components/FamilyLinksDialog'
 import { familyOfKey, fetchFamilyOf } from '../lib/familyLinks'
 import {
@@ -44,10 +45,11 @@ import {
  * wife's parents are one card, not three. The database keeps them as
  * households, and listing each was listing one family several times.
  *
- * One page, two views, told apart by the address: `/families` is
- * everybody, `/families?person=<id>` is that person's family. So a tree
- * can be linked to, the back button works, and pressing somebody in a
- * tree is just going to theirs.
+ * One page, three views, told apart by the address: `/families` is the
+ * list, `/families?person=<id>` is that person's family, and
+ * `/families?view=all` is the whole church with every family drawn as a
+ * tree. So a tree can be linked to, the back button works, and pressing
+ * somebody in a tree is just going to theirs.
  */
 export function FamiliesPage() {
   const [params, setParams] = useSearchParams()
@@ -62,6 +64,17 @@ export function FamiliesPage() {
         people={people.data}
         loading={people.isLoading}
         error={people.error}
+        onOpen={(id) => setParams({ person: id })}
+      />
+    )
+  }
+  if (params.get('view') === 'all') {
+    return (
+      <Everybody
+        families={families.data ?? []}
+        people={people.data ?? []}
+        loading={families.isLoading || people.isLoading}
+        error={families.error ?? people.error}
         onOpen={(id) => setParams({ person: id })}
       />
     )
@@ -101,6 +114,12 @@ function AllFamilies({
       <PageHeader
         title="Families"
         description="Who is linked to whom: husbands and wives, children and parents. Find anybody, see their family as a tree, and link accounts together."
+        action={
+          // The Owner asked for it by this name: everybody in the church on one page, the related ones joined up.
+          <ActionLink as={Link} to="/families?view=all">
+            View all
+          </ActionLink>
+        }
       />
 
       <QueryState isLoading={loading} error={error}>
@@ -171,6 +190,129 @@ function AllFamilies({
                     <span className="shrink-0 text-label-md font-medium text-primary">Link</span>
                   </Link>
                 </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </QueryState>
+    </div>
+  )
+}
+
+/**
+ * The whole church on one page (the Owner, November 2026: "a sort of VIEW
+ * ALL button which shows everyone in the church, with related people
+ * linked and all that"): every family drawn as a tree, generation under
+ * generation, and after them everybody who is linked to nobody.
+ *
+ * It is the list's own data, drawn instead of listed: `families()` and
+ * the church's names, which whoever opens this page already reads. So it
+ * shows names and who is joined to whom, and nothing else about anybody.
+ * Pressing somebody with an account goes to their own family, where the
+ * words (wife, son, mother) and the box that links people are.
+ */
+function Everybody({
+  families,
+  people,
+  loading,
+  error,
+  onOpen,
+}: {
+  families: Family[]
+  people: PersonName[]
+  loading: boolean
+  error: unknown
+  onOpen: (id: string) => void
+}) {
+  const [typed, setTyped] = useState('')
+  const joined = combineFamilies(families)
+  const alone = onTheirOwn(people, families)
+  const shownFamilies = joined.filter((f) => groupMatches(f, typed))
+  const shownAlone = alone.filter((p) => nameMatches(nameOf(p), typed))
+  const searching = typed.trim() !== ''
+  const writtenIn = new Set(families.flatMap((f) => f.members.filter((m) => !m.user_id).map((m) => m.id))).size
+
+  return (
+    <div>
+      <PageHeader
+        back={
+          <Link to="/families" className="tap hover:underline">
+            <span aria-hidden="true">← </span>Families
+          </Link>
+        }
+        title="Everybody"
+        description="The whole church on one page: each family drawn as a tree, and then everybody who is not linked to anybody yet. Press somebody with an account to open their own family."
+        context={
+          loading || error
+            ? undefined
+            : `${people.length} on the app · ${writtenIn} written in · ${joined.length} ${joined.length === 1 ? 'family' : 'families'}`
+        }
+      />
+
+      <QueryState isLoading={loading} error={error}>
+        <label className="flex flex-col gap-2 text-body-sm text-on-surface-variant">
+          Find a person or a family
+          <input
+            type="search"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder="Type a name"
+            autoComplete="off"
+            className={inputClasses}
+          />
+        </label>
+
+        <section aria-labelledby="everybody-families" className="mt-8">
+          <h2 id="everybody-families" className="flex items-baseline gap-2 text-headline-md text-on-surface">
+            Families
+            <span className="font-mono text-label-sm text-on-surface-faint">{shownFamilies.length}</span>
+          </h2>
+          {shownFamilies.length === 0 ? (
+            <p className="mt-3 text-body-sm text-on-surface-variant">
+              {searching ? 'No family has anybody by that name.' : 'No families are linked yet.'}
+            </p>
+          ) : (
+            <ul aria-label="Families" className="mt-3 grid grid-cols-1 gap-4 xl:grid-cols-2">
+              {shownFamilies.map((family) => {
+                const title = groupTitle(family)
+                return (
+                  // `min-w-0`: a wide tree scrolls inside its own card and does not push the page out.
+                  // A family of several households is a wide tree: it has the whole row on a wide screen.
+                  <li
+                    key={family.id}
+                    aria-label={title}
+                    className={`min-w-0 rounded-[var(--radius-card)] bg-raised hairline ${family.households.length > 1 ? 'xl:col-span-2' : ''}`}
+                  >
+                    <div className="px-4 pt-4 sm:px-5 sm:pt-5">
+                      <h3 className="text-headline-md text-on-surface [overflow-wrap:anywhere]">{title}</h3>
+                      <p className="mt-0.5 font-mono text-label-sm text-on-surface-faint">{groupCount(family)}</p>
+                    </div>
+                    <FamilyForest family={family} title={title} onOpen={onOpen} />
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+
+        <section aria-labelledby="everybody-alone" className="mt-8">
+          <h2 id="everybody-alone" className="flex items-baseline gap-2 text-headline-md text-on-surface">
+            Not linked to anybody
+            <span className="font-mono text-label-sm text-on-surface-faint">{shownAlone.length}</span>
+          </h2>
+          {shownAlone.length === 0 ? (
+            <p className="mt-3 text-body-sm text-on-surface-variant">
+              {searching ? 'Nobody by that name is on their own.' : 'Everybody is in a family.'}
+            </p>
+          ) : (
+            <ul aria-label="Not linked to anybody" className="mt-3 flex list-none flex-wrap gap-2 p-0 sm:gap-3">
+              {shownAlone.map((p) => (
+                <TreeNode
+                  key={p.id}
+                  person={{ key: p.id, userId: p.id, first_name: p.first_name, last_name: p.last_name, word: '' }}
+                  me={false}
+                  onOpen={onOpen}
+                />
               ))}
             </ul>
           )}
