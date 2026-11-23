@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'family-graph-pinch-and-drag',
+    date: '2026-11-23',
+    title: 'Pinch, and drag people about, in a family’s picture',
+    lead: 'The picture of a family can now be pinched bigger and smaller on a phone, and people in it can be dragged to another place with a mouse.',
+    points: [
+      'On a phone, two fingers make it bigger and smaller; one finger slides it about as before.',
+      'On a computer, hold Ctrl (⌘ on a Mac) and turn the wheel to do the same.',
+      'With a mouse, drag anybody to where you want them and their lines follow. “Reset” puts everybody back.',
+    ],
+    link: { to: '/families', label: 'Open Families' },
+    page: '/families',
+  },
+  {
     key: 'families-as-a-graph',
     date: '2026-11-23',
     title: 'Families, drawn as a graph',
