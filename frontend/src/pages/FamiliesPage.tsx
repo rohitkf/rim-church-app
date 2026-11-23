@@ -9,16 +9,18 @@ import { familyOfKey, fetchFamilyOf } from '../lib/familyLinks'
 import {
   FAMILIES_KEY,
   PEOPLE_NAMES_KEY,
-  anchorOf,
-  familyCount,
-  familyMatches,
-  familyTitle,
+  combineFamilies,
   fetchFamilies,
   fetchPeopleNames,
+  groupAnchor,
+  groupCount,
+  groupMatches,
+  groupTitle,
   nameMatches,
   nameOf,
   onTheirOwn,
   type Family,
+  type FamilyGroup,
   type PersonName,
 } from '../lib/families'
 
@@ -36,6 +38,11 @@ import {
  * box (0327), and whoever else the Owner gives it. What it shows is names: the accounts, and the people written in
  * by hand. A family's address, and a child's date of birth and school,
  * stay with the family and `people.contacts`.
+ *
+ * A family here is everybody linked to each other, by any chain
+ * (`combineFamilies`): somebody's parents, their own household and their
+ * wife's parents are one card, not three. The database keeps them as
+ * households, and listing each was listing one family several times.
  *
  * One page, two views, told apart by the address: `/families` is
  * everybody, `/families?person=<id>` is that person's family. So a tree
@@ -82,7 +89,9 @@ function AllFamilies({
 }) {
   const [typed, setTyped] = useState('')
   const alone = onTheirOwn(people, families)
-  const shownFamilies = families.filter((f) => familyMatches(f, typed))
+  // Households that share a person are one family.
+  const joined = combineFamilies(families)
+  const shownFamilies = joined.filter((f) => groupMatches(f, typed))
   const shownAlone = alone.filter((p) => nameMatches(nameOf(p), typed))
   const linked = people.length - alone.length
   const searching = typed.trim() !== ''
@@ -97,7 +106,7 @@ function AllFamilies({
       <QueryState isLoading={loading} error={error}>
         <div className="grid grid-cols-3 gap-3">
           <Tile className="@container min-w-0">
-            <Statistic className="flex-col" value={<FitFigure>{families.length}</FitFigure>} unit={families.length === 1 ? 'family' : 'families'} />
+            <Statistic className="flex-col" value={<FitFigure>{joined.length}</FitFigure>} unit={joined.length === 1 ? 'family' : 'families'} />
           </Tile>
           <Tile className="@container min-w-0">
             <Statistic className="flex-col" value={<FitFigure>{linked}</FitFigure>} unit="in a family" />
@@ -171,13 +180,13 @@ function AllFamilies({
   )
 }
 
-function FamilyCard({ family }: { family: Family }) {
-  const anchor = anchorOf(family)
-  const title = familyTitle(family)
+function FamilyCard({ family }: { family: FamilyGroup }) {
+  const anchor = groupAnchor(family)
+  const title = groupTitle(family)
   const body = (
     <>
       <span className="block text-headline-md text-on-surface [overflow-wrap:anywhere]">{title}</span>
-      <span className="mt-0.5 block font-mono text-label-sm text-on-surface-faint">{familyCount(family)}</span>
+      <span className="mt-0.5 block font-mono text-label-sm text-on-surface-faint">{groupCount(family)}</span>
       <span className="mt-3 flex flex-wrap gap-1.5">
         {family.members.map((m) => (
           <span

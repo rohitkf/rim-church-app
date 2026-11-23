@@ -142,8 +142,8 @@ describe('the tour keeps up with the app', () => {
   }
 
   it('names every preview View as offers: an Admin’s in Running the app, the Owner’s own in the Owner’s keys', () => {
-    const running = TOUR_CHAPTERS.find((c) => c.key === 'running')!.steps.find((s) => s.title === 'View as')!
-    const owners = TOUR_CHAPTERS.find((c) => c.key === 'owner')!.steps.find((s) => s.title === 'View as an Admin')!
+    const running = TOUR_CHAPTERS.find((c) => c.key === 'running')!.steps.find((s) => s.title === 'Preview as')!
+    const owners = TOUR_CHAPTERS.find((c) => c.key === 'owner')!.steps.find((s) => s.title === 'Preview as an Admin')!
     for (const [as, word] of Object.entries(PREVIEW_WORDS)) {
       // Previewing an Admin is the Owner's alone (AuthContext), so it is the Owner's step that says it.
       const step = as === 'admin' ? owners : running

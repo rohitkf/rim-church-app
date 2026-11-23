@@ -3,7 +3,21 @@ import migration from '../../../supabase/migrations/0326_every_family_on_one_pag
 
 vi.mock('./supabaseClient', () => ({ supabase: {} }))
 
-import { anchorOf, familyCount, familyMatches, familyTitle, nameMatches, onTheirOwn, type Family, type FamilyMember } from './families'
+import {
+  anchorOf,
+  combineFamilies,
+  familyCount,
+  familyMatches,
+  familyTitle,
+  groupAnchor,
+  groupCount,
+  groupMatches,
+  groupTitle,
+  nameMatches,
+  onTheirOwn,
+  type Family,
+  type FamilyMember,
+} from './families'
 
 const m = (id: string, kind: 'adult' | 'child', first: string, last: string, account = true): FamilyMember => ({
   id: `row-${id}`,
@@ -115,3 +129,90 @@ describe('what families() hands over', () => {
     expect(body).toContain('having count(*) >= 2')
   })
 })
+
+describe('households that are one family', () => {
+  // A row is a person in one household: somebody in two has two rows and one account.
+  const row = (id: string, account: string | null, kind: 'adult' | 'child', first: string, last: string): FamilyMember => ({
+    id,
+    user_id: account,
+    kind,
+    first_name: first,
+    last_name: last,
+  })
+  // Rohit wrote his parents in; Jolsna is his wife.
+  const parents = family('p1', [row('f', null, 'adult', 'Father', 'Test'), row('mo', null, 'adult', 'Mother', 'Test'), row('r1', 'rohit', 'child', 'Rohit', 'Test')])
+  const own = family('h1', [row('r2', 'rohit', 'adult', 'Rohit', 'Test'), row('j', 'jolsna', 'adult', 'Jolsna', 'Test'), row('k', null, 'child', 'Kid', 'Test')])
+  const names = (members: FamilyMember[]) => members.map((x) => `${x.first_name}${x.user_id ? '' : '*'}`)
+
+  it('are listed once: a man’s parents and his own household are one family, called by the people on the app', () => {
+    const joined = combineFamilies([parents, own])
+    expect(joined).toHaveLength(1)
+    expect(groupTitle(joined[0])).toBe('Rohit & Jolsna Test')
+    expect(joined[0].id).toBe('h1')
+    // The older generation first, and Rohit once, beside his wife and not among his parents’ children.
+    expect(names(joined[0].members)).toEqual(['Father*', 'Mother*', 'Rohit', 'Jolsna', 'Kid*'])
+    expect(groupCount(joined[0])).toBe('5 people, 2 generations')
+    expect(groupAnchor(joined[0])?.user_id).toBe('rohit')
+  })
+
+  it('does not matter which way round the database hands them over', () => {
+    const joined = combineFamilies([own, parents])
+    expect(joined).toHaveLength(1)
+    expect(names(joined[0].members)).toEqual(['Father*', 'Mother*', 'Rohit', 'Jolsna', 'Kid*'])
+  })
+
+  it('joins by any chain: his parents, their own household, and her parents', () => {
+    const hers = family('p2', [row('jf', 'jdad', 'adult', 'Jacob', 'Mathew'), row('j1', 'jolsna', 'child', 'Jolsna', 'Test')])
+    const joined = combineFamilies([parents, own, hers])
+    expect(joined).toHaveLength(1)
+    expect(names(joined[0].members)).toEqual(['Father*', 'Mother*', 'Jacob', 'Rohit', 'Jolsna', 'Kid*'])
+    // Two of its adults are on the app, against one of her parents’ and none of his.
+    expect(groupTitle(joined[0])).toBe('Rohit & Jolsna Test')
+  })
+
+  it('is called by the older generation when both are as much on the app', () => {
+    const gran = family('g', [row('g1', 'gran', 'adult', 'Gran', 'Thomas'), row('g2', 'grandad', 'adult', 'Grandad', 'Thomas'), row('a1', 'anna', 'child', 'Anna', 'Jacob')])
+    const annas = family('a', [row('a2', 'anna', 'adult', 'Anna', 'Jacob'), row('t', 'tom', 'adult', 'Tom', 'Jacob')])
+    expect(groupTitle(combineFamilies([annas, gran])[0])).toBe('Gran & Grandad Thomas')
+  })
+
+  it('leaves families that share nobody apart, in the order they came', () => {
+    const others = family('o', [row('x', 'xavier', 'adult', 'Xavier', 'Paul'), row('y', 'yara', 'adult', 'Yara', 'Paul')])
+    const joined = combineFamilies([others, parents, own])
+    expect(joined.map(groupTitle)).toEqual(['Xavier & Yara Paul', 'Rohit & Jolsna Test'])
+    // One household alone is counted the way it always was.
+    expect(groupCount(joined[0])).toBe('2 adults')
+  })
+
+  it('keeps a child with an account who has no household of their own among the children', () => {
+    const withTeen = family('h2', [row('r2', 'rohit', 'adult', 'Rohit', 'Test'), row('teen', 'teen', 'child', 'Teen', 'Test')])
+    expect(names(combineFamilies([parents, withTeen])[0].members)).toEqual(['Father*', 'Mother*', 'Rohit', 'Teen'])
+  })
+
+  it('counts brothers and sisters with their own households as people, not as a generation', () => {
+    const siblings = family('s', [row('b1', 'bill', 'child', 'Bill', 'Jacob'), row('m1', 'mary', 'child', 'Mary', 'Jacob')])
+    const bills = family('hb', [row('b2', 'bill', 'adult', 'Bill', 'Jacob'), row('w', null, 'adult', 'Wendy', 'Jacob')])
+    const joined = combineFamilies([siblings, bills])
+    expect(joined).toHaveLength(1)
+    expect(names(joined[0].members)).toEqual(['Bill', 'Wendy*', 'Mary'])
+    expect(groupCount(joined[0])).toBe('3 people')
+  })
+
+  it('is found by anybody in any of its households', () => {
+    const [joined] = combineFamilies([parents, own])
+    expect(groupMatches(joined, 'mother')).toBe(true)
+    expect(groupMatches(joined, 'jolsna')).toBe(true)
+    expect(groupMatches(joined, 'nobody')).toBe(false)
+  })
+
+  it('does not go round for ever on households that name each other as parents', () => {
+    const a = family('a', [row('a1', 'ann', 'adult', 'Ann', 'A'), row('b1', 'bob', 'child', 'Bob', 'B')])
+    const b = family('b', [row('b2', 'bob', 'adult', 'Bob', 'B'), row('a2', 'ann', 'child', 'Ann', 'A')])
+    expect(combineFamilies([a, b])).toHaveLength(1)
+  })
+
+  it('makes nothing of nothing', () => {
+    expect(combineFamilies([])).toEqual([])
+  })
+})
+
