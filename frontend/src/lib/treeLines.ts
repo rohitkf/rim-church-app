@@ -57,8 +57,25 @@ export function stemFrom(adults: readonly Box[]): { x: number; y: number } | nul
  * of whatever is above: the bar is half way between it and the row.
  */
 export function hangLines(from: { x: number; y: number } | null, floor: number, below: readonly Box[]): string[] {
+  return hang(from, floor, below).lines
+}
+
+/** A drop onto one box: from the bar at `from` down to the box's top. Where a word for that line can be written. */
+export interface Drop {
+  box: Box
+  /** How far down the bar is that the drop leaves. */
+  from: number
+}
+
+/**
+ * `hangLines`, with where each drop is as well as the lines: a tree that
+ * writes what somebody is on the line that reaches them (FamilyTree) has
+ * to know where that line runs.
+ */
+export function hang(from: { x: number; y: number } | null, floor: number, below: readonly Box[]): { lines: string[]; drops: Drop[] } {
   const out: string[] = []
-  if (below.length === 0) return out
+  const drops: Drop[] = []
+  if (below.length === 0) return { lines: out, drops }
   const rows: Box[][] = []
   for (const b of [...below].sort((a, c) => a.y - c.y || a.x - c.x)) {
     const last = rows[rows.length - 1]
@@ -88,8 +105,11 @@ export function hangLines(from: { x: number; y: number } | null, floor: number, 
       out.push(`M ${rail} ${bar} H ${Math.max(...xs)}`)
       if (i === rows.length - 1) out.push(`M ${rail} ${firstBar} V ${bar}`)
     }
-    for (const b of row) out.push(`M ${b.cx} ${bar} V ${b.y}`)
+    for (const b of row) {
+      out.push(`M ${b.cx} ${bar} V ${b.y}`)
+      drops.push({ box: b, from: bar })
+    }
     placed.push(...row)
   })
-  return out
+  return { lines: out, drops }
 }

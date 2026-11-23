@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hangLines, joinLines, stemFrom, type Box } from './treeLines'
+import { hang, hangLines, joinLines, stemFrom, type Box } from './treeLines'
 
 /*
  * The lines of a family tree, from where its boxes are. Nothing here
@@ -59,5 +59,24 @@ describe('one generation hung from the one above', () => {
 
   it('makes nothing of nobody', () => {
     expect(hangLines({ x: 0, y: 0 }, 0, [])).toEqual([])
+  })
+})
+
+describe('where each drop is, for a tree that writes on its lines', () => {
+  it('hands back every box with how far down its bar is', () => {
+    const a = box(0, 120)
+    const b = box(120, 120)
+    const c = box(0, 240)
+    const { lines, drops } = hang({ x: 110, y: 40 }, 80, [a, b, c])
+    expect(lines).toEqual(hangLines({ x: 110, y: 40 }, 80, [a, b, c]))
+    expect(drops).toEqual([
+      { box: a, from: 100 },
+      { box: b, from: 100 },
+      { box: c, from: 220 },
+    ])
+  })
+
+  it('has no drops for nobody', () => {
+    expect(hang(null, 0, [])).toEqual({ lines: [], drops: [] })
   })
 })

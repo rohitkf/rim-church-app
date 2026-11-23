@@ -46,6 +46,18 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'family-words-on-lines',
+    date: '2026-11-23',
+    title: 'The word is on the line',
+    lead: 'In a family’s tree, what somebody is (wife, son, father) is now written on the line that joins them, not inside their box.',
+    points: [
+      '“Husband” or “Wife” is on the line between the two; “Son”, “Daughter”, “Brother” and “Sister” on the line down to each; “Father” and “Mother” on the line down from them.',
+      'A box now holds only who somebody is: their name, and “Written in” for somebody not on the app.',
+    ],
+    link: { to: '/families', label: 'Open Families' },
+    page: '/families',
+  },
+  {
     key: 'families-view-all',
     date: '2026-11-23',
     title: 'The whole church on one page',
