@@ -127,7 +127,7 @@ const DBS_PILL: Record<DbsStanding, string> = {
 }
 /** Short enough for one line beside a name on a phone. */
 const DBS_PILL_TEXT: Record<DbsStanding, string> = {
-  verified: 'DBS ✓',
+  verified: 'DBS verified',
   check: 'DBS to check',
   details: 'DBS: no details',
   none: 'No DBS',
@@ -522,7 +522,7 @@ export function DepartmentDetailPage() {
           <div className="min-w-0">
             <h1 className="text-headline-xl">{deptQuery.data?.name}</h1>
             <p className="mt-1 text-body-md text-on-surface-variant">
-              Manage core team members, guest access, and compliance status.
+              Who is on this team, who else can see it, and the roles it fills.
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
@@ -584,7 +584,7 @@ export function DepartmentDetailPage() {
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
           <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-headline-md">Core Members</h2>
+              <h2 className="text-headline-md">Core members</h2>
               <span className="rounded-full bg-surface-container px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
                 {coreMembers.length} Active
               </span>
@@ -903,9 +903,9 @@ export function DepartmentDetailPage() {
           </section>
 
           <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
-            <h2 className="text-headline-md">Guest List</h2>
+            <h2 className="text-headline-md">Guest members</h2>
             <p className="mt-1 text-body-sm text-on-surface-variant">
-              Users from other departments with visibility into this department's content.
+              People from other teams who can see this team's pages.
             </p>
             <QueryState isLoading={membersQuery.isLoading} error={membersQuery.error}>
               <ul className="mt-4 flex flex-col gap-3">

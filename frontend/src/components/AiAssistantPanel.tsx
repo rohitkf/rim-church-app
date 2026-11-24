@@ -8,6 +8,7 @@ import {
   type HistoryEntry,
   type PendingAction,
 } from '../lib/assistantApi'
+import { CloseIcon, MicIcon } from './icons'
 
 interface ChatTurn {
   role: 'user' | 'assistant'
@@ -96,11 +97,15 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
   const busy = chatMutation.isPending || confirmMutation.isPending
 
   return (
-    <div className="fixed bottom-6 right-6 z-20 flex h-[520px] w-96 flex-col overflow-hidden rounded-[var(--radius-card)] bg-surface-lowest hairline shadow-lg">
-      <div className="flex items-center justify-between bg-primary px-4 py-3 text-on-primary">
-        <span className="text-body-sm font-medium">✦ Ops Assistant</span>
-        <button onClick={onClose} aria-label="Close assistant" className="text-on-primary hover:opacity-70">
-          ✕
+    <div className="fixed bottom-6 right-6 z-20 flex h-[520px] w-96 flex-col overflow-hidden rounded-[var(--radius-card)] bg-surface-lowest hairline shadow-[var(--shadow-lifted)]">
+      <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
+        <span className="text-body-sm font-semibold text-on-surface">Ops Assistant</span>
+        <button
+          onClick={onClose}
+          aria-label="Close assistant"
+          className="tap-square inline-flex items-center justify-center rounded-full text-on-surface-variant transition-colors duration-200 hover:text-on-surface"
+        >
+          <CloseIcon aria-hidden="true" width={16} height={16} />
         </button>
       </div>
 
@@ -167,11 +172,11 @@ export function AiAssistantPanel({ open, onClose }: AiAssistantPanelProps) {
           onClick={toggleRecording}
           disabled={!!pendingActions}
           title={recording ? 'Stop recording' : 'Record voice input'}
-          className={`rounded-sm border px-2 py-2 text-body-sm disabled:opacity-50 ${
+          className={`inline-flex items-center justify-center rounded-sm border px-2 py-2 disabled:opacity-50 ${
             recording ? 'border-error text-error' : 'border-border-subtle text-on-surface-variant'
           }`}
         >
-          🎙
+          <MicIcon aria-hidden="true" width={16} height={16} />
         </button>
         <button
           type="submit"

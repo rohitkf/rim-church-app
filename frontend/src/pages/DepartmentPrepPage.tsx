@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
 import { DepartmentChecklistPanel } from '../components/DepartmentChecklistPanel'
+import { PageHeader } from '../components/Surface'
+import { formatServiceDay } from '../lib/sunday'
 import { departmentSchema, serviceSchema, type Department, type Service } from '../lib/types'
 
 async function fetchDepartment(id: string): Promise<Department | null> {
@@ -44,16 +46,25 @@ export function DepartmentPrepPage() {
       missing={{ title: 'Checklist not found', back: { to: '/checklists', label: 'Checklists' } }}
     >
       <div>
-        <Link to="/checklists" className="tap inline-flex items-center text-body-sm text-accent-blue-soft">
-          ← Back to Checklists
-        </Link>
-        <h1 className="mt-2 text-headline-xl">{deptQuery.data?.name} Department Prep</h1>
-        <p className="mt-1 text-body-md text-on-surface-variant">
-          {serviceQuery.data?.service_type} Service — {serviceQuery.data?.date}
-        </p>
+        {/* The page's own header, like every other page: the way back above,
+            the team's checklist as the title, and which service under it —
+            the service's name and its day as people say it, not its ISO date. */}
+        <PageHeader
+          back={
+            <Link to="/checklists" className="tap inline-flex items-center text-accent-blue-soft">
+              <span aria-hidden="true">← </span>Checklists
+            </Link>
+          }
+          title={`${deptQuery.data?.name ?? 'Team'} checklist`}
+          context={
+            serviceQuery.data
+              ? `${serviceQuery.data.service_type} · ${formatServiceDay(serviceQuery.data.date)}`
+              : undefined
+          }
+        />
 
         {departmentId && serviceId && (
-          <div className="mt-6">
+          <div>
             <DepartmentChecklistPanel
               departmentId={departmentId}
               serviceId={serviceId}

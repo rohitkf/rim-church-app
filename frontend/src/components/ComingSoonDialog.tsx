@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Overlay } from './Surface'
 import { Confetti } from './Confetti'
-import { SparklesIcon } from './icons'
+import { AskIcon } from './icons'
 
 /**
  * What Ask says until Ask can answer.
@@ -34,9 +34,9 @@ export function ComingSoonDialog({ onClose }: { onClose: () => void }) {
         }`}
       >
         <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] text-accent-indigo-soft">
-          <SparklesIcon width={22} height={22} />
+          <AskIcon width={22} height={22} />
         </span>
-        <h2 className="mt-4 text-headline-md">Coming soon !!!</h2>
+        <h2 className="mt-4 text-headline-md">Coming soon</h2>
         <p className="mt-2 text-body-sm text-on-surface-variant">
           Ask will answer questions about the rota, the checklists and who is on this Sunday. It is
           built — it just is not switched on here yet.

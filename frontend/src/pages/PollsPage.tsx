@@ -14,7 +14,7 @@ import { formatServiceDay } from '../lib/sunday'
 import { POLLS_KEY, POLL_AUDIENCES, audienceLabel, type PollAudience } from '../lib/pollAudience'
 import { QueryState } from '../components/QueryState'
 import { ActionButton, Eyebrow, Field, PageHeader, Pill, SegmentedControl, Tile, inputClasses, type PillTone } from '../components/Surface'
-import { ShareIosIcon } from '../components/icons'
+import { CheckIcon, CloseIcon, ShareIosIcon } from '../components/icons'
 import { pollLink, shareLink } from '../lib/shareLink'
 import { Select } from '../components/Select'
 import { DateTimeField } from '../components/DateTimeFields'
@@ -536,9 +536,7 @@ export function PollsPage() {
                               {count}
                             </span>
                             {picked && (
-                              <span className="relative shrink-0 font-mono text-label-sm text-accent-blue-soft">
-                                ✓
-                              </span>
+                              <CheckIcon aria-hidden="true" width={14} height={14} className="relative shrink-0 text-accent-blue-soft" />
                             )}
                           </button>
                           {showNames && namesFor(option.id).length > 0 && (
@@ -760,9 +758,9 @@ function PollEditor({
                     type="button"
                     onClick={() => setOptions((prev) => prev.filter((_, j) => j !== i))}
                     aria-label={`Remove option ${i + 1}`}
-                    className="tap-square shrink-0 rounded-full px-2 text-label-sm text-on-surface-faint hover:text-error"
+                    className="tap-square inline-flex shrink-0 items-center justify-center rounded-full px-2 text-on-surface-faint hover:text-error"
                   >
-                    ✕
+                    <CloseIcon aria-hidden="true" width={16} height={16} />
                   </button>
                 )
               )}
@@ -1085,9 +1083,10 @@ function PollComposer({
                     type="button"
                     onClick={() => setPersonIds((ids) => ids.filter((x) => x !== p.id))}
                     aria-label={`Take ${p.first_name} ${p.last_name} off the list`}
-                    className="tap rounded-full bg-secondary-container px-3 py-1 text-label-md text-on-surface"
+                    className="tap inline-flex items-center gap-1.5 rounded-full bg-secondary-container px-3 py-1 text-label-md text-on-surface"
                   >
-                    {p.first_name} {p.last_name} ✕
+                    {p.first_name} {p.last_name}
+                    <CloseIcon aria-hidden="true" width={14} height={14} className="shrink-0 text-on-surface-variant" />
                   </button>
                 ))}
               </div>
@@ -1165,9 +1164,9 @@ function PollComposer({
                   type="button"
                   onClick={() => setLabels((prev) => prev.filter((_, j) => j !== i))}
                   aria-label={`Remove option ${i + 1}`}
-                  className="tap-square shrink-0 rounded-full px-2 text-label-sm text-on-surface-faint hover:text-error"
+                  className="tap-square inline-flex shrink-0 items-center justify-center rounded-full px-2 text-on-surface-faint hover:text-error"
                 >
-                  ✕
+                  <CloseIcon aria-hidden="true" width={16} height={16} />
                 </button>
               )}
             </div>

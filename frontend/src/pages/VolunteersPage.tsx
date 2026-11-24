@@ -34,6 +34,7 @@ import { useMinors } from '../lib/minors'
 import { ageToShow } from '../lib/ownAge'
 import { Under18Mark } from '../components/Under18Mark'
 import { momentWords } from '../lib/appNotices'
+import { MailIcon } from '../components/icons'
 
 /**
  * The one section that is open when the page loads.
@@ -900,7 +901,7 @@ export function VolunteersPage() {
                 on this page at all — which is exactly the page you are on
                 when you notice they are missing. */}
             {can('people.invite') && (
-              <ActionButton onClick={() => setInviting(true)} glyph={<span aria-hidden="true">✉</span>} data-tour="people-invite">
+              <ActionButton onClick={() => setInviting(true)} glyph={<MailIcon aria-hidden="true" width={16} height={16} />} data-tour="people-invite">
                 Invite
               </ActionButton>
             )}

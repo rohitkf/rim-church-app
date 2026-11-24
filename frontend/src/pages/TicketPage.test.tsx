@@ -311,7 +311,7 @@ describe('the ticket page', () => {
 
   it('shows an unpaid order at step 2 of 4, Pay, with the receipt and the ticket still to come', async () => {
     show()
-    expect(await bar()).toEqual(['✓Register — done', '2Pay — current step', '3Receipt — still to do', '4Ticket — still to do'])
+    expect(await bar()).toEqual(['Register — done', '2Pay — current step', '3Receipt — still to do', '4Ticket — still to do'])
     expect(screen.getByText('Step 2 of 4: pay £36.00, then send your receipt.')).toBeInTheDocument()
     expect(screen.getAllByRole('listitem').filter((li) => li.getAttribute('aria-current') === 'step')).toHaveLength(1)
   })
@@ -326,28 +326,28 @@ describe('the ticket page', () => {
   it('is three steps, with no receipt, when the event takes no payment online', async () => {
     state.order = order({ payment: { links: [], accounts: [] } })
     show()
-    expect(await bar()).toEqual(['✓Register — done', '2Pay — current step', '3Ticket — still to do'])
+    expect(await bar()).toEqual(['Register — done', '2Pay — current step', '3Ticket — still to do'])
     expect(screen.getByText('Step 2 of 3: pay £36.00 at reception.')).toBeInTheDocument()
   })
 
   it('moves the bar to Ticket, waiting, once a receipt is in', async () => {
     state.order = order({ payment_status: 'reported', payment_method: 'bank', proof_reference: 'TR-77', proof_at: '2026-11-02T10:00:00Z' })
     show()
-    expect(await bar()).toEqual(['✓Register — done', '✓Pay — done', '✓Receipt — done', '4Ticket — current step'])
+    expect(await bar()).toEqual(['Register — done', 'Pay — done', 'Receipt — done', '4Ticket — current step'])
     expect(screen.getByText(/^Step 4 of 4: your receipt is being checked\./)).toBeInTheDocument()
   })
 
   it('ticks all four steps on a ticket paid online, and says no more', async () => {
     state.order = order({ payment_status: 'received', payment_method: 'bank' })
     show()
-    expect(await bar()).toEqual(['✓Register — done', '✓Pay — done', '✓Receipt — done', '✓Ticket — done'])
+    expect(await bar()).toEqual(['Register — done', 'Pay — done', 'Receipt — done', 'Ticket — done'])
     expect(screen.queryByText(/^Step \d of \d/)).toBeNull()
   })
 
   it('ticks three steps on a ticket paid at reception', async () => {
     state.order = order({ payment_status: 'received', payment_method: 'reception' })
     show()
-    expect(await bar()).toEqual(['✓Register — done', '✓Pay — done', '✓Ticket — done'])
+    expect(await bar()).toEqual(['Register — done', 'Pay — done', 'Ticket — done'])
   })
 
   it('says a promo code was used without printing which (0296): a ticket is a page people pass on', async () => {

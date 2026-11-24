@@ -242,7 +242,7 @@ export function FamilyLinksPanel({
 
     {family && (
       <section aria-label="Add somebody" className="mt-5 border-t border-black/8 pt-4 dark:border-white/10">
-        <h3 className="text-label-md font-medium uppercase tracking-wide text-on-surface-faint">Add somebody</h3>
+        <h3 className="text-label-md font-medium text-on-surface-variant">Add somebody</h3>
         <div className="mt-2 flex flex-col gap-2">
           <Select
             value={word}
@@ -416,7 +416,7 @@ function FamilyList({
   const first = person.first_name || 'them'
   return (
     <section aria-label={words.heading}>
-      <h3 className="text-label-md font-medium uppercase tracking-wide text-on-surface-faint">{words.heading}</h3>
+      <h3 className="text-label-md font-medium text-on-surface-variant">{words.heading}</h3>
       {linked.length + written.length === 0 ? (
         <p className="mt-1 text-body-sm text-on-surface-variant">Nobody listed.</p>
       ) : (

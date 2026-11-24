@@ -8,7 +8,7 @@ import { useTheme } from '../lib/useTheme'
 import { useTeamStyle } from '../lib/useTeamStyle'
 import { THEME_CHOICES } from '../lib/theme'
 import { TEAM_STYLE_CHOICES } from '../lib/teamStyle'
-import { ChevronRightIcon, EyeIcon, QuestionIcon, ReloadIcon, SettingsIcon, SparklesIcon, UserCircleIcon } from './icons'
+import { ChevronRightIcon, EyeIcon, QuestionIcon, ReloadIcon, SettingsIcon, CompassIcon, UserCircleIcon } from './icons'
 import { useAppSettings } from '../lib/appSettings'
 import { safeVideoLink } from '../lib/videoTutorial'
 import { useStartTour } from '../lib/useStartTour'
@@ -222,7 +222,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
             }}
             className={itemClasses}
           >
-            <SparklesIcon width={16} height={16} className="shrink-0" />
+            <CompassIcon width={16} height={16} className="shrink-0" />
             Take the tour
           </button>
 

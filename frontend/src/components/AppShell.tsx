@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useHeaderHeight } from '../lib/useHeaderHeight'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { SparklesIcon } from './icons'
+import { AskIcon } from './icons'
 import { NotificationsBell } from './NotificationsBell'
 import { AccountMenu } from './AccountMenu'
 import { InstallAppBadge } from './InstallApp'
@@ -187,7 +187,7 @@ export function AppShell() {
               onClick={() => setAssistantOpen((o) => !o)}
               className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_22%,transparent)] px-4 text-label-md text-accent-indigo-soft transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
             >
-              <SparklesIcon width={17} height={17} className="shrink-0" />
+              <AskIcon width={17} height={17} className="shrink-0" />
               Ask
             </button>
           ) : (
@@ -198,7 +198,7 @@ export function AppShell() {
               onClick={() => setComingSoon(true)}
               className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-[color-mix(in_oklab,var(--color-accent-indigo)_14%,transparent)] px-4 text-label-md text-accent-indigo-soft transition-transform duration-300 ease-[var(--ease-glide)] active:scale-[0.97] active:duration-[80ms]"
             >
-              <SparklesIcon width={17} height={17} className="shrink-0" />
+              <AskIcon width={17} height={17} className="shrink-0" />
               Ask
             </button>
           )

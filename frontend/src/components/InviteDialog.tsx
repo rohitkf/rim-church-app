@@ -6,6 +6,7 @@ import { useErrorText } from '../lib/useErrorText'
 import type { Department } from '../lib/types'
 import { Select } from './Select'
 import { nameProblem, tidyName } from '../lib/personName'
+import { MailIcon } from './icons'
 
 /**
  * Asking somebody to join.
@@ -217,7 +218,7 @@ export function InviteDialog({
           >
             {sent ? 'Done' : 'Cancel'}
           </button>
-          <ActionButton type="submit" disabled={invite.isPending || !email.trim()} glyph="✉">
+          <ActionButton type="submit" disabled={invite.isPending || !email.trim()} glyph={<MailIcon aria-hidden="true" width={16} height={16} />}>
             {invite.isPending ? 'Sending' : 'Send invite'}
           </ActionButton>
         </div>

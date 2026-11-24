@@ -8,7 +8,7 @@ import {
   HeartIcon,
   LightbulbIcon,
   QuestionIcon,
-  SparklesIcon,
+  WrenchIcon,
 } from '../components/icons'
 
 /**
@@ -42,7 +42,7 @@ export const FEEDBACK_KINDS = [
     label: 'Improvement',
     hint: 'Make something that exists better.',
     prompt: 'Which part, and how could it be better?',
-    icon: SparklesIcon,
+    icon: WrenchIcon,
     tone: 'blue',
   },
   {

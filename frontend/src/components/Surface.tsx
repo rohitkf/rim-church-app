@@ -3,6 +3,7 @@ import { defaultNavLabel, useNavNames } from '../lib/navNames'
 import { Chevron } from './Collapsible'
 import { createPortal } from 'react-dom'
 import type { ComponentPropsWithoutRef, ComponentType, ElementType, MouseEvent as ReactMouseEvent, ReactNode } from 'react'
+import { CheckIcon } from './icons'
 
 /**
  * The design system's primitives.
@@ -407,7 +408,7 @@ export function Steps({ steps, caption, label = 'Progress', className = '' }: { 
                     : 'bg-surface-lowest text-on-surface-faint hairline'
               }`}
             >
-              {step.state === 'done' ? '✓' : i + 1}
+              {step.state === 'done' ? <CheckIcon aria-hidden="true" width={14} height={14} /> : i + 1}
             </span>
             <span
               className={`max-w-full px-0.5 text-label-md [overflow-wrap:anywhere] ${

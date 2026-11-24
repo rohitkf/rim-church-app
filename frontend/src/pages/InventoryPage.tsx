@@ -51,6 +51,7 @@ import {
   type InventoryFilter,
 } from '../lib/inventory'
 import { departmentSchema, inventoryItemSchema, type Department, type InventoryItem } from '../lib/types'
+import { CheckIcon } from '../components/icons'
 
 async function fetchDepartment(id: string): Promise<Department | null> {
   const { data, error } = await supabase.from('departments').select('*').eq('id', id).maybeSingle()
@@ -391,7 +392,10 @@ export function InventoryPage() {
         </div>
       )}
 
-      <Card>
+      {/* The list and the table bring their own padding; a line of text in
+          their place (loading, empty, an error) needs the tile's, or it sits
+          on the card's edge. */}
+      <Card className={itemsQuery.isLoading || itemsQuery.error || shown.length === 0 ? 'p-6 sm:p-7' : ''}>
         <QueryState
           isLoading={itemsQuery.isLoading}
           error={itemsQuery.error}
@@ -1341,7 +1345,7 @@ function EditItemDialog({
           >
             Cancel
           </button>
-          <ActionButton type="submit" disabled={save.isPending || !name.trim()} glyph="✓">
+          <ActionButton type="submit" disabled={save.isPending || !name.trim()} glyph={<CheckIcon aria-hidden="true" width={16} height={16} />}>
             {save.isPending ? 'Saving' : 'Save changes'}
           </ActionButton>
         </div>

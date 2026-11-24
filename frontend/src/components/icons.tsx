@@ -176,14 +176,6 @@ export function BarChartIcon(props: IconProps) {
   )
 }
 
-export function SparklesIcon(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
-    </svg>
-  )
-}
-
 export function SettingsIcon(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -580,6 +572,62 @@ export function FamilyTreeIcon(props: IconProps) {
       <rect x="3" y="16" width="6" height="5" rx="1" />
       <rect x="15" y="16" width="6" height="5" rx="1" />
       <path d="M12 8v4M6 16v-4h12v4" />
+    </svg>
+  )
+}
+
+/** Done, chosen, matching: a tick, drawn rather than typed. */
+export function CheckIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m5 12.5 4.5 4.5L19 7.5" />
+    </svg>
+  )
+}
+
+export function MailIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3.5 6.5 8.5 6 8.5-6" />
+    </svg>
+  )
+}
+
+export function MicIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+    </svg>
+  )
+}
+
+/** Take the last change back. */
+export function UndoIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </svg>
+  )
+}
+
+/** Asking the assistant something: a speech bubble holding a question. */
+export function AskIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12Z" />
+      <path d="M10 9.5a2 2 0 1 1 2.8 1.8c-.5.2-.8.7-.8 1.2v.3M12 15.5h.01" />
+    </svg>
+  )
+}
+
+/** Making something that exists work better: a wrench. */
+export function WrenchIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.8 3.8Z" />
     </svg>
   )
 }

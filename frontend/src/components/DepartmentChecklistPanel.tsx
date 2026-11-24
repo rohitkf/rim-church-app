@@ -448,7 +448,7 @@ export function DepartmentChecklistPanel({
 
         <div className="flex flex-col gap-6">
           <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
-            <h4 className="text-headline-md">Department readiness</h4>
+            <h4 className="text-headline-md">Team readiness</h4>
             <div className="mt-4">
               <SegmentedProgressBar
                 total={items.length}
