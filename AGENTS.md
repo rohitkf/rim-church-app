@@ -372,7 +372,12 @@ Other things that are true and not guessable:
   `serviceDays`), services in start-time order (`inStartOrder`); a
   Finished list is newest day first but each day still in running order.
 - **Before pushing a change that touches several pages**, run the
-  whole-app sweep: `frontend/.claude/skills/verify/sweep.mjs`.
+  whole-app sweep: `frontend/.claude/skills/verify/sweep.mjs`. It fails
+  on a page whose answer did not parse as well as on a crash: until
+  November 2026 it did not, and Prayer, App Health, Volunteers and a
+  service's running order passed it with half of each page replaced by
+  "not in the shape the app expects" — the fixtures lacked fields, and
+  three of the pages were not on its list at all.
 - **Pages show a window of days, not "the next N services"**
   (`app_settings.rota_window_days`, `lib/rotaWindow.ts`).
 

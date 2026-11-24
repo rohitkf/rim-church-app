@@ -26,9 +26,15 @@ backend is fixtures.
 4. Screenshot at 412px and 1100px.
 5. Before any push that touches more than one page, run the whole-app
    sweep: `S=<scratch> node .claude/skills/verify/sweep.mjs` (preview on
-   :4411). It opens every page at 360px against shared fixtures — two
-   services every Sunday, today's already over — and exits 1 if any page
-   crashes, logs an error or scrolls sideways. `WIDTH=412` to change size.
+   :4411). It opens every page and Settings room in `App.tsx` at 360px
+   against shared fixtures — two services every Sunday, today's already
+   over — and exits 1 if any page crashes, logs an error, scrolls
+   sideways, or shows "not in the shape the app expects" (an answer it
+   could not parse, which leaves part of the page unseen and is not an
+   error in the console). `WIDTH=412` to change size. A page added to the
+   app goes into its `ROUTES`; a query whose answer is one object (an
+   RPC such as `prayer_board`) gets an answer in its `RPC` fixtures,
+   rows in `T`.
 6. Stop the preview server by PID when done
    (`pkill -f "vite preview"` also matches, and kills, the calling shell).
 
