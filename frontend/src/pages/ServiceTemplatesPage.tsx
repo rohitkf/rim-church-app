@@ -16,6 +16,7 @@ import { useErrorText } from '../lib/useErrorText'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { Select } from '../components/Select'
 import { todayIso } from '../lib/monthGrid'
+import { CloseIcon } from '../components/icons'
 
 interface SessionDraft {
   session_name: string
@@ -230,9 +231,9 @@ export function ServiceTemplatesPage() {
                 type="button"
                 onClick={() => setDrafts(drafts.length > 1 ? drafts.filter((_, j) => j !== i) : [{ ...emptyDraft }])}
                 aria-label={`Remove session ${i + 1}`}
-                className="tap-square shrink-0 px-1 text-body-sm text-error hover:underline"
+                className="tap-square inline-flex shrink-0 items-center justify-center px-1 text-on-surface-faint transition-colors duration-200 hover:text-error"
               >
-                ✕
+                <CloseIcon aria-hidden="true" width={16} height={16} />
               </button>
             </li>
           ))}

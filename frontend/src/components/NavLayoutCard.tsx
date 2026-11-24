@@ -20,6 +20,7 @@ import { ACCESS_LEVELS, levelOf, type AccessLevel } from '../lib/pageAccess'
 import { ActionButton, inputClasses } from './Surface'
 import { DragHandle } from './DragHandle'
 import { QueryState } from './QueryState'
+import { CloseIcon, UndoIcon } from './icons'
 
 /**
  * The menu, as the church wants it.
@@ -241,9 +242,9 @@ export function NavLayoutCard() {
                     title={empty ? undefined : 'Move its pages out first'}
                     onClick={() => remove(row.id)}
                     aria-label={`Remove group ${row.name}`}
-                    className="tap-square shrink-0 rounded-full px-2 text-on-surface-faint hover:text-error disabled:opacity-30"
+                    className="tap-square inline-flex shrink-0 items-center justify-center rounded-full px-2 text-on-surface-faint hover:text-error disabled:opacity-30"
                   >
-                    ✕
+                    <CloseIcon aria-hidden="true" width={16} height={16} />
                   </button>
                 </li>
               )
@@ -313,9 +314,9 @@ export function NavLayoutCard() {
                     onClick={() => renamePage(row.id, '')}
                     aria-label={`Call it ${original} again`}
                     title={`Call it ${original} again`}
-                    className="tap-square shrink-0 rounded-full px-1.5 text-on-surface-faint hover:text-on-surface"
+                    className="tap-square inline-flex shrink-0 items-center justify-center rounded-full px-1.5 text-on-surface-faint hover:text-on-surface"
                   >
-                    ↺
+                    <UndoIcon aria-hidden="true" width={16} height={16} />
                   </button>
                 )}
               </li>

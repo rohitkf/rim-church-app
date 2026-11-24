@@ -26,11 +26,11 @@ export function AuthCard({
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(40rem_30rem_at_50%_-10%,color-mix(in_oklab,var(--color-accent-blue)_22%,transparent),transparent_62%),radial-gradient(30rem_24rem_at_20%_110%,color-mix(in_oklab,var(--color-accent-indigo)_16%,transparent),transparent_60%)]"
       />
 
-      <div className="relative w-full max-w-[400px] rounded-[var(--radius-tile)] bg-[color-mix(in_oklab,var(--color-surface-lowest)_86%,transparent)] p-8 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] backdrop-blur-2xl sm:p-9">
+      <div className="relative w-full max-w-[400px] rounded-[var(--radius-tile)] bg-surface-lowest p-8 shadow-[inset_0_0_0_1px_var(--color-outline-variant),var(--shadow-lifted)] sm:p-9">
         <div className="flex items-center gap-3">
           <span
             aria-hidden="true"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[linear-gradient(160deg,var(--color-accent-blue),color-mix(in_oklab,var(--color-accent-blue)_55%,black))] font-mono text-[13px] text-white"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-accent-blue font-mono text-[13px] font-semibold text-white"
           >
             RIM
           </span>

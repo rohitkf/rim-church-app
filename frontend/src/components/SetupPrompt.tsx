@@ -12,7 +12,7 @@ import { registerPushDevice } from '../lib/pushDevice'
 import { subscribeTour } from '../lib/tour'
 import { useStartTour } from '../lib/useStartTour'
 import { Overlay } from './Surface'
-import { BellIcon, MapPinIcon, PhoneAddIcon, SparklesIcon } from './icons'
+import { BellIcon, MapPinIcon, PhoneAddIcon, CompassIcon } from './icons'
 import { InstallAppGuide } from './InstallApp'
 
 /**
@@ -154,7 +154,7 @@ export function SetupPrompt() {
         <ul className="mt-5 flex flex-col gap-2">
           {tourLeft && (
             <Item
-              icon={<SparklesIcon width={16} height={16} />}
+              icon={<CompassIcon width={16} height={16} />}
               title="Take the tour"
               body="A walk round the pages you can open, a couple of minutes."
               action={{ label: 'Start the tour', onClick: () => { setHidden(true); startTour() } }}

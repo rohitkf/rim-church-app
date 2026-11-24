@@ -11,6 +11,7 @@ import { MessageBody } from './MessageBody'
 import { formatTime } from '../lib/time'
 import { useErrorText } from '../lib/useErrorText'
 import type { Department } from '../lib/types'
+import { TeamAvatar } from './TeamMark'
 
 const teamMessageSchema = z.object({
   id: z.string(),
@@ -196,14 +197,13 @@ export function TeamBoard({
       className={`flex min-h-0 flex-col overflow-hidden rounded-[var(--radius-tile)] bg-surface-lowest hairline ${className}`}
     >
       <header className="flex items-center gap-3 border-b border-border-subtle px-5 py-4">
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] font-mono text-label-sm text-on-surface"
-          style={{
-            background: `linear-gradient(140deg, ${department?.color ?? '#0a84ff'}, transparent)`,
-          }}
-        >
-          {department?.name.slice(0, 2).toUpperCase()}
-        </span>
+        {/* The team's mark the way every other screen draws it, so it
+            follows the viewer's dot-or-gradient choice. */}
+        <TeamAvatar
+          color={department?.color ?? null}
+          name={department?.name ?? ''}
+          className="h-9 w-9 shrink-0 rounded-[12px] text-label-sm"
+        />
         <div className="min-w-0">
           <div className="break-words text-body-md font-medium text-on-surface">
             {department?.name}

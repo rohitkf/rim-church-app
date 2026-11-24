@@ -136,12 +136,12 @@ export function TeamColorSheet({
           </span>
           <div className="min-w-0">
             <p className="text-label-md">Preview</p>
-            <p className="mt-0.5 font-mono text-[0.6875rem] leading-4 text-on-surface-faint">
+            <p className="mt-0.5 font-mono text-label-sm text-on-surface-faint">
               {teamColorName(chosen)} · used on tiles, rota &amp; checklists
             </p>
           </div>
           <span
-            className="ml-auto shrink-0 rounded-full px-2.5 py-1.5 font-mono text-[0.6875rem] tracking-[0.12em] transition-colors duration-200 ease-[var(--ease-glide)]"
+            className="ml-auto shrink-0 rounded-full px-2.5 py-1.5 font-mono text-label-sm transition-colors duration-200 ease-[var(--ease-glide)]"
             style={{ backgroundColor: tint(chosen, 16), color: chosen }}
           >
             {chosen}

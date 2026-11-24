@@ -7,7 +7,7 @@ import { celebrationDate, fetchBirthDates } from '../lib/birthDates'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { SectionPanel } from './SectionPanel'
-import { CakeIcon } from './icons'
+import { CakeIcon, HeartIcon } from './icons'
 import { todayIso } from '../lib/monthGrid'
 import { upcomingCelebrations, whenLabel, type Occasion } from '../lib/celebrations'
 import type { Celebrations } from '../lib/display'
@@ -47,8 +47,8 @@ async function fetchCouples() {
 }
 
 const KIND = {
-  birthday: { label: 'Birthday', emoji: '🎂', chip: 'bg-status-member/15 text-status-member' },
-  anniversary: { label: 'Anniversary', emoji: '💍', chip: 'bg-status-head/15 text-status-head' },
+  birthday: { label: 'Birthday', icon: CakeIcon, chip: 'bg-status-member/15 text-status-member' },
+  anniversary: { label: 'Anniversary', icon: HeartIcon, chip: 'bg-status-head/15 text-status-head' },
 } as const
 
 function formatDay(iso: string) {
@@ -83,9 +83,7 @@ function OccasionRow({
       }`}
     >
       <span className="flex min-w-0 items-center gap-2.5">
-        <span aria-hidden="true" className="text-body-lg leading-none">
-          {kind.emoji}
-        </span>
+        <kind.icon aria-hidden="true" width={18} height={18} className="shrink-0 text-on-surface-faint" />
         <span className="flex min-w-0 flex-col">
           <span className="break-words text-body-sm text-on-surface">
             {occasion.name}

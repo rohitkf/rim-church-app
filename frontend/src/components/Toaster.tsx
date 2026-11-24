@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { dismissToast, subscribeToasts, type Toast } from '../lib/toast'
+import { CheckIcon, WarningIcon } from './icons'
 
 /**
  * Where toasts appear: above the dock, centred, out of the way of the
@@ -25,7 +26,11 @@ export function Toaster() {
             t.action ? 'pl-4 pr-2' : 'px-4'
           } ${t.tone === 'error' ? 'bg-error text-on-error' : 'bg-on-surface text-background'}`}
         >
-          <span aria-hidden="true">{t.tone === 'error' ? '!' : '✓'}</span>
+          {t.tone === 'error' ? (
+            <WarningIcon aria-hidden="true" width={16} height={16} className="shrink-0" />
+          ) : (
+            <CheckIcon aria-hidden="true" width={16} height={16} className="shrink-0" />
+          )}
           <span className="min-w-0 [overflow-wrap:anywhere]">{t.text}</span>
           {t.action && (
             <button

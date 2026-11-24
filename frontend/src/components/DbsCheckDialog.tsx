@@ -194,7 +194,7 @@ export function DbsCheckDialog({
                 <p>
                   <span className="font-medium text-on-surface">Permission given</span> on {dbsMoment(details.consented_at)}:
                 </p>
-                <p className="mt-1 border-l-2 border-border-subtle pl-3 italic">“{details.consent_wording}”</p>
+                <p className="mt-2 rounded-[var(--radius-chip)] bg-raised px-3 py-2 text-on-surface">“{details.consent_wording}”</p>
               </div>
 
               <div className="rounded-[var(--radius-row)] bg-raised p-4 text-body-sm text-on-surface-variant">

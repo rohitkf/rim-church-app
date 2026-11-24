@@ -136,8 +136,8 @@ describe('where the Teams page puts its Roles', () => {
   it('puts it below the roster and the guest list, in that order', async () => {
     show()
     const card = await screen.findByTestId('roles-card')
-    const guests = screen.getByRole('heading', { name: 'Guest List' })
-    const members = screen.getByRole('heading', { name: 'Core Members' })
+    const guests = screen.getByRole('heading', { name: 'Guest members' })
+    const members = screen.getByRole('heading', { name: 'Core members' })
 
     // Node.compareDocumentPosition: FOLLOWING means the card comes after.
     expect(members.compareDocumentPosition(guests) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

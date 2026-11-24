@@ -409,6 +409,8 @@ The interface talks like a person who knows the job.
 - [ ] A few answers are a `SegmentedControl`; on/off is a `Switch`
 - [ ] Readable at 360px, and in light as well as dark
 - [ ] Nothing conveyed by colour alone — a pill carries a word too
+- [ ] Every icon is a line icon from `components/icons.tsx` — no emoji, and
+      no typed symbol (✓ ✕ ✉ ↺) standing in for one
 - [ ] Destinations and rooms are named in Title Case; a button says what it
       does in a sentence
 

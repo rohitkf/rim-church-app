@@ -62,6 +62,7 @@ import {
   type StageMoveRequest,
 } from '../lib/stage'
 import { UNDO_DEPTH, describeChange, inverseOf, isEmptyPatch, resolveId, snapshotOf } from '../lib/stageUndo'
+import { UndoIcon } from '../components/icons'
 
 /**
  * One service's layout: the canvas — every area as a region of one
@@ -516,8 +517,9 @@ export function StageLayoutPage() {
               onClick={stepBack}
               aria-label={`Undo ${undoStack[undoStack.length - 1].label}`}
               title={`Undo ${undoStack[undoStack.length - 1].label} (Ctrl+Z)`}
+              glyph={<UndoIcon aria-hidden="true" width={16} height={16} />}
             >
-              ↶ Undo
+              Undo
             </ActionButton>
           )}
           {(canEdit || templatesMayBeRead(may('templates'))) && (

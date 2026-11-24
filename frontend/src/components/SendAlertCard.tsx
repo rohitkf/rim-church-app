@@ -12,6 +12,7 @@ import { formatRelativeTime } from '../lib/relativeTime'
 import { ActionButton, Eyebrow, Field, Pill, Row, SegmentedControl, inputClasses } from './Surface'
 import { TeamMark } from './TeamMark'
 import { QueryState } from './QueryState'
+import { CloseIcon } from './icons'
 
 const MAX = 500
 
@@ -239,9 +240,10 @@ export function SendAlertCard() {
                   type="button"
                   onClick={() => setPersonIds((ids) => toggle(ids, p.id))}
                   aria-label={`Take ${p.first_name} ${p.last_name} off the list`}
-                  className="tap rounded-full bg-secondary-container px-3 py-1 text-label-md text-on-surface"
+                  className="tap inline-flex items-center gap-1.5 rounded-full bg-secondary-container px-3 py-1 text-label-md text-on-surface"
                 >
-                  {p.first_name} {p.last_name} ✕
+                  {p.first_name} {p.last_name}
+                  <CloseIcon aria-hidden="true" width={14} height={14} className="shrink-0 text-on-surface-variant" />
                 </button>
               ))}
             </div>

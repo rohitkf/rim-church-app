@@ -1885,6 +1885,22 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   may fix without asking is drift from `DESIGN.md` itself: a curve that
   is not `--ease-glide`, a glow, a stripe down one side of a card, a size
   or a tracking written by hand where a token exists.
+  A second pass (24 November 2026, polish mode again at the Owner's
+  word) looked at every route — 65 signed in, 6 signed out — in dark and
+  light, at 360, 390 and 1280, and fixed only drift: emoji and typed
+  symbols standing in for icons (🎂 💍 🎙 ✉ ✓ ✕ ↶ ↺, and the ✦ sparkle
+  that stood for the assistant, the tour, an improvement and what's new)
+  became line icons from `components/icons.tsx`, each the thing it
+  means; "Coming soon !!!" lost its marks; a label naming the section
+  over each Settings room's title went; the team checklist page got a
+  `PageHeader` in the app's words ("Media checklist", the service and its
+  day as `formatServiceDay` says it), not "Media Department Prep" over
+  "English Service Service — 2026-12-01";
+  a team's page lost its corporate line and Title Case headings; the
+  RIM mark is one flat blue, not a gradient tile, and the installed
+  icons, the favicon (Vite's own until then) and `offline.html` match
+  it. The greeting, the pills, the washes and the radii were left as
+  the Owner chose them.
 - **Long, repetitive output goes through `scripts/hr`, every time.** The
   Owner asked for Headroom to be installed and "always" used (23
   November 2026). Headroom makes what a model is sent smaller, and

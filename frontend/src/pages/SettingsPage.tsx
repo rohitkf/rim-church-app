@@ -130,8 +130,9 @@ export function SettingsPage() {
           <header data-tour="page-title" className="mb-6 flex items-start gap-4">
             <IconBadge icon={current.icon} tone={current.tone} size="lg" className="mt-1" />
             <div className="min-w-0">
-              <Eyebrow>Settings</Eyebrow>
-              <h1 className="mt-1 text-headline-lg">{current.label}</h1>
+              {/* No label over the title: the room's name is the title, and
+                  the sidebar beside it already says these are Settings. */}
+              <h1 className="text-headline-lg">{current.label}</h1>
               <p className="mt-1 text-body-md text-on-surface-variant">{current.blurb}</p>
             </div>
           </header>
@@ -181,11 +182,11 @@ function SettingsHome({ groups }: { groups: SettingsGroup[] }) {
         <Link
           to="/settings/profile"
           aria-label={`Your profile: ${name}`}
-          className="group/me flex items-center gap-4 rounded-[var(--radius-tile)] bg-[linear-gradient(135deg,color-mix(in_oklab,var(--color-accent-indigo)_24%,transparent),var(--color-surface-lowest)_65%)] p-5 hairline-strong transition-transform duration-300 ease-[var(--ease-glide)] hover:-translate-y-0.5"
+          className="group/me flex items-center gap-4 rounded-[var(--radius-tile)] bg-surface-lowest p-5 hairline-strong transition-colors duration-200 hover:bg-surface-low"
         >
           <span
             aria-hidden="true"
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(145deg,var(--color-accent-indigo),var(--color-accent-blue))] text-headline-md font-semibold text-on-primary"
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-raised-strong font-mono text-headline-sm text-on-surface"
           >
             {initials || '?'}
           </span>

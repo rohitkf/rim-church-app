@@ -15,11 +15,18 @@ import { confirmationLanding } from '../lib/authLinks'
 import { sameEmail } from '../lib/emailDelivery'
 import { ConfirmEmailDialog } from '../components/ConfirmEmailDialog'
 import { passwordChecks, passwordScore, strengthColorClass, strengthLabel } from '../lib/passwordStrength'
+import { CheckIcon } from '../components/icons'
 
 function CheckHint({ ok, children }: { ok: boolean; children: string }) {
   return (
     <li className={`flex items-center gap-1.5 ${ok ? 'text-success' : 'text-on-surface-variant'}`}>
-      <span className="font-mono">{ok ? '✓' : '·'}</span>
+      {ok ? (
+        <CheckIcon aria-hidden="true" width={14} height={14} className="shrink-0" />
+      ) : (
+        <span aria-hidden="true" className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+          <span className="h-1 w-1 rounded-full bg-current" />
+        </span>
+      )}
       {children}
     </li>
   )
@@ -318,7 +325,7 @@ export function SignupPage() {
           </label>
           {confirmPassword.length > 0 && (
             <p className={`-mt-2 font-mono text-label-sm ${passwordsMatch ? 'text-success' : 'text-error'}`}>
-              {passwordsMatch ? '✓ Passwords match' : '✗ Passwords don’t match'}
+              {passwordsMatch ? 'Passwords match' : 'Passwords don’t match'}
             </p>
           )}
 

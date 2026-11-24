@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
+import { CheckIcon } from './icons'
 
 /**
  * The app's own dropdown.
@@ -499,8 +500,8 @@ export function Select({
             {option.hint && <span className="font-mono text-label-sm tabular text-on-surface-faint">{option.hint}</span>}
             {/* A place kept for the tick in a list that has hints, so the numbers stay in one column whichever is chosen. */}
             {(isSelected || option.hint) && (
-              <span aria-hidden="true" className={`w-3 text-accent-blue-soft ${isSelected ? '' : 'invisible'}`}>
-                ✓
+              <span aria-hidden="true" className={`flex w-3.5 text-accent-blue-soft ${isSelected ? '' : 'invisible'}`}>
+                <CheckIcon width={14} height={14} />
               </span>
             )}
           </span>

@@ -1,5 +1,5 @@
 import { Overlay } from './Surface'
-import { SparklesIcon } from './icons'
+import { MegaphoneIcon } from './icons'
 import { DETAILS_SHOWN, type Release } from '../lib/releases'
 
 /**
@@ -34,7 +34,7 @@ export function ReleaseDetails({
             aria-hidden="true"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--color-accent-blue)_22%,transparent)] text-accent-blue-soft"
           >
-            <SparklesIcon width={20} height={20} />
+            <MegaphoneIcon width={20} height={20} />
           </span>
           <h2 className="text-headline-md">What’s new</h2>
         </div>

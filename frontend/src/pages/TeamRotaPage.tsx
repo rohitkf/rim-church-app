@@ -8,7 +8,7 @@ import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { Chevron, useExpanded } from '../components/Collapsible'
 import { ActionButton, Eyebrow, LiveDot, Overlay, PageHeader, Tile } from '../components/Surface'
-import { PinIcon } from '../components/icons'
+import { CheckIcon, CloseIcon, PinIcon } from '../components/icons'
 import { Link } from 'react-router-dom'
 import {
   fetchDepartmentRoles,
@@ -962,7 +962,7 @@ export function TeamRotaPage() {
                                                  is no hover to reveal it with. */
                                               className={`ml-auto shrink-0 font-mono text-label-sm ${sky ? 'text-white/60' : 'text-on-surface-faint'} transition-opacity duration-200 hover:text-error focus:opacity-100 group-hover/assignment:opacity-100 sm:ml-0 sm:opacity-0`}
                                             >
-                                              ✕
+                                              <CloseIcon aria-hidden="true" width={14} height={14} />
                                             </button>
                                           )}
                                         </span>
@@ -1192,12 +1192,12 @@ export function TeamRotaPage() {
                                             }
                                           })
                                         }
-                                        className={`tap rounded-full px-3 py-1.5 font-mono text-label-sm font-medium transition-opacity ${
+                                        className={`tap inline-flex items-center gap-1 rounded-full px-3 py-1.5 font-mono text-label-sm font-medium transition-opacity ${
                                           on ? '' : 'opacity-55 hover:opacity-80'
                                         }`}
                                         style={on ? tagStyle(tag.color) : { boxShadow: 'inset 0 0 0 1px var(--color-outline-variant)' }}
                                       >
-                                        {on ? '✓ ' : '+ '}
+                                        {on ? <CheckIcon aria-hidden="true" width={14} height={14} /> : '+ '}
                                         {tag.name}
                                       </button>
                                     )

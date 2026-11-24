@@ -46,7 +46,7 @@ export function AppMark({ className = '' }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-[linear-gradient(160deg,var(--color-accent-blue),color-mix(in_oklab,var(--color-accent-blue)_55%,black))] font-mono text-[11px] text-white ${className}`}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-accent-blue font-mono text-[11px] font-semibold text-white ${className}`}
     >
       RIM
     </span>
