@@ -5,11 +5,12 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- viewport-fit=cover lets the app paint into the notch and home-bar
          areas on iOS; the shell pads itself back out with env(safe-area-*).
-         Pinch-zoom is allowed (WCAG 1.4.4): somebody who cannot read the
-         text at its size must be able to make it bigger. A double tap
-         still does nothing (the body's touch-action: manipulation), and an
-         input never zooms on focus, because none is set under 16px. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+         Pinch-zoom is off by default and each person can turn it on from
+         their account menu (lib/pageZoom swaps this tag; it must stay the
+         same as VIEWPORT_FIXED there). A double tap does nothing either
+         way (the body's touch-action: manipulation), and an input never
+         zooms on focus, because none is set under 16px. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
     <!-- Installed app -->
     <link rel="manifest" href="/manifest.webmanifest" />

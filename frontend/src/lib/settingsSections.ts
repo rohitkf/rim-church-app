@@ -92,10 +92,10 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       {
         to: '/settings/appearance',
         label: 'Appearance',
-        blurb: 'Light or dark, and how teams are drawn.',
+        blurb: 'Light or dark, how teams are drawn, and pinch to zoom.',
         icon: PaletteIcon,
         tone: 'indigo',
-        keywords: 'theme dark light mode team style gradient dot',
+        keywords: 'theme dark light mode team style gradient dot zoom pinch bigger text',
       },
       {
         to: '/settings/notifications',

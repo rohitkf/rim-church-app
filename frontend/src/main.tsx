@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { applyTheme, readThemePreference } from './lib/theme'
+import { applyPageZoom, readPageZoom } from './lib/pageZoom'
 import { initPwa, isStandalone } from './lib/pwa'
 import { noteAtStart } from './lib/installedIdentity'
 import { pointPageAtPublishedIcons } from './lib/appIcon'
@@ -9,6 +10,9 @@ import './index.css'
 import App from './App.tsx'
 
 applyTheme(readThemePreference())
+
+// Pinch-zoom is off unless this browser's person turned it on (lib/pageZoom).
+applyPageZoom(readPageZoom())
 
 // What nothing else catches — an error in a timer or a handler, a promise
 // nobody awaited — is told to the church (lib/clientErrors, 0284). First,

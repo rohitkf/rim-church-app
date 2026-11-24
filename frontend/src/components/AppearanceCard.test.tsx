@@ -26,6 +26,17 @@ describe('Appearance', () => {
     expect(within(style).getByRole('radio', { name: 'Gradient' })).toHaveAttribute('aria-checked', 'true')
   })
 
+  it('has the same pinch-to-zoom switch as the account menu, off by default', async () => {
+    const user = userEvent.setup()
+    render(<AppearanceCard />)
+    const zoom = screen.getByRole('switch', { name: 'Pinch to zoom' })
+    expect(zoom).not.toBeChecked()
+    await user.click(zoom)
+    expect(zoom).toBeChecked()
+    await user.click(zoom)
+    expect(zoom).not.toBeChecked()
+  })
+
   it('leaves phone notifications to their own room', () => {
     render(<AppearanceCard />)
     expect(screen.queryByRole('heading', { name: 'Phone notifications' })).toBeNull()

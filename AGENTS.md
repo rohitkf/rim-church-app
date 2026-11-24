@@ -1912,8 +1912,11 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   light, at 1280 and 390 (`detect --cdp <port> --json` against the
   verify preview reads the page as drawn, which the file scan cannot).
   What it changed: the blue under white text is `primary` `#0071e3`
-  (white on `#0a84ff` is 3.64:1 and was on every page); the page can be
-  zoomed (the Owner's word: WCAG 1.4.4 over "feels like an app"); a link
+  (white on `#0a84ff` is 3.64:1 and was on every page); pinch-to-zoom
+  is a switch in the account menu and Settings › Appearance, off by
+  default and per browser (the Owner's word: everyone gets the choice,
+  and the app holds still until they make it — so axe's meta-viewport
+  finding stands for the default, on purpose); a link
   inside a sentence is underlined; a paragraph stops at 75ch with
   `text-wrap: pretty`; body-lg is 17/23; team washes are worked out per
   colour and theme so faint text on them keeps 4.5:1, and `inkOn` picks

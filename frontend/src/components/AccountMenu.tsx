@@ -6,6 +6,8 @@ import { fetchDepartments } from '../lib/queries'
 import { viewAsLabel, type TeamPreview } from '../lib/viewAs'
 import { useTheme } from '../lib/useTheme'
 import { useTeamStyle } from '../lib/useTeamStyle'
+import { usePageZoom } from '../lib/usePageZoom'
+import { Switch } from './SettingRows'
 import { THEME_CHOICES } from '../lib/theme'
 import { TEAM_STYLE_CHOICES } from '../lib/teamStyle'
 import { ChevronRightIcon, EyeIcon, QuestionIcon, ReloadIcon, SettingsIcon, CompassIcon, UserCircleIcon } from './icons'
@@ -61,6 +63,7 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
   const age = ageFrom(profile?.dob)
   const { preference, choose } = useTheme()
   const { teamStyle, choose: chooseTeamStyle } = useTeamStyle()
+  const { zoomAllowed, setZoomAllowed } = usePageZoom()
   const [open, setOpen] = useState(false)
   const wrapper = useRef<HTMLDivElement>(null)
 
@@ -170,6 +173,12 @@ export function AccountMenu({ initials, onSignOut }: AccountMenuProps) {
                   {choice.label}
                 </button>
               ))}
+            </div>
+
+            {/* Off unless you turn it on, and only for you (lib/pageZoom). */}
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className="font-mono text-label-sm text-on-surface-variant">Pinch to zoom</span>
+              <Switch checked={zoomAllowed} onChange={setZoomAllowed} label="Pinch to zoom" />
             </div>
           </div>
 

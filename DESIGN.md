@@ -214,10 +214,11 @@ page has to remember them:
   hover — its colour alone is not enough to find it (WCAG 1.4.1). A link
   styled as a button or a pill brings its own shape and is left out.
 
-And **the page can be pinched bigger.** The viewport does not forbid
-zoom: someone who cannot read 15px has to be able to make it larger
-(WCAG 1.4.4), and the app's controls are sized so a pinch is never
-needed to hit one.
+And **pinch-to-zoom is each person's choice.** It is off by default, so
+the app holds still the way an app does, and a switch in the account
+menu (and in Settings › Appearance) turns it on for that browser
+(`lib/pageZoom`): someone who cannot read 15px can make it larger. The
+stage plan, the family graph and the map keep their own pinch either way.
 
 ---
 
