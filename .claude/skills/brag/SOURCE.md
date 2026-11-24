@@ -1,4 +1,4 @@
-Copied from https://github.com/latent-spaces/brag at commit 669ab9286aa2 on 2026-11-13. Licence: MIT (see LICENSE).
+Copied from https://github.com/latent-spaces/brag at commit 06379432a924 (release 0.6.0) on 2026-11-24. Licence: MIT (see LICENSE).
 The bundled music is not MIT: "Happy Beats / Business Moves Vol. 10" by Sascha Ende, ende.app, CC BY 4.0. A video
 that uses it carries the credit "Music: Sascha Ende, ende.app (CC BY 4.0)". The sound effects are Kenney's (CC0).
 
@@ -18,3 +18,16 @@ contract the brag skill says to read) come inside the package, under `dist/skill
 
 Nothing here is fetched at run time by Claude Code: this folder is the whole install, and it
 changes only when somebody copies a newer commit in and reads the difference.
+
+**Updated 2026-11-24, 0.5.0 → 0.6.0** (from 669ab9286aa2). Read before copying, with only the files
+already here taken, and the left-out music still left out:
+- An explicit `--duration` is honoured instead of being forced to 15–25 seconds.
+- Vertical videos keep their text clear of the platforms' own overlays, and the pixel size of each
+  format is stated.
+- A product that shows data about people is shown with made-up records (this repository already
+  required that).
+- The `/brag-slim` hand-off now covers Sonnet 5.5 and Fable 5.2 too.
+- `analyze_music_cues.py` picks a window's strongest cues before the 64-cue cap.
+- `uv.lock` moves msgpack 1.2.1 → 1.2.4, a security fix.
+- The manifest here is still hand-written; its version and description follow upstream's. The new
+  test for the cue script is not copied (no tests were).

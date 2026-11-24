@@ -1,4 +1,4 @@
-Copied from https://github.com/JuliusBrussee/caveman at commit 3dc497a (version 4.1.0) on 2026-11-11.
+Copied from https://github.com/JuliusBrussee/caveman at commit 47c61be2d10a (after cli-v4.2.0) on 2026-11-24.
 Licence: Apache-2.0 (see LICENSE and NOTICE).
 
 **Copied:** the skills `caveman`, `ultracave`, `megacave`, `caveman-compress` and `cavecrew` and the three
@@ -23,3 +23,13 @@ left-out hooks did, inside Claude Code and with nothing running on the side:
 
 Nothing here is fetched at run time: this folder is the whole install, and it changes only when
 somebody copies a newer commit in and reads the difference.
+
+**Updated 2026-11-24** (from 3dc497a). Only the copied skills were compared. The band, the manifest
+and the types are this repository's own and did not change. Four files moved:
+- `cavecrew`: a section on briefing subagents (exact paths, no mode-switching keywords, git config
+  kept repo-local).
+- `caveman-compress`: an optional Codex CLI provider, used only when configured. It runs in an
+  isolated profile with no network, no filesystem and no tools. The default Claude model moves from
+  Sonnet 4.5 to 4.6.
+- `validate.py`: a check that compression changed no number (values, versions, signs), with spelled-out
+  numbers allowed to become digits. It is pure text, with no network.
