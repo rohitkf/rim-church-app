@@ -59,14 +59,17 @@ function over(color: [number, number, number], ground: [number, number, number],
 
 /*
  * The quietest text that sits on a washed row (on-surface-faint) and the
- * tile it sits on, in each theme — from index.css. A wash is only as
+ * ground under the wash, in each theme — from index.css. A wash is only as
  * strong as lets that text keep 4.5:1 in both, so a yellow team's row is
  * washed more lightly than an indigo one's, and a meaning never drops out
- * of a row because of the colour a team picked.
+ * of a row because of the colour a team picked. The ground is a row's
+ * (`raised` laid on the tile), not the tile's own: a step lighter on dark
+ * and a step darker on light, and judging by the tile alone left faint
+ * text on a washed row at 4.0:1.
  */
 const FAINT_ON_TILE = {
-  dark: [channels('#98989d'), channels('#141418')],
-  light: [channels('#68686d'), channels('#ffffff')],
+  dark: [channels('#98989d'), channels('#202024')],
+  light: [channels('#68686d'), channels('#f6f6f6')],
 } as const
 
 /** The strongest wash, up to `ceiling`, that keeps faint text readable on it in one theme. */
@@ -145,23 +148,41 @@ export function teamSpine(color: string | null | undefined): CSSProperties {
   return { background: `linear-gradient(180deg, ${c}, ${tint(c, 25)})` }
 }
 
-/** A filled shape — an avatar tile or a name chip — in the team's colour. */
-export function teamFill(color: string | null | undefined, angle = 140): CSSProperties {
-  const c = teamColorOf(color)
-  return { background: `linear-gradient(${angle}deg, ${c}, ${tint(c, 40)})` }
+/*
+ * Ink on a team's colour. White where the colour carries it at 4.5:1;
+ * otherwise near-black, as faint as still clears 4.5:1 — judged by WCAG
+ * contrast, not by how bright the colour looks, since a mid red or
+ * purple looks dark and still carries white at under 4:1. Between them
+ * one always clears it: the two cross at about 4.6:1.
+ */
+const DARK_INK_ALPHAS = [0.8, 0.85, 0.9, 0.95, 1]
+
+function inkFor(c: [number, number, number]): { white: boolean; css: string } {
+  const white = contrast([255, 255, 255], c)
+  if (white >= 4.5) return { white: true, css: '#ffffff' }
+  const alpha = DARK_INK_ALPHAS.find((a) => contrast(over([0, 0, 0], c, a), c) >= 4.5) ?? 1
+  if (contrast(over([0, 0, 0], c, alpha), c) < white) return { white: true, css: '#ffffff' }
+  return { white: false, css: alpha === 1 ? '#000000' : `rgb(0 0 0 / ${alpha})` }
 }
 
 /**
- * White on a colour that carries it at 4.5:1, dark ink on any other, so
- * two letters survive yellow as well as indigo. Judged by WCAG contrast,
- * not by how bright the colour looks: a mid red or purple looks dark and
- * still carries white at under 4:1.
+ * A filled shape — an avatar tile or a name chip — in the team's colour.
+ *
+ * Opaque, and the far end always moves away from the ink: darker under
+ * white letters, lighter under dark ones. It used to fade to the colour at
+ * 40% over whatever was behind it, which on dark turned a purple avatar
+ * near-black under the dark ink its bright end needed (2.5:1).
  */
-export function inkOn(color: string | null | undefined): string {
+export function teamFill(color: string | null | undefined, angle = 140): CSSProperties {
   const c = channels(teamColorOf(color))
-  const white = contrast([255, 255, 255], c)
-  const dark = contrast(over([0, 0, 0], c, 0.8), c)
-  return white >= 4.5 || white >= dark ? '#ffffff' : 'rgb(0 0 0 / 0.8)'
+  const toward: [number, number, number] = inkFor(c).white ? [0, 0, 0] : [255, 255, 255]
+  const [r, g, b] = over(toward, c, 0.22).map(Math.round)
+  return { background: `linear-gradient(${angle}deg, ${teamColorOf(color)}, rgb(${r} ${g} ${b}))` }
+}
+
+/** Ink for two letters on a team's colour (see `inkFor`). */
+export function inkOn(color: string | null | undefined): string {
+  return inkFor(channels(teamColorOf(color))).css
 }
 
 /** The avatar tile: a tint behind coloured letters, or the colour itself. */

@@ -29,8 +29,11 @@ const TILE_TONES: Record<TileTone, string> = {
   plain: 'bg-surface-lowest hairline',
   // A tone tile is the same tile with its own colour bled in from the top
   // left, so a hero or an alert lifts without becoming a coloured box.
+  // The faintest ink drops under 4.5:1 on that blue in light, so inside it
+  // faint text is drawn a step stronger: the token is overridden here and
+  // every `text-on-surface-faint` below follows.
   accent:
-    'bg-[linear-gradient(155deg,color-mix(in_oklab,var(--color-accent-blue)_22%,transparent),var(--color-surface-lowest)_58%)] hairline-strong',
+    'bg-[linear-gradient(155deg,color-mix(in_oklab,var(--color-accent-blue)_22%,transparent),var(--color-surface-lowest)_58%)] hairline-strong [--color-on-surface-faint:var(--color-on-surface-variant)]',
   warning: 'bg-[color-mix(in_oklab,var(--color-accent-orange)_9%,var(--color-surface-lowest))] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-orange)_26%,transparent)]',
   danger: 'bg-[color-mix(in_oklab,var(--color-accent-red)_9%,var(--color-surface-lowest))] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-red)_26%,transparent)]',
   success: 'bg-[color-mix(in_oklab,var(--color-accent-green)_9%,var(--color-surface-lowest))] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-accent-green)_26%,transparent)]',

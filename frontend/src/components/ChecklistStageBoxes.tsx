@@ -11,7 +11,7 @@ const STAGES = [
     off: 'pending' as ChecklistItemStatus,
     colour: 'border-status-member bg-status-member',
     text: 'text-accent-indigo-soft',
-    chip: 'bg-status-member/15 text-accent-indigo-soft',
+    chip: 'bg-status-member/10 text-accent-indigo-soft',
   },
   {
     key: 'head' as const,
@@ -23,7 +23,7 @@ const STAGES = [
     off: 'member_complete' as ChecklistItemStatus,
     colour: 'border-status-head bg-status-head',
     text: 'text-accent-blue-soft',
-    chip: 'bg-status-head/15 text-accent-blue-soft',
+    chip: 'bg-status-head/10 text-accent-blue-soft',
   },
   {
     key: 'sign' as const,
@@ -34,7 +34,7 @@ const STAGES = [
     off: 'head_verified' as ChecklistItemStatus,
     colour: 'border-status-coordinator bg-status-coordinator',
     text: 'text-accent-green-soft',
-    chip: 'bg-status-coordinator/15 text-accent-green-soft',
+    chip: 'bg-status-coordinator/10 text-accent-green-soft',
   },
 ]
 

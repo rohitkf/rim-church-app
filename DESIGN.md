@@ -206,10 +206,10 @@ that changes, or the layout twitches as it updates.
 Three rules that hold for every paragraph, set once in `index.css` so no
 page has to remember them:
 
-- **A paragraph stops at 75 characters.** A Settings card on a desk is
+- **A paragraph stops at about 75 letters** (`60ch`). A Settings card on a desk is
   150 across, and the eye loses its line coming back. `max-w-*` on the
   element still wins; a centred or right-set paragraph is left alone.
-- **`text-wrap: pretty`**, so a sentence never ends on one word alone.
+- **`text-wrap: pretty`** on paragraphs and list items, so a sentence never ends on one word alone.
 - **A link inside a sentence is underlined**, quietly, full strength on
   hover — its colour alone is not enough to find it (WCAG 1.4.1). A link
   styled as a button or a pill brings its own shape and is left out.

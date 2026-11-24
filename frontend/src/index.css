@@ -469,18 +469,25 @@ textarea,
 /*
  * A paragraph reads at a measure, not at the width of whatever holds it.
  * A Settings card on a desk is ~150 characters across, which the eye
- * loses its place in going back to the start of the next line; 75ch is the
- * far end of a comfortable line. A paragraph set centred or to the right
+ * loses its place in going back to the start of the next line. 60ch is
+ * about 75 letters (a `ch` is the width of a 0, wider than most letters,
+ * so 75ch came out near 100). A paragraph set centred or to the right
  * is left alone (capped, it would sit off to one side), and `pretty`
  * stops one word being left on a line of its own. Both in the base
  * layer under :where(), so a `max-w-*` on the element still wins.
  */
 @layer base {
-  :where(p) {
+  :where(p, li) {
     text-wrap: pretty;
   }
   :where(p:not([class*='text-center']):not([class*='text-right']):not([class*='truncate'])) {
-    max-inline-size: 75ch;
+    max-inline-size: 60ch;
+  }
+  /* Preflight greys a placeholder to half the text's colour, 3.3:1 on
+     white. The faint ink clears 4.5:1 on every ground it sits on. */
+  ::placeholder {
+    color: var(--color-on-surface-faint);
+    opacity: 1;
   }
 }
 

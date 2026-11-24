@@ -70,7 +70,7 @@ export function AdminResetCard() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="rounded-[var(--radius-row)] bg-[color-mix(in_oklab,var(--color-accent-red)_10%,transparent)] px-4 py-3 text-body-sm text-accent-red-soft">
+      <p className="rounded-[var(--radius-row)] bg-[color-mix(in_oklab,var(--color-accent-red)_6%,transparent)] px-4 py-3 text-body-sm text-accent-red-soft">
         For trying features out on a clean slate. These delete real records, and there is no undo.
       </p>
 

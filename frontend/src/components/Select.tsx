@@ -389,7 +389,7 @@ export function Select({
         onKeyDown={onKeyDown}
         className={`${className || triggerClasses} inline-flex items-center justify-between gap-2 text-left disabled:opacity-50`}
       >
-        <span className={`min-w-0 truncate ${selected ? '' : 'text-on-surface-faint'}`}>
+        <span className={`min-w-0 truncate ${selected ? '' : 'text-on-surface-variant'}`}>
           {selected?.label ?? placeholder}
         </span>
         <ChevronGlyph open={open} />

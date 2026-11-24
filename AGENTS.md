@@ -1917,7 +1917,7 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   default and per browser (the Owner's word: everyone gets the choice,
   and the app holds still until they make it — so axe's meta-viewport
   finding stands for the default, on purpose); a link
-  inside a sentence is underlined; a paragraph stops at 75ch with
+  inside a sentence is underlined; a paragraph stops at 60ch (about 75 letters) with
   `text-wrap: pretty`; body-lg is 17/23; team washes are worked out per
   colour and theme so faint text on them keeps 4.5:1, and `inkOn` picks
   by WCAG contrast; a toned segment on dark says its colour with a dot;
