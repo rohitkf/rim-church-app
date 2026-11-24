@@ -69,9 +69,13 @@
    * which is why it appears once or twice per screen and never as
    * decoration. The rest carry fixed meanings and nothing else.
    * --------------------------------------------------------------- */
-  --color-primary: #0a84ff;
+  /* A fill that carries white text: the blue of Apple's own web buttons,
+     4.7:1 under white. #0a84ff was 3.64:1, which the HIG passes for bold
+     text and WCAG AA does not. The brighter blue stays as accent-blue, for
+     dots, bars and rings that carry no words. */
+  --color-primary: #0071e3;
   --color-on-primary: #ffffff;
-  --color-secondary: #0a84ff;
+  --color-secondary: #0071e3;
   --color-on-secondary: #ffffff;
   --color-secondary-container: rgb(10 132 255 / 0.16);
   --color-on-secondary-container: #409cff;
@@ -108,6 +112,13 @@
      segment that is chosen, and a switch's track when it is off. */
   --color-track: rgb(118 118 128 / 0.24);
   --color-segment: #636366;
+  /* The word on a chosen segment that carries a meaning (Yes, No). On the
+     dark plate a coloured word is 2-3:1, so it is white there and the
+     colour moves to a dot beside it; on light the -soft colours read. */
+  --color-segment-ink-green: #f5f5f7;
+  --color-segment-ink-orange: #f5f5f7;
+  --color-segment-ink-red: #f5f5f7;
+  --color-segment-ink-blue: #f5f5f7;
   --color-switch-off: rgb(120 120 128 / 0.32);
 
   /* ---------------------------------------------------------------
@@ -169,8 +180,10 @@
   --text-numeral--letter-spacing: 0;
   --text-numeral--font-weight: 600;
 
-  --text-body-lg: 1.0625rem; /* Body 17/22 */
-  --text-body-lg--line-height: 1.375rem;
+  /* 17/23 rather than Apple's 17/22: a page's opening sentence runs to two
+     or three lines, and 1.29 is tight for that at this size. */
+  --text-body-lg: 1.0625rem; /* Body 17/23 */
+  --text-body-lg--line-height: 1.4375rem;
 
   --text-body-md: 1rem; /* Callout 16/21 */
   --text-body-md--line-height: 1.3125rem;
@@ -272,6 +285,10 @@
 
   --color-track: rgb(118 118 128 / 0.12);
   --color-segment: #ffffff;
+  --color-segment-ink-green: var(--color-accent-green-soft);
+  --color-segment-ink-orange: var(--color-accent-orange-soft);
+  --color-segment-ink-red: var(--color-accent-red-soft);
+  --color-segment-ink-blue: var(--color-accent-blue-soft);
   --color-switch-off: #e9e9eb;
 
   --shadow-ambient: 0 1px 2px rgb(15 23 42 / 0.04), 0 12px 32px -16px rgb(15 23 42 / 0.16);
@@ -411,6 +428,59 @@ textarea,
       height: max(100%, 44px);
       transform: translate(-50%, -50%);
     }
+  }
+}
+
+/*
+ * Team washes (lib/teamGradient.ts). Each washed element carries its
+ * strength for both themes; this picks the one the page is in. The
+ * strengths are worked out so the faint text on the row keeps 4.5:1.
+ */
+[style*='--team-wash-hi-dark'] {
+  --team-wash-hi: var(--team-wash-hi-dark);
+  --team-wash-lo: var(--team-wash-lo-dark);
+}
+:root[data-theme='light'] [style*='--team-wash-hi-dark'] {
+  --team-wash-hi: var(--team-wash-hi-light);
+  --team-wash-lo: var(--team-wash-lo-light);
+}
+
+/*
+ * A link inside a sentence is told from the words around it by more than
+ * its colour (WCAG 1.4.1): a quiet underline, full strength on hover. A
+ * link styled as a button or a pill (rounded, flex) brings its own shape.
+ * In the base layer, so a component's own decoration (a utility, a later
+ * layer) still wins; not under :where(), because preflight's
+ * `a { text-decoration: inherit }` is in this layer too and would outrank
+ * a selector with no weight at all.
+ */
+@layer base {
+  p a[href]:not([class*='rounded']):not([class*='flex']) {
+    text-decoration-line: underline;
+    text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
+    text-underline-offset: 0.18em;
+    text-decoration-thickness: 1px;
+  }
+  p a[href]:not([class*='rounded']):not([class*='flex']):hover {
+    text-decoration-color: currentColor;
+  }
+}
+
+/*
+ * A paragraph reads at a measure, not at the width of whatever holds it.
+ * A Settings card on a desk is ~150 characters across, which the eye
+ * loses its place in going back to the start of the next line; 75ch is the
+ * far end of a comfortable line. A paragraph set centred or to the right
+ * is left alone (capped, it would sit off to one side), and `pretty`
+ * stops one word being left on a line of its own. Both in the base
+ * layer under :where(), so a `max-w-*` on the element still wins.
+ */
+@layer base {
+  :where(p) {
+    text-wrap: pretty;
+  }
+  :where(p:not([class*='text-center']):not([class*='text-right']):not([class*='truncate'])) {
+    max-inline-size: 75ch;
   }
 }
 

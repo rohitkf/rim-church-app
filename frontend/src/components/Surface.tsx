@@ -207,7 +207,7 @@ const BUTTON_TONES: Record<ButtonTone, string> = {
   // a filled red button in a row of five says it is. This is the quiet
   // button wearing the error colour: the same shape as its neighbours,
   // reading as the one that takes something away.
-  'danger-quiet': 'bg-raised-strong text-error hairline-strong',
+  'danger-quiet': 'bg-raised-strong text-accent-red-soft hairline-strong',
   ghost: 'text-on-surface-variant hover:text-on-surface',
 }
 
@@ -452,15 +452,15 @@ const segmentWrapTrackClasses = 'flex w-fit max-w-full flex-wrap gap-0.5 rounded
  *
  * A row of tabs — one that switches which part of a page is shown, not an
  * answer in a form — marks where you are in the blue the dock uses for
- * the current page: `look: 'tab'`. White on that blue is 3.65:1 on dark,
- * which holds only because the label is semibold.
+ * the current page: `look: 'tab'`. White on that blue is 4.7:1 in both
+ * themes; the label is semibold to match the dock.
  */
 export function segmentClasses(on: boolean, tone?: SegmentTone, padding = 'px-3', look: 'plate' | 'tab' = 'plate') {
   const chosen =
     look === 'tab'
       ? 'bg-primary font-semibold text-on-primary shadow-[0_3px_8px_rgb(0_0_0/0.16),0_3px_1px_rgb(0_0_0/0.04)]'
       : `bg-segment font-semibold shadow-[0_3px_8px_rgb(0_0_0/0.12),0_3px_1px_rgb(0_0_0/0.04)] ${tone ? SEGMENT_TONES[tone] : 'text-on-surface'}`
-  return `flex min-h-8 min-w-0 items-center justify-center gap-1.5 truncate rounded-[7px] ${padding} text-[0.8125rem] leading-[1.125rem] font-medium transition-[background-color,color,box-shadow,opacity] duration-200 ease-[var(--ease-glide)] active:opacity-60 active:duration-0 disabled:opacity-50 ${
+  return `flex min-h-8 min-w-6 items-center justify-center gap-1.5 truncate rounded-[7px] ${padding} text-[0.8125rem] leading-[1.125rem] font-medium transition-[background-color,color,box-shadow,opacity] duration-200 ease-[var(--ease-glide)] active:opacity-60 active:duration-0 disabled:opacity-50 ${
     on ? chosen : 'text-on-surface-variant hover:text-on-surface'
   }`
 }
@@ -468,10 +468,18 @@ export function segmentClasses(on: boolean, tone?: SegmentTone, padding = 'px-3'
 export type SegmentTone = 'green' | 'orange' | 'red' | 'blue'
 
 const SEGMENT_TONES: Record<SegmentTone, string> = {
-  green: 'text-accent-green-soft',
-  orange: 'text-accent-orange-soft',
-  red: 'text-accent-red-soft',
-  blue: 'text-accent-blue-soft',
+  green: 'text-segment-ink-green',
+  orange: 'text-segment-ink-orange',
+  red: 'text-segment-ink-red',
+  blue: 'text-segment-ink-blue',
+}
+
+/** The meaning of a chosen answer, as a dot beside its word: the word's own colour is not enough on a dark plate. */
+const SEGMENT_DOTS: Record<SegmentTone, string> = {
+  green: 'bg-accent-green',
+  orange: 'bg-accent-orange',
+  red: 'bg-accent-red',
+  blue: 'bg-accent-blue',
 }
 
 /**
@@ -538,6 +546,7 @@ export function SegmentedControl<T extends string>({
             className={segmentClasses(on, o.tone, padding, kind === 'tab' ? 'tab' : 'plate')}
             {...state}
           >
+            {on && o.tone && <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${SEGMENT_DOTS[o.tone]}`} />}
             {o.label}
           </button>
         )
@@ -566,8 +575,27 @@ export function SegmentedControl<T extends string>({
  * top strip, and as the page carried the box up under that strip the
  * headings were drawn across the search field.
  */
-export function TableScroll({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`relative isolate max-h-[70svh] overflow-auto overscroll-x-contain ${className}`}>{children}</div>
+export function TableScroll({
+  children,
+  className = '',
+  label = 'Table',
+}: {
+  children: ReactNode
+  className?: string
+  /** What the box holds, for a screen reader landing on it. */
+  label?: string
+}) {
+  // Focusable, so a keyboard can scroll what a mouse wheel or a finger can.
+  return (
+    <div
+      tabIndex={0}
+      role="region"
+      aria-label={label}
+      className={`relative isolate max-h-[70svh] overflow-auto overscroll-x-contain focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary ${className}`}
+    >
+      {children}
+    </div>
+  )
 }
 
 /* ------------------------------------------------------------------ *

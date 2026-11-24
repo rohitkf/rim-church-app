@@ -47,8 +47,8 @@ async function fetchCouples() {
 }
 
 const KIND = {
-  birthday: { label: 'Birthday', icon: CakeIcon, chip: 'bg-status-member/15 text-status-member' },
-  anniversary: { label: 'Anniversary', icon: HeartIcon, chip: 'bg-status-head/15 text-status-head' },
+  birthday: { label: 'Birthday', icon: CakeIcon, chip: 'bg-status-member/15 text-accent-indigo-soft' },
+  anniversary: { label: 'Anniversary', icon: HeartIcon, chip: 'bg-status-head/15 text-accent-blue-soft' },
 } as const
 
 function formatDay(iso: string) {

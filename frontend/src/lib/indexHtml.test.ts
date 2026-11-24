@@ -17,6 +17,15 @@ describe('the document head', () => {
     expect(html).not.toMatch(/fonts\.googleapis\.com|fonts\.gstatic\.com/)
   })
 
+  it('lets the page be pinched bigger (WCAG 1.4.4)', () => {
+    // It was blocked once, "so it feels like an app" — and nobody who
+    // needs larger text could have it. A viewport that forbids zoom is
+    // the whole of that mistake.
+    const viewport = html.match(/<meta[^>]*name="viewport"[^>]*>/)?.[0] ?? ''
+    expect(viewport).toMatch(/width=device-width/)
+    expect(viewport).not.toMatch(/user-scalable\s*=\s*(no|0)|maximum-scale/)
+  })
+
   it('shows something other than a blank page while the bundle loads', () => {
     expect(html).toMatch(/id="root"[\s\S]*Loading/)
   })

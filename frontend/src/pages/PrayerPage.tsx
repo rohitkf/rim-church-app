@@ -143,15 +143,16 @@ export function PrayerPage() {
                             on ? 'bg-primary text-on-primary' : 'text-on-surface hover:bg-raised'
                           }`}
                         >
-                          {/* Semibold on the blue: white on the dark theme's
-                              blue is 3.65:1, which the HIG passes for bold. */}
+                          {/* White on the blue is 4.7:1. The count's pill
+                              darkens the blue rather than lightening it,
+                              so the number under it keeps that. */}
                           <span className="min-w-0 flex-1">
                             <span className="block text-body-md font-semibold">{t.label}</span>
                             <span className={`block text-label-md ${on ? 'font-semibold' : 'text-on-surface-variant'}`}>{t.hint}</span>
                           </span>
                           <span
                             className={`min-w-7 rounded-full px-2 py-0.5 text-center font-mono text-label-sm tabular ${
-                              on ? 'bg-white/25 font-semibold' : 'bg-raised-strong text-on-surface-variant'
+                              on ? 'bg-black/20 font-semibold' : 'bg-raised-strong text-on-surface-variant'
                             }`}
                           >
                             {t.count}

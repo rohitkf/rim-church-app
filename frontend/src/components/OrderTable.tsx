@@ -90,7 +90,7 @@ export function OrderTable({
 
   return (
     <Tile padded={false} className="mt-3 overflow-hidden">
-      <TableScroll>
+      <TableScroll label="Registrations">
         <table aria-label="Registrations" className="w-full border-collapse text-left text-body-sm">
           <thead>
             <tr>

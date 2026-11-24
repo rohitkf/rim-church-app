@@ -424,7 +424,7 @@ export function ServicePlannerIndexPage() {
               return (
                 <div
                   key={cell.iso}
-                  className={`relative min-h-16 bg-surface-lowest p-1 sm:min-h-20 ${cell.inMonth ? '' : 'opacity-40'}`}
+                  className={`relative min-h-16 p-1 sm:min-h-20 ${cell.inMonth ? 'bg-surface-lowest' : 'bg-surface'}`}
                 >
                   {/* The whole square starts a service on that day. It is a
                       real button behind the content rather than a click
@@ -442,7 +442,7 @@ export function ServicePlannerIndexPage() {
                   )}
                   <div
                     className={`pointer-events-none relative z-10 mx-auto flex h-6 w-6 items-center justify-center rounded-full font-mono text-label-sm ${
-                      isToday ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+                      isToday ? 'bg-primary text-on-primary' : cell.inMonth ? 'text-on-surface-variant' : 'text-on-surface-faint'
                     }`}
                   >
                     {cell.day}

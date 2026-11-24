@@ -227,7 +227,7 @@ export function DbsCard() {
                 </dl>
                 {details.verified_at ? (
                   <p className="rounded-[var(--radius-row)] bg-status-coordinator/15 px-4 py-3 text-body-sm text-on-surface">
-                    <span className="font-semibold text-status-coordinator">Verified</span>
+                    <span className="font-semibold text-accent-green-soft">Verified</span>
                     {' '}on {dbsDate(details.verified_at)}
                     {details.verified_by_name ? ` by ${details.verified_by_name}` : ''}
                     {dbsChecksText(details) ? `: ${dbsChecksText(details)}.` : '.'}

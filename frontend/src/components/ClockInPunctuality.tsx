@@ -135,7 +135,7 @@ function Person({
             {/* Four weeks of somebody who serves most days is longer than a
                 phone: it scrolls inside itself with Day, Call, Clocked in
                 and Against call staying above it (lib/stickyHead.ts). */}
-            <TableScroll className="mt-2">
+            <TableScroll label="Arrivals" className="mt-2">
               <table className="w-full min-w-[18rem] text-left text-body-sm">
                 <thead className="font-mono text-label-sm text-on-surface-faint">
                   <tr>

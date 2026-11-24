@@ -38,6 +38,71 @@ function tint(color: string, pct: number): string {
   return `rgb(${r} ${g} ${b} / ${pct / 100})`
 }
 
+/** WCAG relative luminance of an sRGB colour, 0 (black) to 1 (white). */
+function luminanceOf([r, g, b]: [number, number, number]): number {
+  const lin = (v: number) => {
+    const c = v / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
+function contrast(a: [number, number, number], b: [number, number, number]): number {
+  const [hi, lo] = [luminanceOf(a), luminanceOf(b)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+/** `color` laid over `ground` at `alpha`, as the eye sees it. */
+function over(color: [number, number, number], ground: [number, number, number], alpha: number): [number, number, number] {
+  return [0, 1, 2].map((i) => color[i] * alpha + ground[i] * (1 - alpha)) as [number, number, number]
+}
+
+/*
+ * The quietest text that sits on a washed row (on-surface-faint) and the
+ * tile it sits on, in each theme — from index.css. A wash is only as
+ * strong as lets that text keep 4.5:1 in both, so a yellow team's row is
+ * washed more lightly than an indigo one's, and a meaning never drops out
+ * of a row because of the colour a team picked.
+ */
+const FAINT_ON_TILE = {
+  dark: [channels('#98989d'), channels('#141418')],
+  light: [channels('#68686d'), channels('#ffffff')],
+} as const
+
+/** The strongest wash, up to `ceiling`, that keeps faint text readable on it in one theme. */
+function washStrength(color: string, ceiling: number, theme: 'dark' | 'light'): number {
+  const c = channels(color)
+  const [ink, tile] = FAINT_ON_TILE[theme]
+  let alpha = ceiling
+  while (alpha > 0.04 && contrast(ink, over(c, tile, alpha)) < 4.5) alpha = Math.round((alpha - 0.01) * 100) / 100
+  return alpha
+}
+
+/*
+ * A wash's strength differs by theme — a colour that darkens a white row
+ * too far is fine on a black one, and the other way round — so it is
+ * carried as two pairs of custom properties, and index.css ("Team
+ * washes") hands the gradient whichever pair the theme on <html> needs.
+ * The gradient itself stays rgb(r g b / a), as every engine parses.
+ */
+function washVars(color: string, high: number, low: number): CSSProperties {
+  const kd = washStrength(color, high, 'dark') / high
+  const kl = washStrength(color, high, 'light') / high
+  const round = (n: number) => Math.round(n * 100) / 100
+  return {
+    ['--team-wash-hi-dark' as string]: round(high * kd),
+    ['--team-wash-lo-dark' as string]: round(low * kd),
+    ['--team-wash-hi-light' as string]: round(high * kl),
+    ['--team-wash-lo-light' as string]: round(low * kl),
+  } as CSSProperties
+}
+
+/** The team's colour at whatever strength the theme's wash allows. */
+function washStop(color: string, end: 'hi' | 'lo'): string {
+  const [r, g, b] = channels(color)
+  return `rgb(${r} ${g} ${b} / var(--team-wash-${end}))`
+}
+
 /** The team's colour, whatever shape it arrived in. */
 export function teamColorOf(color: string | null | undefined): string {
   return normaliseHex(color) ?? DEFAULT_DEPT_COLOR
@@ -55,7 +120,8 @@ export function teamWash(
   if (style !== 'gradient') return undefined
   const c = teamColorOf(color)
   return {
-    backgroundImage: `linear-gradient(100deg, ${tint(c, 30)} 0%, ${tint(c, 10)} min(46%, 260px), transparent min(100%, 560px))`,
+    ...washVars(c, 0.3, 0.1),
+    backgroundImage: `linear-gradient(100deg, ${washStop(c, 'hi')} 0%, ${washStop(c, 'lo')} min(46%, 260px), transparent min(100%, 560px))`,
     boxShadow: `inset 0 0 0 1px ${tint(c, 28)}`,
   }
 }
@@ -68,7 +134,8 @@ export function teamWashSoft(
   if (style !== 'gradient') return undefined
   const c = teamColorOf(color)
   return {
-    backgroundImage: `linear-gradient(100deg, ${tint(c, 28)} 0%, ${tint(c, 7)} min(52%, 300px), transparent min(100%, 620px))`,
+    ...washVars(c, 0.28, 0.07),
+    backgroundImage: `linear-gradient(100deg, ${washStop(c, 'hi')} 0%, ${washStop(c, 'lo')} min(52%, 300px), transparent min(100%, 620px))`,
   }
 }
 
@@ -85,14 +152,16 @@ export function teamFill(color: string | null | undefined, angle = 140): CSSProp
 }
 
 /**
- * Black ink on a light colour, white on a dark one, so two letters survive
- * yellow as well as indigo.
+ * White on a colour that carries it at 4.5:1, dark ink on any other, so
+ * two letters survive yellow as well as indigo. Judged by WCAG contrast,
+ * not by how bright the colour looks: a mid red or purple looks dark and
+ * still carries white at under 4:1.
  */
 export function inkOn(color: string | null | undefined): string {
-  const hex = teamColorOf(color)
-  const n = parseInt(hex.slice(1), 16)
-  const luminance = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)
-  return luminance > 150 ? 'rgb(0 0 0 / 0.8)' : '#ffffff'
+  const c = channels(teamColorOf(color))
+  const white = contrast([255, 255, 255], c)
+  const dark = contrast(over([0, 0, 0], c, 0.8), c)
+  return white >= 4.5 || white >= dark ? '#ffffff' : 'rgb(0 0 0 / 0.8)'
 }
 
 /** The avatar tile: a tint behind coloured letters, or the colour itself. */

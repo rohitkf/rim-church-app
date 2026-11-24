@@ -8,10 +8,10 @@ export const statusLabel: Record<ChecklistItemStatus, string> = {
 }
 
 const statusBadgeClasses: Record<ChecklistItemStatus, string> = {
-  pending: 'bg-status-pending/15 text-status-pending',
-  member_complete: 'bg-status-member/15 text-status-member',
-  head_verified: 'bg-status-head/15 text-status-head',
-  coordinator_verified: 'bg-status-coordinator/15 text-status-coordinator',
+  pending: 'bg-status-pending/15 text-on-surface-variant',
+  member_complete: 'bg-status-member/15 text-accent-indigo-soft',
+  head_verified: 'bg-status-head/15 text-accent-blue-soft',
+  coordinator_verified: 'bg-status-coordinator/15 text-accent-green-soft',
 }
 
 export function StatusBadge({ status }: { status: ChecklistItemStatus }) {
@@ -62,13 +62,13 @@ export function SegmentedProgressBar({
       {showLegend && (
       <div className="mt-3 flex flex-wrap gap-4 font-mono text-label-sm text-on-surface-variant">
         <span>
-          <span className="text-status-coordinator">{Math.round(pct(coordinatorVerified))}%</span> Verified
+          <span className="text-accent-green-soft">{Math.round(pct(coordinatorVerified))}%</span> Verified
         </span>
         <span>
-          <span className="text-status-head">{Math.round(pct(headVerified))}%</span> Checked
+          <span className="text-accent-blue-soft">{Math.round(pct(headVerified))}%</span> Checked
         </span>
         <span>
-          <span className="text-status-pending">{Math.round(pct(pending))}%</span> Pending
+          <span className="text-on-surface-variant">{Math.round(pct(pending))}%</span> Pending
         </span>
       </div>
       )}

@@ -1906,6 +1906,24 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   icons, the favicon (Vite's own until then) and `offline.html` match
   it. The greeting, the pills, the washes and the radii were left as
   the Owner chose them.
+  A third pass (24 November 2026, "run impeccable audit on every page
+  too", then "fix everything the audit finds") ran axe-core and the
+  detector over CDP on all 63 routes plus the signed-out ones, dark and
+  light, at 1280 and 390 (`detect --cdp <port> --json` against the
+  verify preview reads the page as drawn, which the file scan cannot).
+  What it changed: the blue under white text is `primary` `#0071e3`
+  (white on `#0a84ff` is 3.64:1 and was on every page); the page can be
+  zoomed (the Owner's word: WCAG 1.4.4 over "feels like an app"); a link
+  inside a sentence is underlined; a paragraph stops at 75ch with
+  `text-wrap: pretty`; body-lg is 17/23; team washes are worked out per
+  colour and theme so faint text on them keeps 4.5:1, and `inkOn` picks
+  by WCAG contrast; a toned segment on dark says its colour with a dot;
+  scroll boxes for tables are focusable, labelled regions; no heading
+  level is skipped. **Kept, at the Owner's word or as this system's own
+  shape:** the ambient wash (the detector's "radial halo"), panels
+  nested in tiles, a calendar's repeated day text, and the em dashes of
+  the house voice. The detector's "AI palette" was the fixtures' purple
+  team colour, not the app's.
 - **Long, repetitive output goes through `scripts/hr`, every time.** The
   Owner asked for Headroom to be installed and "always" used (23
   November 2026). Headroom makes what a model is sent smaller, and

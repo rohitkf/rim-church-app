@@ -156,7 +156,7 @@ export function PageTeamAccess({
                 <div className="px-3.5 pb-3">
                   {/* Scrolls inside itself, both ways, so the roles stay
                       above the rules however many there are (lib/stickyHead.ts). */}
-                  <TableScroll className="-mx-2 px-2">
+                  <TableScroll label="Team rules" className="-mx-2 px-2">
                     <table className="w-full min-w-[30rem] border-collapse text-body-sm">
                       <thead>
                         <tr>

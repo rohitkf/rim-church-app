@@ -16,7 +16,7 @@ export function DragHandle({
     <button
       type="button"
       aria-label={`Reorder ${label}. Hold to drag, or use the arrow keys.`}
-      className={`tap-square shrink-0 cursor-grab select-none rounded-[var(--radius-chip)] px-1.5 text-on-surface-faint hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary active:cursor-grabbing ${className}`}
+      className={`tap-square inline-flex min-h-6 min-w-6 shrink-0 cursor-grab select-none items-center justify-center rounded-[var(--radius-chip)] px-1.5 text-on-surface-faint hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary active:cursor-grabbing ${className}`}
       {...props}
     >
       {/* Two columns of dots: the grip every list on every platform uses,

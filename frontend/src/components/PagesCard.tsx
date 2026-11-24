@@ -514,7 +514,7 @@ function PageSection({
                       {/* Nine columns will not fit a phone; it scrolls inside
                           itself, both ways, and the roles stay above the
                           rules as it does (lib/stickyHead.ts). */}
-                      <TableScroll className="mt-2 -mx-2 px-2">
+                      <TableScroll label="Who may do what on this page" className="mt-2 -mx-2 px-2">
                         <table className="w-full min-w-[54rem] border-collapse text-body-sm">
                           <thead>
                             <tr>

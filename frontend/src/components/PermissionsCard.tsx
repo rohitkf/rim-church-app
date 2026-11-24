@@ -64,7 +64,7 @@ const ANSWER: Record<Allowed, { label: string; tone: 'green' | 'blue' | 'neutral
 export function Cell({ value }: { value: Allowed }) {
   if (value === 'yes') {
     return (
-      <span className="text-success" aria-label="Yes">
+      <span className="text-success" role="img" aria-label="Yes">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <path
             d="M3.5 8.5l3 3 6-7"
@@ -478,7 +478,7 @@ export function PermissionsCard({ areas = PERMISSIONS }: { areas?: PermissionAre
                       Team Head's must still be readable at the eighteenth
                       (lib/stickyHead.ts). */}
                   {rows.length > 0 && (
-                    <TableScroll className="mt-2 -mx-2 px-2">
+                    <TableScroll label="Who may do what" className="mt-2 -mx-2 px-2">
                       <table
                         className={`w-full border-collapse text-body-sm ${editing ? 'min-w-[50rem]' : 'min-w-[42rem]'}`}
                       >
