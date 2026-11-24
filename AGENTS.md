@@ -1877,7 +1877,10 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   palette, the type and the layout. `impeccable`'s detector is the
   mechanical half: `.claude/skills/impeccable/skills/impeccable/scripts/impeccable
   detect --json frontend/src` (it was four findings and is one: the
-  dashed label strip on the stage plan, which is a drawing). Three things
+  dashed label strip on the stage plan, which is a drawing). It is at
+  4.10.0 (24 November 2026), which adds `foundations`, a checklist of a
+  project's basics; its one "secret" here is Svix's published example in
+  a test, not a key (`SOURCE.md` says more). Three things
   both skills call tells were **this design system's own choices**, so
   they were put to the Owner rather than changed: the small capital label
   above a page title, capitals on labels and pills, and the Dashboard's
