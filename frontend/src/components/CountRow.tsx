@@ -21,7 +21,9 @@ export function CountRow({ counts, label, className = 'mt-4' }: { counts: Count[
     <dl className={`grid gap-2 ${columns} ${className}`} aria-label={label}>
       {counts.map((c) => (
         <div key={c.label} className="min-w-0 rounded-[var(--radius-row)] bg-raised px-3 py-2 hairline">
-          <dt className="truncate font-mono text-label-sm text-on-surface-faint">
+          {/* The secondary ink, not the faint one: these boxes sit inside a
+              washed team row, where faint came out at 4.3:1. */}
+          <dt className="truncate font-mono text-label-sm text-on-surface-variant">
             {c.label}
           </dt>
           <dd

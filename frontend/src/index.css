@@ -263,7 +263,9 @@
   --color-accent-orange: #ff9500;
   --color-accent-orange-soft: #a24a00;
   --color-accent-red: #d70015;
-  --color-accent-red-soft: #c9271e;
+  /* #c9271e was 5.5:1 on white but 4.2 on a red tint (a warning, a
+     danger button); this clears 4.8 on both. */
+  --color-accent-red-soft: #b8231b;
   --color-accent-indigo: #5856d6;
   --color-accent-indigo-soft: #4340b5;
   --color-accent-teal: #30b0c7;
@@ -276,7 +278,7 @@
   --color-error: #d70015;
   --color-on-error: #ffffff;
   --color-error-container: rgb(215 0 21 / 0.1);
-  --color-on-error-container: #c9271e;
+  --color-on-error-container: #b8231b;
 
   --color-status-pending: rgb(0 0 0 / 0.16);
   --color-status-member: #5856d6;

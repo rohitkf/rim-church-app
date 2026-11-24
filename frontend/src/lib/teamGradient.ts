@@ -77,7 +77,8 @@ function washStrength(color: string, ceiling: number, theme: 'dark' | 'light'): 
   const c = channels(color)
   const [ink, tile] = FAINT_ON_TILE[theme]
   let alpha = ceiling
-  while (alpha > 0.04 && contrast(ink, over(c, tile, alpha)) < 4.5) alpha = Math.round((alpha - 0.01) * 100) / 100
+  // 4.6, not 4.5: a row's ground varies by a shade with what it sits in.
+  while (alpha > 0.04 && contrast(ink, over(c, tile, alpha)) < 4.6) alpha = Math.round((alpha - 0.01) * 100) / 100
   return alpha
 }
 
