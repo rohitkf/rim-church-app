@@ -10,7 +10,8 @@ const STAGES = [
     on: 'member_complete' as ChecklistItemStatus,
     off: 'pending' as ChecklistItemStatus,
     colour: 'border-status-member bg-status-member',
-    text: 'text-status-member',
+    text: 'text-accent-indigo-soft',
+    chip: 'bg-status-member/10 text-accent-indigo-soft',
   },
   {
     key: 'head' as const,
@@ -21,7 +22,8 @@ const STAGES = [
     on: 'head_verified' as ChecklistItemStatus,
     off: 'member_complete' as ChecklistItemStatus,
     colour: 'border-status-head bg-status-head',
-    text: 'text-status-head',
+    text: 'text-accent-blue-soft',
+    chip: 'bg-status-head/10 text-accent-blue-soft',
   },
   {
     key: 'sign' as const,
@@ -31,7 +33,8 @@ const STAGES = [
     on: 'coordinator_verified' as ChecklistItemStatus,
     off: 'head_verified' as ChecklistItemStatus,
     colour: 'border-status-coordinator bg-status-coordinator',
-    text: 'text-status-coordinator',
+    text: 'text-accent-green-soft',
+    chip: 'bg-status-coordinator/10 text-accent-green-soft',
   },
 ]
 
@@ -118,7 +121,7 @@ export function ChecklistStageLegend({ className = '' }: { className?: string })
       {STAGES.map((stage) => (
         <li key={stage.key} className="flex items-start gap-2.5">
           <span
-            className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 font-mono text-label-sm text-white ${stage.colour}`}
+            className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 font-mono text-label-sm ${stage.chip}`}
           >
             {stage.label}
           </span>

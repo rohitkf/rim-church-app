@@ -226,7 +226,7 @@ export function AppLogoCard() {
             aria-label="That file is too big"
             className="w-full max-w-sm rounded-[var(--radius-shell)] bg-surface-lowest p-7 shadow-[var(--shadow-lifted)] ring-1 ring-black/10 dark:ring-white/12"
           >
-            <h3 className="text-headline-md">That file is too big</h3>
+            <h2 className="text-headline-md">That file is too big</h2>
             <p className="mt-2 text-body-sm text-on-surface-variant">
               <strong className="font-medium text-on-surface">{tooBig.name}</strong> is{' '}
               {megabytes(tooBig.size)}, and the limit is {limitText(MAX_BYTES)}. A logo exported at a
@@ -278,7 +278,7 @@ function InstalledIcon({ logoPath }: { logoPath: string | null }) {
   const behind = !!logoPath && status.loaded && !status.current
   return (
     <div className="mt-6 border-t border-border-subtle pt-5">
-      <h3 className="text-body-md font-medium text-on-surface">The installed app’s icon</h3>
+      <h2 className="text-body-md font-medium text-on-surface">The installed app’s icon</h2>
       <div className="mt-3 flex items-start gap-4">
         <img
           // The church's own when it is made; the app's own until then, and with no logo.

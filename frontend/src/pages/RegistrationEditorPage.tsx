@@ -433,7 +433,8 @@ function DatesEditor({ draft, set }: { draft: EventDraft; set: (patch: Partial<E
       )}
       <ul className="flex flex-col gap-3">
         {draft.dates.map((d, i) => (
-          <li key={i} role="group" aria-label={`Date ${i + 1}`} className="flex flex-col gap-2 rounded-[var(--radius-row)] p-3 hairline">
+          <li key={i}>
+          <div role="group" aria-label={`Date ${i + 1}`} className="flex flex-col gap-2 rounded-[var(--radius-row)] p-3 hairline">
             <div className="flex flex-wrap items-end gap-3">
               <Field label={`Date ${i + 1}`}>
                 <DateField value={d.date} onChange={(date) => setDate(i, { date })} label={`Date ${i + 1}`} />
@@ -461,6 +462,7 @@ function DatesEditor({ draft, set }: { draft: EventDraft; set: (patch: Partial<E
                 Remove this date
               </button>
             )}
+          </div>
           </li>
         ))}
       </ul>
@@ -625,7 +627,8 @@ function AgendaItemEditor({
 }) {
   const quiet = 'tap rounded-full px-2.5 py-1 text-label-md text-on-surface-variant hover:bg-raised hover:text-on-surface disabled:opacity-40 disabled:hover:bg-transparent'
   return (
-    <li role="group" aria-label={`Agenda item ${n}`} className="flex flex-col gap-3 rounded-[var(--radius-row)] p-3 hairline">
+    <li>
+    <div role="group" aria-label={`Agenda item ${n}`} className="flex flex-col gap-3 rounded-[var(--radius-row)] p-3 hairline">
       <div className="flex flex-wrap items-end gap-3">
         <Field label={`Item ${n}`} className="min-w-48 flex-[2]">
           <input
@@ -676,6 +679,7 @@ function AgendaItemEditor({
           Remove
         </button>
       </div>
+    </div>
     </li>
   )
 }
@@ -686,7 +690,8 @@ function TicketTypesEditor({ types, onChange }: { types: TicketTypeDraft[]; onCh
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-3">
         {types.map((t, i) => (
-          <li key={t.id} role="group" aria-label={`Ticket ${i + 1}`} className="flex flex-col gap-3 rounded-[var(--radius-row)] p-3 hairline">
+          <li key={t.id}>
+          <div role="group" aria-label={`Ticket ${i + 1}`} className="flex flex-col gap-3 rounded-[var(--radius-row)] p-3 hairline">
             <div className="flex flex-wrap items-end gap-3">
               <Field label="Name" className="min-w-40 flex-1">
                 <input value={t.name} onChange={(e) => setType(i, { name: e.target.value })} placeholder="General admission" maxLength={100} className={inputClasses} />
@@ -723,6 +728,7 @@ function TicketTypesEditor({ types, onChange }: { types: TicketTypeDraft[]; onCh
                 Remove this ticket type
               </button>
             )}
+          </div>
           </li>
         ))}
       </ul>
@@ -740,7 +746,8 @@ function PromoCodesEditor({ promos, types, onChange }: { promos: PromoDraft[]; t
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-3">
         {promos.map((p, i) => (
-          <li key={i} role="group" aria-label={`Promo code ${i + 1}`} className="flex flex-col gap-3 rounded-[var(--radius-row)] p-3 hairline">
+          <li key={i}>
+          <div role="group" aria-label={`Promo code ${i + 1}`} className="flex flex-col gap-3 rounded-[var(--radius-row)] p-3 hairline">
             <div className="flex flex-wrap items-end gap-3">
               <Field label="Code">
                 <input
@@ -820,6 +827,7 @@ function PromoCodesEditor({ promos, types, onChange }: { promos: PromoDraft[]; t
                 Remove this code
               </button>
             </div>
+          </div>
           </li>
         ))}
       </ul>
@@ -1039,7 +1047,8 @@ function PaymentEditor({ draft, set }: { draft: EventDraft; set: (patch: Partial
       <FieldGroup label="This event’s own bank account (optional)">
         <ul className="flex flex-col gap-3">
           {draft.paymentAccounts.map((a, i) => (
-            <li key={i} role="group" aria-label={`Bank account ${i + 1}`} className="grid grid-cols-1 gap-2 rounded-[var(--radius-row)] p-3 hairline sm:grid-cols-2">
+            <li key={i}>
+            <div role="group" aria-label={`Bank account ${i + 1}`} className="grid grid-cols-1 gap-2 rounded-[var(--radius-row)] p-3 hairline sm:grid-cols-2">
               <Field label="Label">
                 <input value={a.label} onChange={(e) => setAccount(i, { label: e.target.value })} placeholder="Conference account" maxLength={60} className={inputClasses} />
               </Field>
@@ -1061,6 +1070,7 @@ function PaymentEditor({ draft, set }: { draft: EventDraft; set: (patch: Partial
               <button type="button" onClick={() => set({ paymentAccounts: draft.paymentAccounts.filter((_, j) => j !== i) })} className="tap justify-self-end text-label-md text-on-surface-faint hover:text-error hover:underline sm:col-span-2">
                 Remove this account
               </button>
+            </div>
             </li>
           ))}
         </ul>

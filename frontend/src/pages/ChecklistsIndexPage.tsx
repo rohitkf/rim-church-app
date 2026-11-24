@@ -572,7 +572,7 @@ export function ChecklistsIndexPage() {
                                     </span>
                                   )}
                                   {rank === 2 && (
-                                    <span className="rounded-full bg-status-coordinator/15 px-2 py-0.5 font-mono text-label-sm text-status-coordinator">
+                                    <span className="rounded-full bg-status-coordinator/15 px-2 py-0.5 font-mono text-label-sm text-accent-green-soft">
                                       {may.sign ? 'For your sign-off' : 'Sign-off team view'}
                                     </span>
                                   )}

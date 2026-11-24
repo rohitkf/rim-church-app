@@ -120,7 +120,7 @@ async function fetchDepartmentGrants(departmentId: string): Promise<DepartmentGr
 
 /** The pill's colours for each standing (0324): green only for a DBS somebody has checked. */
 const DBS_PILL: Record<DbsStanding, string> = {
-  verified: 'bg-status-coordinator/15 text-status-coordinator',
+  verified: 'bg-status-coordinator/15 text-accent-green-soft',
   check: 'bg-raised-strong text-on-surface',
   details: 'bg-raised-strong text-on-surface-variant',
   none: 'bg-error-container text-on-error-container',
@@ -967,7 +967,7 @@ export function DepartmentDetailPage() {
                   </li>
                 ))}
                 {guestMembers.length === 0 && rollGuests.length === 0 && (
-                  <p className="text-body-sm text-on-surface-variant">No guests yet.</p>
+                  <li className="text-body-sm text-on-surface-variant">No guests yet.</li>
                 )}
               </ul>
             </QueryState>

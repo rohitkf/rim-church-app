@@ -30,7 +30,7 @@ export function AuthCard({
         <div className="flex items-center gap-3">
           <span
             aria-hidden="true"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-accent-blue font-mono text-[13px] font-semibold text-white"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-primary font-mono text-[13px] font-semibold text-white"
           >
             RIM
           </span>

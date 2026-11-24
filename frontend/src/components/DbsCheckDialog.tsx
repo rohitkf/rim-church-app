@@ -148,7 +148,7 @@ export function DbsCheckDialog({
             <div className="mt-4 flex flex-col gap-5">
               {details.verified_at ? (
                 <p className="rounded-[var(--radius-row)] bg-status-coordinator/15 px-4 py-3 text-body-sm text-on-surface">
-                  <span className="font-semibold text-status-coordinator">Verified</span> on {dbsMoment(details.verified_at)}
+                  <span className="font-semibold text-accent-green-soft">Verified</span> on {dbsMoment(details.verified_at)}
                   {details.verified_by_name ? ` by ${details.verified_by_name}` : ''}
                   {dbsChecksText(details) ? `: ${dbsChecksText(details)}.` : '.'}
                 </p>
@@ -209,7 +209,7 @@ export function DbsCheckDialog({
                   <p className="mt-1">
                     See the original certificate and {first}’s photo ID first: GOV.UK asks you to confirm you have. Then
                     run a status check on the{' '}
-                    <a href={UPDATE_SERVICE_URL} target="_blank" rel="noreferrer" className="font-medium text-primary underline">
+                    <a href={UPDATE_SERVICE_URL} target="_blank" rel="noreferrer" className="font-medium text-accent-blue-soft underline">
                       DBS Update Service
                     </a>{' '}
                     with the certificate number, the surname as above and the date of birth. It is free.

@@ -164,8 +164,8 @@ function initialsOf(v: { first_name: string; last_name: string }): string {
 }
 
 const designationClass: Record<string, string> = {
-  [ROLE_NAME.head]: 'bg-status-head/15 text-status-head',
-  [ROLE_NAME.assistant]: 'bg-status-coordinator/15 text-status-coordinator',
+  [ROLE_NAME.head]: 'bg-status-head/15 text-accent-blue-soft',
+  [ROLE_NAME.assistant]: 'bg-status-coordinator/15 text-accent-green-soft',
   [ROLE_NAME.member]: 'bg-surface-container text-on-surface-variant',
 }
 

@@ -147,6 +147,9 @@ export function AppShell() {
         */}
         <Link
           to="/"
+          // The name is hidden below xl, and the mark is decoration, so the
+          // link says where it goes itself.
+          aria-label="Home"
           className="tap flex shrink-0 items-center gap-2.5 rounded-full transition-opacity duration-200 ease-[var(--ease-glide)] hover:opacity-80"
         >
           <AppMark />

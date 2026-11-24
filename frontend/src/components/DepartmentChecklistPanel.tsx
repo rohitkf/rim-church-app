@@ -92,6 +92,10 @@ export function DepartmentChecklistPanel({
   const myId = session?.user.id
   const queryClient = useQueryClient()
 
+  // The panel's own sections sit straight under the page's title, or under
+  // the team's name when it shows one — a heading level is never skipped.
+  const Section = showDepartmentName ? 'h3' : 'h2'
+
   const roleAllowsCoordinatorVerify = useServiceFlowSigner(serviceId)
   // Whoever the rota has coordinating this team at this service stands in
   // for the Head on it — see useTeamCoordinator.
@@ -238,7 +242,7 @@ export function DepartmentChecklistPanel({
       {(showDepartmentName || handbookQuery.data) && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           {showDepartmentName ? (
-            <h3 className="text-headline-md">{deptQuery.data?.name}</h3>
+            <h2 className="text-headline-md">{deptQuery.data?.name}</h2>
           ) : (
             <span />
           )}
@@ -278,7 +282,7 @@ export function DepartmentChecklistPanel({
 
       <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
         <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
-          <h4 className="text-headline-md">Before the service</h4>
+          <Section className="text-headline-md">Before the service</Section>
 
           {checklistIdQuery.data === null && !checklistIdQuery.isLoading && (
             <div className="mt-4">
@@ -448,7 +452,7 @@ export function DepartmentChecklistPanel({
 
         <div className="flex flex-col gap-6">
           <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
-            <h4 className="text-headline-md">Team readiness</h4>
+            <Section className="text-headline-md">Team readiness</Section>
             <div className="mt-4">
               <SegmentedProgressBar
                 total={items.length}

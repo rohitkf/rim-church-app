@@ -2158,7 +2158,7 @@ export function ServicePlannerPage() {
                 <Panel title="Needs attention" tone="warning">
                   <ul className="flex flex-col gap-2.5">
                     {unassignedSessions.map((session) => (
-                      <Row key={session.id} variant="inset">
+                      <Row key={session.id} as="li" variant="inset">
                         <span
                           aria-hidden="true"
                           className="h-2 w-2 shrink-0 rounded-full bg-accent-orange"

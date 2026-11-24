@@ -1011,7 +1011,7 @@ export function EventsPage() {
               return (
                 <div
                   key={cell.iso}
-                  className={`relative min-h-14 bg-surface-lowest p-1 sm:min-h-20 ${cell.inMonth ? '' : 'opacity-40'}`}
+                  className={`relative min-h-14 p-1 sm:min-h-20 ${cell.inMonth ? 'bg-surface-lowest' : 'bg-surface'}`}
                 >
                   {/* Tapping a square adds an event on that day. A real
                       button behind the square rather than a handler on it,
@@ -1027,7 +1027,7 @@ export function EventsPage() {
                   )}
                   <div
                     className={`pointer-events-none relative z-10 mx-auto flex h-6 w-6 items-center justify-center rounded-full font-mono text-label-sm ${
-                      cell.iso === today ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+                      cell.iso === today ? 'bg-primary text-on-primary' : cell.inMonth ? 'text-on-surface-variant' : 'text-on-surface-faint'
                     }`}
                   >
                     {cell.day}

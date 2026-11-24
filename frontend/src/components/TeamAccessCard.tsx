@@ -210,7 +210,7 @@ export function TeamAccessCard() {
                         {/* The table alone scrolls, both ways, with the roles
                             staying above it; the link under it stays put
                             (lib/stickyHead.ts). */}
-                        <TableScroll>
+                        <TableScroll label="Team rules">
                         <table className="w-full min-w-[22rem] border-collapse text-body-sm">
                           <thead>
                             <tr>

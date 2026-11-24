@@ -76,11 +76,15 @@ Everything else carries a fixed meaning and nothing else.
 
 | Token | Meaning |
 |---|---|
-| `accent-blue` `#0a84ff` | the action, the live thing, the current page |
+| `accent-blue` `#0a84ff` | the live thing, a dot, a bar, a focus ring — never under text |
 | `accent-green` `#30d158` | done, signed off, available, in service |
 | `accent-orange` `#ff9f0a` | waiting on someone, needs attention |
 | `accent-red` `#ff453a` | refused, missing, unanswered |
 | `accent-indigo` `#5e5ce6` | the assistant, and the first checklist stage |
+
+A blue that white sits on — a button, the current tab, the dock's own
+page — is `primary`, `#0071e3` in both themes: 4.7:1 under white, where
+`#0a84ff` is 3.64:1.
 
 Each has a `-soft` variant for **text**: `#0a84ff` on `#141418` is legible
 as a fill but not as a sentence, and `#34c759` on white is not legible at
@@ -188,7 +192,7 @@ system font tracks itself by size, and a value on top of that doubles it.
 | `text-headline-lg` | Title 1 | 28/34 bold | a hero tile's subject |
 | `text-headline-md` | Title 2 | 22/28 bold | a section heading |
 | `text-headline-sm` | Title 3 | 20/25 semibold | a dialog's title |
-| `text-body-lg` | Body | 17/22 | a page's opening sentence, a row's title |
+| `text-body-lg` | Body | 17/23 | a page's opening sentence, a row's title |
 | `text-body-md` | Callout | 16/21 | an input |
 | `text-body-sm` | Subheadline | 15/20 | the app's ordinary text |
 | `text-label-md` | — | 14/19 medium | buttons, links |
@@ -198,6 +202,23 @@ system font tracks itself by size, and a value on top of that doubles it.
 **Nothing is set under 11px** — the HIG's floor; a keycap sits on it, and a `Pill` and a label are a step above at 12.
 Buttons are semibold, as the platform's are. Use `tabular` on any number
 that changes, or the layout twitches as it updates.
+
+Three rules that hold for every paragraph, set once in `index.css` so no
+page has to remember them:
+
+- **A paragraph stops at about 75 letters** (`60ch`). A Settings card on a desk is
+  150 across, and the eye loses its line coming back. `max-w-*` on the
+  element still wins; a centred or right-set paragraph is left alone.
+- **`text-wrap: pretty`** on paragraphs and list items, so a sentence never ends on one word alone.
+- **A link inside a sentence is underlined**, quietly, full strength on
+  hover — its colour alone is not enough to find it (WCAG 1.4.1). A link
+  styled as a button or a pill brings its own shape and is left out.
+
+And **pinch-to-zoom is each person's choice.** It is off by default, so
+the app holds still the way an app does, and a switch in the account
+menu (and in Settings › Appearance) turns it on for that browser
+(`lib/pageZoom`): someone who cannot read 15px can make it larger. The
+stage plan, the family graph and the map keep their own pinch either way.
 
 ---
 
@@ -256,8 +277,11 @@ the same on each:
   **tabs** (`kind="tab"`) is the one exception to
   the grey plate: the tab you are on is filled with the blue the dock uses
   for the current page, white semibold on it, so where you are reads from
-  across the room. An answer inside a form keeps the plate. An answer that carries a meaning of its own (Yes, No) colours its
-  label with `tone`, and only then. The Availability Yes/Maybe/No is the
+  across the room. An answer inside a form keeps the plate. An answer that carries a meaning of its own (Yes, No) says it
+  with `tone`, and only then: a small dot of the colour before the label,
+  and the label itself in the `-soft` colour on light. On dark's grey
+  plate no colour of text clears 4.5:1, so there the label stays white
+  and the dot says it alone. The Availability Yes/Maybe/No is the
   one that stands taller (44px), because it is tapped standing up.
 - **On or off** is the `Switch`, and a switch lives in a row with its
   label, never on its own.
@@ -267,9 +291,10 @@ the same on each:
   is a 44pt target without anything moving. Nothing to add per component;
   `tap` is still how a control is made to *look* 44 tall where it should.
   Links inside a paragraph are left out, so the words beside them stay
-  words. And a button with white on a colour is semibold: white on the
-  dark theme's blue is 3.65:1, which the HIG passes for bold text only —
-  and white never goes on green (2:1); green carries `accent-green-ink`.
+  words. White on the blue (`primary`, #0071e3 in both themes) is 4.7:1,
+  so a blue button passes at any weight; the brighter #0a84ff stays as
+  `accent-blue` for dots, bars and rings and never carries text. White
+  never goes on green (2:1); green carries `accent-green-ink`.
 
 Two rules about overlays. Everything that covers the page goes through
 `Overlay`, which portals to `document.body` — a `fixed` child is measured
@@ -305,7 +330,7 @@ the full choice in the account menu. Stored per browser, read through
   row stays neutral and only what needs a person is coloured.
 
 Every recipe lives in `lib/teamGradient.ts` and derives from the one chosen
-colour, so nothing new has to be picked when a team is created. Four rules
+colour, so nothing new has to be picked when a team is created. Five rules
 hold it together:
 
 1. **Alpha is written as `rgb(r g b / a)`, not built with `color-mix`.** A
@@ -317,7 +342,14 @@ hold it together:
    to keep in sync.
 3. **`teamWash` returns `undefined` in dot mode**, so a caller can spread
    it unconditionally and keep its classes.
-4. **Attention still outranks identity.** A team that owes answers keeps
+4. **The wash never costs the row its words.** Faint text has to keep
+   4.5:1 on the strongest part of the wash, so `teamWash` works out each
+   colour's strength for each theme — a yellow that is fine on white is
+   cut on black, an indigo the other way round — and carries both as
+   custom properties; `index.css` ("Team washes") picks the pair for the
+   theme. Ink on a team colour (`inkOn`) is whichever of white or near-black
+   reads better by WCAG's own sum, so a bright red or purple gets dark ink.
+5. **Attention still outranks identity.** A team that owes answers keeps
    its amber row; an empty rota keeps its dashed outline. The wash is who,
    not what needs doing — and where the two would compete, what needs doing
    wins.

@@ -1,8 +1,8 @@
 import { StrictMode } from 'react'
 import { applyTheme, readThemePreference } from './lib/theme'
+import { applyPageZoom, readPageZoom } from './lib/pageZoom'
 import { initPwa, isStandalone } from './lib/pwa'
 import { noteAtStart } from './lib/installedIdentity'
-import { stopPageZoom } from './lib/noPageZoom'
 import { pointPageAtPublishedIcons } from './lib/appIcon'
 import { installErrorReporting } from './lib/clientErrors'
 import { createRoot } from 'react-dom/client'
@@ -10,6 +10,9 @@ import './index.css'
 import App from './App.tsx'
 
 applyTheme(readThemePreference())
+
+// Pinch-zoom is off unless this browser's person turned it on (lib/pageZoom).
+applyPageZoom(readPageZoom())
 
 // What nothing else catches — an error in a timer or a handler, a promise
 // nobody awaited — is told to the church (lib/clientErrors, 0284). First,
@@ -25,9 +28,6 @@ initPwa()
 // one that was in use already? Only the second can be wearing an old icon
 // (lib/installedIdentity), and only now can the two be told apart.
 noteAtStart(isStandalone())
-
-// No pinch-zooming the page on an iPhone (lib/noPageZoom).
-stopPageZoom()
 
 // The tab's icon and the one an iPhone takes for its Home Screen are the
 // church's logo when it has one (lib/appIcon). For everybody, signed in or

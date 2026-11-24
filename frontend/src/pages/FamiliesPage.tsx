@@ -191,7 +191,7 @@ function AllFamilies({
                     className="tap flex items-center justify-between gap-3 rounded-[var(--radius-row)] bg-surface-lowest px-4 py-3 hairline hover:ring-1 hover:ring-secondary"
                   >
                     <span className="min-w-0 text-body-md text-on-surface [overflow-wrap:anywhere]">{nameOf(p) || 'No name'}</span>
-                    <span className="shrink-0 text-label-md font-medium text-primary">Link</span>
+                    <span className="shrink-0 text-label-md font-medium text-accent-blue-soft">Link</span>
                   </Link>
                 </li>
               ))}

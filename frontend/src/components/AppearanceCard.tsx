@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 import { useTheme } from '../lib/useTheme'
 import { useTeamStyle } from '../lib/useTeamStyle'
+import { usePageZoom } from '../lib/usePageZoom'
 import { THEME_CHOICES } from '../lib/theme'
 import { TEAM_STYLE_CHOICES } from '../lib/teamStyle'
-import { MoonIcon, SunIcon } from './icons'
+import { MoonIcon, SearchIcon, SunIcon } from './icons'
+import { Switch } from './SettingRows'
 import { SegmentedControl, Tile } from './Surface'
 
 /**
@@ -21,6 +23,7 @@ import { SegmentedControl, Tile } from './Surface'
 export function AppearanceCard() {
   const { preference, choose } = useTheme()
   const { teamStyle, choose: chooseTeamStyle } = useTeamStyle()
+  const { zoomAllowed, setZoomAllowed } = usePageZoom()
 
   return (
     <div className="flex flex-col gap-4">
@@ -56,6 +59,13 @@ export function AppearanceCard() {
         <TeamPreview style={teamStyle} />
       </Setting>
 
+      <Setting
+        title="Pinch to zoom"
+        hint="Off, the app holds still the way an app does. On, two fingers make the page bigger on a phone or tablet."
+        glyph={<SearchIcon width={18} height={18} />}
+        action={<Switch checked={zoomAllowed} onChange={setZoomAllowed} label="Pinch to zoom" />}
+      />
+
       <p className="px-2 text-label-sm text-on-surface-faint">
         These are yours and this browser’s — nobody else’s screen changes.
       </p>
@@ -67,12 +77,15 @@ function Setting({
   title,
   hint,
   glyph,
+  action,
   children,
 }: {
   title: string
   hint: string
   glyph: ReactNode
-  children: ReactNode
+  /** An on/off that sits beside the title, as the platform's switches do. */
+  action?: ReactNode
+  children?: ReactNode
 }) {
   return (
     <Tile as="section" padded={false} className="px-5 py-5">
@@ -82,8 +95,9 @@ function Setting({
           <h2 className="text-body-md font-medium text-on-surface">{title}</h2>
           <p className="mt-0.5 text-body-sm text-on-surface-variant">{hint}</p>
         </div>
+        {action && <span className="shrink-0">{action}</span>}
       </div>
-      <div className="mt-4 flex flex-col gap-3">{children}</div>
+      {children && <div className="mt-4 flex flex-col gap-3">{children}</div>}
     </Tile>
   )
 }

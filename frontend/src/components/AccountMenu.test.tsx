@@ -100,6 +100,20 @@ describe('the role badge', () => {
     expect(dot).toHaveAttribute('aria-pressed', 'true')
     expect(window.localStorage.getItem('rim-team-style')).toBe('dot')
   })
+
+  it('lets each person turn pinch-to-zoom on for themselves, off until they do', async () => {
+    const { user } = renderMenu()
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+
+    const zoom = screen.getByRole('switch', { name: 'Pinch to zoom' })
+    expect(zoom).not.toBeChecked()
+    await user.click(zoom)
+    expect(zoom).toBeChecked()
+    expect(window.localStorage.getItem('rim-page-zoom')).toBe('on')
+    // Back off, so the next test starts where everybody does.
+    await user.click(zoom)
+    expect(window.localStorage.getItem('rim-page-zoom')).toBe('off')
+  })
 })
 
 describe('the Video tutorial link', () => {
