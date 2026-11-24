@@ -6,7 +6,7 @@
  * service "over" on the planner and "running" on the rota. This opens all
  * of them against the same fixtures (two services every Sunday, one of
  * them already over today) and fails if any page crashes, logs an error,
- * or scrolls sideways at 360px.
+ * scrolls sideways at 360px, or shows an answer it could not parse.
  *
  * Needs the preview from SKILL.md running on :4411. Then:
  *   S=<scratch dir> node .claude/skills/verify/sweep.mjs
@@ -33,12 +33,39 @@ const worship = { id: 'd2', name: 'Worship', handbook_url: null, color: '#ef4444
   is_worship: true, created_at: now, updated_at: now }
 const svc = (id, n, t) => ({ id, date: day(n), service_type: t, created_at: now, ended_at: null, series_id: null })
 const session = (id, service, n, h, mins) => ({ id, service_id: service, start_time: at(n, h), duration_minutes: mins,
-  session_name: 'Worship', order_index: 0 })
+  session_name: 'Worship', order_index: 0, department_id: 'd2', role_label: null, updated_at: now, assignees: [] })
 const me = { id: 'u1', first_name: 'Rohit', last_name: 'Test', email: user.email, phone: null, avatar_url: null }
+
+// What the database's functions answer with, where an answer is a single
+// object rather than rows: without these a page parsing the answer shows
+// its "not in the shape the app expects" line instead of itself.
+const RPC = {
+  // Prayer Requests: one general request from somebody else, prayed for.
+  prayer_board: {
+    pastoral: true, moderator: true, may_assign: true, may_run_lists: true, lists: [],
+    requests: [{ id: 'pr1', kind: 'general', status: 'open', anonymous: false, mine: false,
+      body: 'For my mum, who goes into hospital on Thursday for her knee operation.',
+      created_at: at(0, -20), updated_at: at(0, -20), answered_at: null, closed_at: null,
+      testimony: null, testimony_named: false, shared: false,
+      author: { id: 'u9', first_name: 'Grace', last_name: 'Mensah' },
+      counts: { prayed: 4, praying: 2, fasting: 0 }, my_response: null, responders: [], updates: [],
+      assigned_to_me: null, assignees: [] }],
+  },
+  // App Health: a quiet month.
+  health_overview: {
+    at: now, jobs: [{ name: 'clear-message-board', schedule: '0 0 * * 2', active: true, runs: 4, failed: 0, last_at: at(-1, 0), last_ok: true }],
+    pushes: { asked: 120, answered: 118, failed: 2, hours: 24 },
+    database: { bytes: 48_000_000, connections: 6, connections_max: 60 },
+    errors: { day: 0, kept: 0 },
+    schema: null,
+  },
+  // Your own DBS: none given yet.
+  dbs_of: { user_id: 'u1', first_name: 'Rohit', last_name: 'Test', dob: '1990-01-01', has_dbs: false, details: null, log: [] },
+}
 
 const T = {
   profiles: [{ ...me, dob: '1990-01-01', anniversary: null, welcomed_at: now, onboarded_at: now, marital_status: 'single' }],
-  user_roles: [{ id: 'r1', role_type: 'admin', department_id: null, service_id: null }],
+  user_roles: [{ id: 'r1', user_id: 'u1', role_type: 'admin', department_id: null, service_id: null }],
   departments: [media, worship],
   // Toured already: a sweep of every page is not the place for the tour
   // to start itself over each one.
@@ -75,7 +102,12 @@ const ROUTES = ['/', '/service-planner', '/availability', '/rota', '/checklists'
   '/volunteers', '/families', '/dbs', '/inventory', '/settings', '/settings/profile', '/settings/appearance', '/settings/notifications', '/settings/general', '/settings/feedback', '/settings/timings',
   '/settings/retention', '/settings/display', '/settings/rota', '/settings/giving', '/settings/menu',
   '/feedback', '/stage', '/settings/stage', '/settings/access', '/settings/pages', '/settings/alerts', '/settings/logo',
-  '/settings/data']
+  '/settings/data',
+  // Every other page and room App.tsx has, so none of them goes unlooked-at.
+  '/service-planner/templates', '/service-planner/n1', '/checklists/d1/n1', '/inventory/d1', '/stage/n1',
+  '/countdown', '/songs', '/clock-in', '/registrations', '/registrations/new', '/door', '/prayer', '/serving',
+  '/location', '/settings/notices', '/settings/health', '/settings/onboarding', '/settings/reception',
+  '/settings/overwatch', '/settings/clock-in', '/settings/prayer', '/settings/video', '/settings/church']
 
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
 const ctx = await b.newContext({ viewport: { width: WIDTH, height: 1000 }, deviceScaleFactor: 2 })
@@ -95,6 +127,7 @@ await ctx.route('http://supabase.test/**', async (route) => {
     const rows = fn === 'my_profile' ? T.profiles ?? []
       : fn === 'people_contacts' ? (T.profiles ?? []).map((p) => ({ id: p.id, email: p.email ?? null, phone: p.phone ?? null }))
       : null
+    if (rows === null && fn in RPC) return route.fulfill({ json: RPC[fn] })
     if (rows === null) return route.fulfill({ json: url.includes('can_edit_set_list') ? true : null })
     if ((req.headers()['accept'] || '').includes('pgrst.object'))
       return rows.length ? route.fulfill({ json: rows[0] }) : route.fulfill({ status: 406, json: { code: 'PGRST116', message: 'no rows' } })
@@ -128,6 +161,12 @@ for (const route of ROUTES) {
     scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }))
   const problems = [...errors]
   if (scroll > client) problems.push(`scrolls sideways by ${scroll - client}px`)
+  // A query whose answer did not parse shows a line on the page rather
+  // than an error in the console, so the page looked "clean" while half of
+  // it was missing. Usually the fixtures above lack a field; either way it
+  // is a page nobody could check.
+  const shape = await p.getByText('not in the shape the app expects', { exact: false }).count()
+  if (shape) problems.push(`${shape} answer(s) not in the shape the app expects`)
   await p.screenshot({ path: `${S}/sweep${route.replace(/\//g, '_')}.png`, fullPage: true })
   console.log(`${problems.length ? 'FAIL' : 'ok  '} ${route}${problems.length ? ' — ' + problems.join(' | ') : ''}`)
   if (problems.length) failed += 1

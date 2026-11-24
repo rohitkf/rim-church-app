@@ -2167,7 +2167,7 @@ export function ServicePlannerPage() {
                           {session.session_name}
                         </span>
                         <span className="shrink-0 font-mono text-label-sm text-accent-orange-soft">
-                          NO LEAD
+                          No lead
                         </span>
                       </Row>
                     ))}
