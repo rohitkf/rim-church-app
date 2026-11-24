@@ -1,4 +1,4 @@
-Copied from https://github.com/headroomlabs-ai/headroom at commit ce0460cfa859 (version 0.45.0) on 2026-11-23.
+Copied from https://github.com/headroomlabs-ai/headroom at commit ce0460cfa859 (version 0.45.0) on 2026-11-23 (checked on 2026-11-24: upstream's later commits leave the skill unchanged, and 0.45.0 is still the newest `headroom-ai`).
 Licence: Apache-2.0 (see LICENSE and NOTICE).
 
 Headroom makes what is sent to a model smaller before it is sent: long logs, tables of rows, tool
@@ -56,3 +56,5 @@ machine in both places until it is thrown away, as they already are in the conve
 
 Nothing here is fetched at run time by Claude Code: this folder is the whole install of the skill,
 and it changes only when somebody copies a newer commit in and reads the difference.
+
+
