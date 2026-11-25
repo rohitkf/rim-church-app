@@ -1081,7 +1081,7 @@ export function VolunteersPage() {
           retyped into every service. Here because this is the page about
           who helps — they are simply the ones who have not signed up. */}
       <div className="mt-8">
-        <GuestRollCard />
+        <GuestRollCard linksFamilies={linksFamilies} />
       </div>
 
       <div className="mt-8">
@@ -1097,7 +1097,7 @@ export function VolunteersPage() {
       )}
 
       {blocking && <BlockAccountDialog person={blocking} onClose={() => setBlocking(null)} />}
-      {familyOf && <FamilyLinksDialog person={familyOf} onClose={() => setFamilyOf(null)} />}
+      {familyOf && <FamilyLinksDialog person={familyOf} onClose={() => setFamilyOf(null)} marksGuests={can('svc.guests')} />}
       {dbsOf && (
         <DbsCheckDialog
           person={dbsOf}

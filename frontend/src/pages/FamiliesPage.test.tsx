@@ -24,6 +24,8 @@ const state = vi.hoisted(() => ({
 const NOBODY = { spouse: [], children: [], parents: [], written_people: { spouse: [], children: [], parents: [] } }
 
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
+// The page opens by people.family alone; the guest list's right is asked of the link box (0332) and held by nobody here.
+vi.mock('../lib/usePermissions', () => ({ usePermissions: () => ({ can: () => false }) }))
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     rpc: (name: string, args: Record<string, unknown>) => {

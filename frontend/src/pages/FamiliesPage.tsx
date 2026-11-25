@@ -5,6 +5,7 @@ import { ActionLink, FitFigure, PageHeader, SectionTile, Statistic, Tile, inputC
 import { QueryState } from '../components/QueryState'
 import { FamilyGraph } from '../components/FamilyGraph'
 import { FamilyLinksPanel } from '../components/FamilyLinksDialog'
+import { usePermissions } from '../lib/usePermissions'
 import { accountNode, familyGraph } from '../lib/familyGraph'
 import {
   FAMILIES_KEY,
@@ -344,6 +345,8 @@ function OneFamily({
   error: unknown
   onOpen: (id: string) => void
 }) {
+  // Whether the link box may also mark a guest a member (0332): the guest list's own right.
+  const { can } = usePermissions()
   const person = people?.find((p) => p.id === personId)
   // The whole family they are in, in-laws and all (`combineFamilies`); somebody in none is drawn alone.
   const group = useMemo(
@@ -394,7 +397,7 @@ function OneFamily({
           hint={`Link ${first} to the people on the app who are their family: they are linked straight away, with nobody having to confirm, and the family is told. Somebody not on the app yet can be written in by hand.`}
         >
           {/* A new person, a new panel: nothing half-typed for one family is carried to the next. */}
-          <FamilyLinksPanel key={person.id} person={person} />
+          <FamilyLinksPanel key={person.id} person={person} marksGuests={can('svc.guests')} />
         </SectionTile>
       </div>
     </div>
