@@ -11,7 +11,7 @@ import { ACCESS_LEVELS } from '../lib/pageAccess'
 import { isPageCapability, levelsFrom } from '../lib/pageCells'
 import { PERMISSIONS, isLiveArea, withPageAccess, type Allowed } from '../lib/permissionMatrix'
 import { PERMISSIONS_KEY, usePermissions } from '../lib/usePermissions'
-import { blockableCapabilities, decide, grantIsValid, grantableCapabilities, type CapabilityKey, type GrantReach, type PermissionGrant } from '../lib/permissions'
+import { blockableCapabilities, decide, grantableCapabilities, type CapabilityKey, type GrantReach, type PermissionGrant } from '../lib/permissions'
 import { useErrorText } from '../lib/useErrorText'
 import {
   explainCapability,
@@ -28,6 +28,8 @@ import type { PageOpening } from '../lib/pageOpening'
 import { factsOf, type RoleRow, type RosterRow, type RotaRow } from '../lib/peopleFacts'
 import { QueryState } from './QueryState'
 import { Select } from './Select'
+import { PermissionPicker, ReachToggle } from './PermissionPicker'
+import { oneWayOnly, reachFor } from '../lib/permissionGroups'
 import { ActionButton, Pill, SectionTile } from './Surface'
 import { roleLabel } from './PermissionsCard'
 import { GrantEffects } from './GrantEffects'
@@ -428,7 +430,9 @@ function GivenMore({
   const editable = can('app.permissions')
   const queryClient = useQueryClient()
   const errorText = useErrorText()
-  const [cap, setCap] = useState('')
+  // The picker (components/PermissionPicker): open or shut, and what is ticked in it.
+  const [choosing, setChoosing] = useState(false)
+  const [picked, setPicked] = useState<CapabilityKey[]>([])
   const [reach, setReach] = useState<GrantReach>('team')
   const [untilDay, setUntilDay] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -437,29 +441,32 @@ function GivenMore({
 
   const held = grantsFor(facts, grants)
   const choices = useMemo(
-    () =>
-      grantableCapabilities()
-        .filter((key) => !held.some((h) => !h.teamId && h.grant.capability === key))
-        .map((key) => ({ value: key, label: actionOf(key) }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
+    () => grantableCapabilities().filter((key) => !held.some((h) => !h.teamId && h.grant.capability === key)),
     [held],
   )
-  const reaches = cap ? (['team', 'all'] as const).filter((r) => grantIsValid(cap as CapabilityKey, r)) : []
-  // What Give would do, before it is pressed.
-  const preview = useMemo(() => (cap ? [{ capability: cap, person: facts.id, reach, until }] : []), [cap, facts.id, reach, until])
+  // Several are given at once, and not every right can be given both ways:
+  // one that cannot go as far as was chosen is given the way it can.
+  const changes = useMemo(
+    () => picked.map((capability) => ({ capability, person: facts.id, reach: reachFor(capability, reach), until })),
+    [picked, facts.id, reach, until],
+  )
 
   const save = useMutation({
-    mutationFn: async (change: { capability: string; reach: GrantReach | null; until?: string | null }) => {
+    mutationFn: async (list: readonly { capability: string; reach: GrantReach | null; until?: string | null }[]) => {
       const { error } = await supabase.rpc('set_permission_grants', {
-        p_changes: [
-          { capability: change.capability, person: facts.id, reach: change.reach, ...(change.reach ? { until: change.until ?? null } : {}) },
-        ],
+        p_changes: list.map((change) => ({
+          capability: change.capability,
+          person: facts.id,
+          reach: change.reach,
+          ...(change.reach ? { until: change.until ?? null } : {}),
+        })),
       })
       if (error) throw error
     },
     onSuccess: async () => {
       setError(null)
-      setCap('')
+      setChoosing(false)
+      setPicked([])
       setUntilDay('')
       await queryClient.invalidateQueries({ queryKey: PERMISSIONS_KEY })
     },
@@ -514,7 +521,7 @@ function GivenMore({
                 {editable && !teamId && (
                   <button
                     type="button"
-                    onClick={() => save.mutate({ capability: grant.capability, reach: null })}
+                    onClick={() => save.mutate([{ capability: grant.capability, reach: null }])}
                     disabled={save.isPending}
                     aria-label={`Take back: ${actionOf(grant.capability)}`}
                     className="tap rounded-full px-2.5 py-1 text-label-md text-on-surface-variant hover:text-error"
@@ -530,46 +537,61 @@ function GivenMore({
 
       {editable && (
         <div className="mt-4 flex flex-col gap-2">
-          <Select
-            search
-            aria-label="Give them"
-            placeholder="Give them one thing more…"
-            value={cap}
-            onChange={(next) => {
-              setCap(next)
-              const offered = (['team', 'all'] as const).filter((r) => grantIsValid(next as CapabilityKey, r))
-              if (!offered.includes(reach)) setReach(offered[0] ?? 'team')
+          <ActionButton
+            tone="quiet"
+            className="self-start"
+            onClick={() => {
+              setError(null)
+              setChoosing(true)
             }}
-            options={choices}
-          />
-          {cap && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Select
-                aria-label="How far"
-                value={reach}
-                onChange={(next) => setReach(next as GrantReach)}
-                options={reaches.map((r) => ({ value: r, label: REACH_WORDS[r] }))}
-              />
-              <DateField
-                aria-label="Until"
-                label="Until when?"
-                placeholder="For good"
-                min={earliestUntilDay()}
-                clearable
-                value={untilDay}
-                onChange={setUntilDay}
-              />
-              <ActionButton
-                tone="quiet"
-                onClick={() => save.mutate({ capability: cap, reach, until })}
-                disabled={save.isPending}
-              >
-                Give
-              </ActionButton>
-            </div>
+          >
+            Give them more…
+          </ActionButton>
+          {choosing && (
+            <PermissionPicker
+              title={`Give ${name || 'them'} more`}
+              lead="Tick what they should be able to do, on top of their profiles. Open an area, or search."
+              choices={choices}
+              picked={picked}
+              onPickedChange={setPicked}
+              verb="Give"
+              onConfirm={() => save.mutate(changes)}
+              onClose={() => {
+                setChoosing(false)
+                setPicked([])
+                setError(null)
+              }}
+              saving={save.isPending}
+              error={error}
+              hintFor={(key) => oneWayOnly(key, REACH_WORDS)}
+              options={
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ReachToggle
+                      value={reach}
+                      onChange={setReach}
+                      disabled={save.isPending}
+                      choices={[
+                        { value: 'team', label: 'Their teams', means: REACH_WORDS.team },
+                        { value: 'all', label: 'Everywhere', means: REACH_WORDS.all },
+                      ]}
+                    />
+                    <DateField
+                      aria-label="Until"
+                      label="Until when?"
+                      placeholder="For good"
+                      min={earliestUntilDay()}
+                      clearable
+                      value={untilDay}
+                      onChange={setUntilDay}
+                    />
+                  </div>
+                  <GrantEffects changes={changes} />
+                </>
+              }
+            />
           )}
-          <GrantEffects changes={preview} />
-          {error && (
+          {error && !choosing && (
             <p role="alert" className="text-body-sm text-error">
               {error}
             </p>
@@ -595,29 +617,27 @@ function BlockedFrom({ facts, name }: { facts: PersonFacts; name: string }) {
   const editable = can('app.permissions')
   const queryClient = useQueryClient()
   const errorText = useErrorText()
-  const [cap, setCap] = useState('')
+  const [choosing, setChoosing] = useState(false)
+  const [picked, setPicked] = useState<CapabilityKey[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const held = useMemo(() => [...(facts.blocked ?? [])].sort((a, b) => actionOf(a).localeCompare(actionOf(b))), [facts.blocked])
   const choices = useMemo(
-    () =>
-      blockableCapabilities(facts.overwatch)
-        .filter((key) => !held.includes(key))
-        .map((key) => ({ value: key, label: actionOf(key) }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
+    () => blockableCapabilities(facts.overwatch).filter((key) => !held.includes(key)),
     [held, facts.overwatch],
   )
 
   const save = useMutation({
-    mutationFn: async (change: { capability: string; blocked: boolean }) => {
+    mutationFn: async (list: readonly { capability: string; blocked: boolean }[]) => {
       const { error } = await supabase.rpc('set_permission_blocks', {
-        p_changes: [{ capability: change.capability, person: facts.id, blocked: change.blocked }],
+        p_changes: list.map((change) => ({ capability: change.capability, person: facts.id, blocked: change.blocked })),
       })
       if (error) throw error
     },
     onSuccess: async () => {
       setError(null)
-      setCap('')
+      setChoosing(false)
+      setPicked([])
       await queryClient.invalidateQueries({ queryKey: PERMISSIONS_KEY })
     },
     onError: (err: unknown) => setError(errorText(err, 'Could not save that.')),
@@ -656,7 +676,7 @@ function BlockedFrom({ facts, name }: { facts: PersonFacts; name: string }) {
                 {editable && (
                   <button
                     type="button"
-                    onClick={() => save.mutate({ capability: key, blocked: false })}
+                    onClick={() => save.mutate([{ capability: key, blocked: false }])}
                     disabled={save.isPending}
                     aria-label={`Unblock: ${actionOf(key)}`}
                     className="tap rounded-full px-2.5 py-1 text-label-md text-on-surface-variant hover:text-on-surface"
@@ -672,25 +692,40 @@ function BlockedFrom({ facts, name }: { facts: PersonFacts; name: string }) {
 
       {editable && (
         <div className="mt-4 flex flex-col gap-2">
-          <Select
-            search
-            aria-label="Block them from"
-            placeholder="Block them from one thing…"
-            value={cap}
-            onChange={setCap}
-            options={choices}
-          />
-          {cap && (
-            <div className="flex flex-wrap items-center gap-2">
-              <ActionButton tone="quiet" onClick={() => save.mutate({ capability: cap, blocked: true })} disabled={save.isPending}>
-                Block
-              </ActionButton>
-              <span className="min-w-0 flex-1 basis-48 text-label-md text-on-surface-variant">
-                {name || 'They'} could no longer “{actionOf(cap)}”, on any team. The database follows it at once.
-              </span>
-            </div>
+          <ActionButton
+            tone="quiet"
+            className="self-start"
+            onClick={() => {
+              setError(null)
+              setChoosing(true)
+            }}
+          >
+            Block them from…
+          </ActionButton>
+          {choosing && (
+            <PermissionPicker
+              title={`Block ${name || 'them'} from`}
+              lead="Tick what they may not do, whatever else gives it to them. Open an area, or search."
+              choices={choices}
+              picked={picked}
+              onPickedChange={setPicked}
+              verb="Block"
+              onConfirm={() => save.mutate(picked.map((capability) => ({ capability, blocked: true })))}
+              onClose={() => {
+                setChoosing(false)
+                setPicked([])
+                setError(null)
+              }}
+              saving={save.isPending}
+              error={error}
+              options={
+                <p className="text-label-md text-on-surface-variant">
+                  {name || 'They'} could no longer do {picked.length === 1 ? 'this' : 'these'}, on any team. The database follows it at once.
+                </p>
+              }
+            />
           )}
-          {error && (
+          {error && !choosing && (
             <p role="alert" className="text-body-sm text-error">
               {error}
             </p>

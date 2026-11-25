@@ -134,14 +134,16 @@ describe('Settings › Access › By team', () => {
 
   it('gives the team one thing more, for its Heads alone if asked', async () => {
     const user = show(`/settings/access?tab=team&team=${WORSHIP}`)
-    await user.click(await screen.findByRole('combobox', { name: 'Give the team' }))
-    await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
+    await user.click(await screen.findByRole('button', { name: 'Give the team more…' }))
+    const picker = screen.getByRole('dialog', { name: 'Give the team more' })
+    await user.click(within(picker).getByRole('button', { name: /^Team rota/ }))
+    await user.click(within(picker).getByRole('checkbox', { name: /Assign somebody to a role/ }))
     // Asha heads Worship and assigns there already; Ben, a Member, would gain.
     const preview = await screen.findByRole('list', { name: 'What saving would do' })
     expect(preview).toHaveTextContent('Lets one more person do it, or do it further: Ben Joseph.')
     await user.click(screen.getByRole('switch', { name: 'For its Heads only' }))
     await waitFor(() => expect(preview).toHaveTextContent('— nobody’s answer changes.'))
-    await user.click(screen.getByRole('button', { name: 'Give' }))
+    await user.click(screen.getByRole('button', { name: 'Give 1' }))
     await waitFor(() => expect(perms.rpc).toHaveLength(1))
     expect(perms.rpc[0].args).toEqual({
       p_changes: [{ capability: 'rota.assign', team: WORSHIP, reach: 'team', leads_only: true, until: null }],
@@ -158,17 +160,20 @@ describe('Settings › Access › By team', () => {
     expect(within(given).getByRole('listitem')).toHaveTextContent(
       `Until ${new Date(2026, 10, 12, 12).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`,
     )
-    await user.click(await screen.findByRole('combobox', { name: 'Give the team' }))
-    await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
+    await user.click(await screen.findByRole('button', { name: 'Give the team more…' }))
+    const picker = screen.getByRole('dialog', { name: 'Give the team more' })
+    await user.type(within(picker).getByRole('searchbox', { name: 'Search the permissions' }), 'assign somebody')
+    await user.click(within(picker).getByRole('checkbox', { name: /Assign somebody to a role/ }))
     await user.click(screen.getByRole('button', { name: 'Until' }))
-    const dialog = screen.getByRole('dialog')
+    // The calendar opens over the picker, which is a dialog too: the calendar is the newest.
+    const dialog = screen.getAllByRole('dialog').at(-1)!
     const today = new Date()
     const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
     const pad = (n: number) => String(n).padStart(2, '0')
     const day = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`
     if (tomorrow.getMonth() !== today.getMonth()) await user.click(within(dialog).getByRole('button', { name: 'Next month' }))
     await user.click(within(dialog).getByRole('gridcell', { name: day }))
-    await user.click(screen.getByRole('button', { name: 'Give' }))
+    await user.click(screen.getByRole('button', { name: 'Give 1' }))
     await waitFor(() => expect(perms.rpc).toHaveLength(1))
     expect(perms.rpc[0].args).toEqual({
       p_changes: [{ capability: 'rota.assign', team: WORSHIP, reach: 'team', leads_only: false, until: untilFromDay(day) }],

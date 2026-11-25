@@ -46,6 +46,32 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'tick-permissions-from-a-grouped-list',
+    date: '2026-11-25',
+    title: 'Give several permissions at once, from a grouped list',
+    lead: 'In Settings › Access & Privileges, giving a person or a team something more no longer means scrolling one long menu. It opens a list grouped by area, to tick from.',
+    points: [
+      'By person and By team: “Give them more…” and “Give the team more…” open the list. “Block them from…” opens the same list for blocks.',
+      'Every right is under its area: Services & planning, Team rota, People and so on. Open an area, or search for a word.',
+      'Each right is a few words with the whole sentence under it, never cut off. Tick as many as are wanted and they are saved together.',
+      '“How far” and “Until when” are set once for everything ticked. A right that can only go one way says so beside it.',
+    ],
+    holds: ['app.permissions'],
+  },
+  {
+    key: 'guests-are-found-from-a-family',
+    date: '2026-11-25',
+    title: 'Find a guest when adding to a family',
+    lead: 'The name box that adds somebody to a family now finds people on the guest list too, marked “On the guest list”.',
+    points: [
+      'Choosing one opens the write-in form with their name already in it, so they are not typed a second time under another spelling.',
+      'Keeping the same name in both places is what lets “Now a member” link them on the guest list and in the family in one step when they join.',
+    ],
+    link: { to: '/families', label: 'Open Families' },
+    page: '/families',
+    holds: ['people.family'],
+  },
+  {
     key: 'somebody-who-joins-is-linked-once',
     date: '2026-11-25',
     title: 'Link somebody who joins in one step',

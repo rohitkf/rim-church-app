@@ -6,7 +6,7 @@ import { PersonPicker } from './PersonPicker'
 import { QueryState } from './QueryState'
 import { Select, reachPickerClasses } from './Select'
 import { useErrorText } from '../lib/useErrorText'
-import { GUESTS_KEY, fetchGuests } from '../lib/guests'
+import { GUESTS_KEY, fetchGuests, guestLabel, type Guest } from '../lib/guests'
 import { guestLine, guestMatches, personJoined } from '../lib/personJoined'
 import { EMPTY_PERSON, type PersonDraft, type Suggestion } from '../lib/family'
 import {
@@ -129,7 +129,7 @@ export function FamilyLinksPanel({
   // What the person being added is to this one. Nothing until it is chosen.
   const [word, setWord] = useState<FamilyWord | ''>('')
   // What is being added: an account that was chosen, or somebody being written in.
-  const [adding, setAdding] = useState<{ account: Suggestion } | { draft: PersonDraft } | null>(null)
+  const [adding, setAdding] = useState<{ account: Suggestion } | { draft: PersonDraft; guest?: Guest } | null>(null)
   // The one row that is open: asked about, or being changed.
   const [open, setOpen] = useState<{ id: string; mode: 'unlink' | 'edit' | 'remove' } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -140,7 +140,8 @@ export function FamilyLinksPanel({
   const first = person.first_name || 'them'
 
   const query = useQuery({ queryKey: familyOfKey(person.id), queryFn: () => fetchFamilyOf(person.id) })
-  const guestsQuery = useQuery({ queryKey: GUESTS_KEY, queryFn: fetchGuests, enabled: marksGuests })
+  // Everybody signed in reads the guest roll (0091): it is how a guest is found by name here.
+  const guestsQuery = useQuery({ queryKey: GUESTS_KEY, queryFn: fetchGuests })
   const chosenAccount = adding && 'account' in adding ? adding.account : null
   const onTheRoll = chosenAccount && marksGuests ? guestMatches(guestsQuery.data ?? [], fullName(chosenAccount)) : []
 
@@ -281,7 +282,7 @@ export function FamilyLinksPanel({
               setWord(next as FamilyWord)
               setError(null)
               // A form that is open starts again from the new word: a child's asks more than an adult's.
-              if (adding && 'draft' in adding) setAdding({ draft: { ...adding.draft, gender: '' } })
+              if (adding && 'draft' in adding) setAdding({ draft: { ...adding.draft, gender: '' }, guest: adding.guest })
             }}
             aria-label={`What they are to ${first}`}
             // Short: the field is as wide as a phone, and the label already names the person.
@@ -342,8 +343,10 @@ export function FamilyLinksPanel({
             </div>
           ) : adding ? (
             <div role="group" aria-label={`Write in ${first}’s ${word}`}>
-              <p className="mb-2 text-body-sm text-on-surface-variant">
-                Not on the app: written in as {first}’s {word}, until they join.
+              <p className="mb-2 text-body-sm text-on-surface-variant [overflow-wrap:anywhere]">
+                {adding.guest
+                  ? `${guestLabel(adding.guest)} is on the guest list with no account yet: written in as ${first}’s ${word}, until they join. Keep the name as it is and “Now a member” will link them in both places.`
+                  : `Not on the app: written in as ${first}’s ${word}, until they join.`}
               </p>
               <PersonForm
                 // The form is the word's: a child's asks a little more, and starts on what the word says.
@@ -358,7 +361,7 @@ export function FamilyLinksPanel({
                 onSave={(draft) => {
                   setError(null)
                   // Kept as typed, so a refusal leaves the form as it was.
-                  setAdding({ draft })
+                  setAdding({ draft, guest: adding.guest })
                   save.mutate({ id: null, word, draft })
                 }}
               />
@@ -380,6 +383,14 @@ export function FamilyLinksPanel({
                 setOpen(null)
                 const [given, ...rest] = typed.split(/\s+/)
                 setAdding({ draft: { ...EMPTY_PERSON, first_name: given ?? '', last_name: rest.join(' ') } })
+              }}
+              guests={guestsQuery.data}
+              onPickGuest={(guest) => {
+                begin()
+                setOpen(null)
+                // Their name as the roll has it, without the designation: a family writes "Sam Thomas", not "Pastor".
+                const [given, ...rest] = guest.name.trim().split(/\s+/)
+                setAdding({ draft: { ...EMPTY_PERSON, first_name: given ?? '', last_name: rest.join(' ') }, guest })
               }}
             />
           )}

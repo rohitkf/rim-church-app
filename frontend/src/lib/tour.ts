@@ -423,7 +423,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/settings',
         target: 'settings:/settings/access',
         title: 'Access & Privileges',
-        body: 'Who can open each page, and who can do what: by role, by team, or one person at a time, down to keeping one person from one thing. Every row is the church’s to change, and the database enforces what is chosen. Two of them are a Pastor’s private comments on a session of the running order: who may write one, and who reads them — the Admins and the Owner out of the box, never the team.',
+        body: 'Who can open each page, and who can do what: by role, by team, or one person at a time, down to keeping one person from one thing. Giving or blocking by name opens a list of every right under the area it belongs to, to search and tick as many as are wanted. Every row is the church’s to change, and the database enforces what is chosen. Two of them are a Pastor’s private comments on a session of the running order: who may write one, and who reads them — the Admins and the Owner out of the box, never the team.',
       },
       {
         path: '/settings',

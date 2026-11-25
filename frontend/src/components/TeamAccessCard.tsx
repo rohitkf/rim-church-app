@@ -12,7 +12,6 @@ import { PERMISSIONS_KEY, usePermissions } from '../lib/usePermissions'
 import {
   REACH_SHORT,
   TEAM_ROLES,
-  grantIsValid,
   grantableCapabilities,
   isTeamSettable,
   reachOn,
@@ -26,6 +25,8 @@ import { useErrorText } from '../lib/useErrorText'
 import { Chevron } from './Collapsible'
 import { QueryState } from './QueryState'
 import { Select } from './Select'
+import { PermissionPicker, ReachToggle } from './PermissionPicker'
+import { oneWayOnly, reachFor } from '../lib/permissionGroups'
 import { Switch } from './SettingRows'
 import { ActionButton, Pill, SectionTile, TableScroll } from './Surface'
 import { HEAD_IN_BOX, ON_RAISED } from '../lib/stickyHead'
@@ -288,7 +289,9 @@ function GivenToTeam({
 }) {
   const queryClient = useQueryClient()
   const errorText = useErrorText()
-  const [cap, setCap] = useState('')
+  // The picker (components/PermissionPicker): open or shut, and what is ticked in it.
+  const [choosing, setChoosing] = useState(false)
+  const [picked, setPicked] = useState<CapabilityKey[]>([])
   const [reach, setReach] = useState<GrantReach>('team')
   const [leadsOnly, setLeadsOnly] = useState(false)
   const [untilDay, setUntilDay] = useState('')
@@ -298,38 +301,32 @@ function GivenToTeam({
   const until = untilDay ? untilFromDay(untilDay) : null
 
   const held = grants.filter((g) => g.departmentId === teamId)
-  const choices = useMemo(
-    () =>
-      grantableCapabilities()
-        .filter((key) => !held.some((h) => h.capability === key))
-        .map((key) => ({ value: key, label: actionOf(key) }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    [held],
-  )
-  const reaches = cap ? (['team', 'all'] as const).filter((r) => grantIsValid(cap as CapabilityKey, r)) : []
-  // What Give would do, before it is pressed.
-  const preview = useMemo(
-    () => (cap ? [{ capability: cap, team: teamId, reach, leads_only: leadsOnly, until }] : []),
-    [cap, teamId, reach, leadsOnly, until],
+  const choices = useMemo(() => grantableCapabilities().filter((key) => !held.some((h) => h.capability === key)), [held])
+  // Several are given at once, and not every right can be given both ways:
+  // one that cannot go as far as was chosen is given the way it can.
+  const changes = useMemo(
+    () => picked.map((capability) => ({ capability, team: teamId, reach: reachFor(capability, reach), leads_only: leadsOnly, until })),
+    [picked, teamId, reach, leadsOnly, until],
   )
 
   const save = useMutation({
-    mutationFn: async (change: { capability: string; reach: GrantReach | null; leads_only?: boolean; until?: string | null }) => {
+    mutationFn: async (
+      list: readonly { capability: string; reach: GrantReach | null; leads_only?: boolean; until?: string | null }[],
+    ) => {
       const { error } = await supabase.rpc('set_permission_grants', {
-        p_changes: [
-          {
-            capability: change.capability,
-            team: teamId,
-            reach: change.reach,
-            ...(change.reach ? { leads_only: change.leads_only ?? false, until: change.until ?? null } : {}),
-          },
-        ],
+        p_changes: list.map((change) => ({
+          capability: change.capability,
+          team: teamId,
+          reach: change.reach,
+          ...(change.reach ? { leads_only: change.leads_only ?? false, until: change.until ?? null } : {}),
+        })),
       })
       if (error) throw error
     },
     onSuccess: async () => {
       setError(null)
-      setCap('')
+      setChoosing(false)
+      setPicked([])
       setUntilDay('')
       setSaved(true)
       await queryClient.invalidateQueries({ queryKey: PERMISSIONS_KEY })
@@ -363,7 +360,7 @@ function GivenToTeam({
                     type="button"
                     onClick={() => {
                       setSaved(false)
-                      save.mutate({ capability: grant.capability, reach: null })
+                      save.mutate([{ capability: grant.capability, reach: null }])
                     }}
                     disabled={save.isPending}
                     aria-label={`Take back: ${actionOf(grant.capability)}`}
@@ -380,56 +377,71 @@ function GivenToTeam({
 
       {editable && (
         <div className="mt-4 flex flex-col gap-2">
-          <Select
-            search
-            aria-label="Give the team"
-            placeholder="Give the team one thing more…"
-            value={cap}
-            onChange={(next) => {
+          <ActionButton
+            tone="quiet"
+            className="self-start"
+            onClick={() => {
               setSaved(false)
-              setCap(next)
-              const offered = (['team', 'all'] as const).filter((r) => grantIsValid(next as CapabilityKey, r))
-              if (!offered.includes(reach)) setReach(offered[0] ?? 'team')
+              setError(null)
+              setChoosing(true)
             }}
-            options={choices}
-          />
-          {cap && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <Select
-                aria-label="How far"
-                value={reach}
-                onChange={(next) => setReach(next as GrantReach)}
-                options={reaches.map((r) => ({ value: r, label: REACH_WORDS[r] }))}
-              />
-              <label className="flex items-center gap-2 text-body-sm text-on-surface">
-                <Switch label="For its Heads only" checked={leadsOnly} onChange={setLeadsOnly} />
-                Its Heads only
-              </label>
-              <DateField
-                aria-label="Until"
-                label="Until when?"
-                placeholder="For good"
-                min={earliestUntilDay()}
-                clearable
-                value={untilDay}
-                onChange={setUntilDay}
-              />
-              <ActionButton
-                tone="quiet"
-                onClick={() => save.mutate({ capability: cap, reach, leads_only: leadsOnly, until })}
-                disabled={save.isPending}
-              >
-                Give
-              </ActionButton>
-            </div>
+          >
+            Give the team more…
+          </ActionButton>
+          {choosing && (
+            <PermissionPicker
+              title="Give the team more"
+              lead="Tick what everybody on the team should be able to do, on top of their profiles. Open an area, or search."
+              choices={choices}
+              picked={picked}
+              onPickedChange={setPicked}
+              verb="Give"
+              onConfirm={() => save.mutate(changes)}
+              onClose={() => {
+                setChoosing(false)
+                setPicked([])
+                setError(null)
+              }}
+              saving={save.isPending}
+              error={error}
+              hintFor={(key) => oneWayOnly(key, REACH_WORDS)}
+              options={
+                <>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <ReachToggle
+                      value={reach}
+                      onChange={setReach}
+                      disabled={save.isPending}
+                      choices={[
+                        { value: 'team', label: 'This team', means: REACH_WORDS.team },
+                        { value: 'all', label: 'Everywhere', means: REACH_WORDS.all },
+                      ]}
+                    />
+                    <label className="flex items-center gap-2 text-body-sm text-on-surface">
+                      <Switch label="For its Heads only" checked={leadsOnly} onChange={setLeadsOnly} />
+                      Its Heads only
+                    </label>
+                    <DateField
+                      aria-label="Until"
+                      label="Until when?"
+                      placeholder="For good"
+                      min={earliestUntilDay()}
+                      clearable
+                      value={untilDay}
+                      onChange={setUntilDay}
+                    />
+                  </div>
+                  <GrantEffects changes={changes} />
+                </>
+              }
+            />
           )}
-          <GrantEffects changes={preview} />
           {saved && !error && (
             <p role="status" className="text-label-md text-on-surface-variant">
               Saved. The database follows it already.
             </p>
           )}
-          {error && (
+          {error && !choosing && (
             <p role="alert" className="text-body-sm text-error">
               {error}
             </p>
