@@ -51,8 +51,11 @@ describe('the quiet ten minutes', () => {
   })
 
   it('is what the function asks, for the attendee’s own two kinds and no others', () => {
-    expect(senderSource).toContain("import { heldByQuiet } from './quiet.ts'")
+    expect(senderSource).toContain("import { heldByQuiet, QUIET_MINUTES } from './quiet.ts'")
     expect(senderSource).toMatch(/if \(kind === 'confirm' \|\| kind === 'resend'\) \{[\s\S]{0,400}if \(heldByQuiet\(orders, Date\.now\(\)\)\) return json\(\{ ok: true, sent: false \}\)/)
+    // The quiet period is taken in one statement before the send (0331), so two
+    // asks that arrive together cannot both send.
+    expect(senderSource).toMatch(/if \(heldByQuiet\(orders, Date\.now\(\)\)\)[\s\S]{0,900}\.or\(`email_sent_at\.is\.null,email_sent_at\.lte\./)
     // The old rule, which held everything back when any one ticket had been sent.
     expect(senderSource).not.toContain('orders.some((o) => o.email_sent_at')
   })

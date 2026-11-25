@@ -51,6 +51,15 @@
       ]
     },
     {
+      "source": "/sb/:path*",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'none'; sandbox; frame-ancestors 'none'"
+        }
+      ]
+    },
+    {
       "source": "/sw.js",
       "headers": [
         {

@@ -47,7 +47,7 @@
  * ticket either way, the email only carries its link.
  */
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2.119.0'
-import { heldByQuiet } from './quiet.ts'
+import { heldByQuiet, QUIET_MINUTES } from './quiet.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -445,16 +445,36 @@ Deno.serve(async (req) => {
   // Nothing to send (no live order, or no address to send to), or — for
   // the attendee's own kinds — sent a moment ago: the same quiet answer.
   orders = orders.filter((o) => o.status === 'confirmed' && o.event && o.email)
+  let claimed: string[] = []
   if (orders.length === 0) return json({ ok: true, sent: false })
   if (kind === 'confirm' || kind === 'resend') {
     // Held only when every ticket here was emailed in the last ten minutes:
     // one that never has been is sent, whatever went to the address before (quiet.ts).
     if (heldByQuiet(orders, Date.now())) return json({ ok: true, sent: false })
+    // Take the quiet period before the send, in one statement, so two asks
+    // that arrive together cannot both pass the check above (0331): whoever
+    // stamps the tickets first sends, and the other finds them stamped.
+    const quietFrom = new Date(Date.now() - QUIET_MINUTES * 60_000).toISOString()
+    const { data: took, error: tookError } = await admin
+      .from('registration_orders')
+      .update({ email_sent_at: new Date().toISOString() })
+      .in('id', orders.map((o) => o.id))
+      .or(`email_sent_at.is.null,email_sent_at.lte.${quietFrom}`)
+      .select('id')
+    if (tookError) return json({ ok: false, reason: 'not sent' })
+    if (!took || took.length === 0) return json({ ok: true, sent: false })
+    claimed = took.map((r) => (r as { id: string }).id)
   }
 
   const to = orders[0].email!
   const mail = ticketEmail(kind, orders, siteUrl, tz)
   const sent = await sendTracked(admin, apiKey, from, to, mail, orders.map((o) => o.id))
-  if (!sent) return json({ ok: false, reason: 'not sent' })
+  if (!sent) {
+    // It did not go, so the quiet period it took is given back.
+    for (const o of orders.filter((o) => claimed.includes(o.id))) {
+      await admin.from('registration_orders').update({ email_sent_at: o.email_sent_at }).eq('id', o.id)
+    }
+    return json({ ok: false, reason: 'not sent' })
+  }
   return json({ ok: true, sent: true, count: orders.length })
 })
