@@ -197,11 +197,20 @@ describe('Settings › Access › By person', () => {
     await chooseAsha(user)
     const tile = (await screen.findByRole('heading', { name: 'Blocked from' })).closest('section')!
     expect(within(tile).getByText('Nothing. They may do whatever their profiles give.')).toBeInTheDocument()
-    await user.click(within(tile).getByRole('combobox', { name: 'Block them from' }))
+    await user.click(within(tile).getByRole('button', { name: 'Block them from…' }))
+    const picker = screen.getByRole('dialog', { name: /^Block .+ from$/ })
+    const search = within(picker).getByRole('searchbox', { name: 'Search the permissions' })
     // The grid itself can be given since 0277, so it can be refused by name as well.
-    expect(screen.getByRole('option', { name: 'Change who can do what — Access & Privileges' })).toBeInTheDocument()
-    await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
-    await user.click(within(tile).getByRole('button', { name: 'Block' }))
+    await user.type(search, 'who can do what')
+    expect(within(picker).getByRole('checkbox', { name: /Change who can do what — Access & Privileges/ })).toBeInTheDocument()
+    // Opening a page is not blocked here: no page is on offer.
+    await user.clear(search)
+    await user.type(search, 'opening pages')
+    expect(within(picker).queryAllByRole('checkbox')).toEqual([])
+    await user.clear(search)
+    await user.type(search, 'assign somebody')
+    await user.click(within(picker).getByRole('checkbox', { name: /Assign somebody to a role/ }))
+    await user.click(within(picker).getByRole('button', { name: 'Block 1' }))
     await waitFor(() => expect(perms.rpc).toHaveLength(1))
     expect(perms.rpc[0]).toEqual({
       fn: 'set_permission_blocks',
@@ -227,24 +236,34 @@ describe('Settings › Access › By person', () => {
   it('gives them one thing more, only as far as the grid could reach', async () => {
     const { user } = show()
     await chooseAsha(user)
-    await user.click(await screen.findByRole('combobox', { name: 'Give them' }))
+    await user.click(await screen.findByRole('button', { name: 'Give them more…' }))
+    const picker = screen.getByRole('dialog', { name: /^Give .+ more$/ })
+    const search = within(picker).getByRole('searchbox', { name: 'Search the permissions' })
     // The keys to the app are the Owner's to give since 0277: on offer like any room of Settings.
-    expect(screen.getByRole('option', { name: 'Change who can do what — Access & Privileges' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Change the app’s logo — App Logo' })).toBeInTheDocument()
+    await user.type(search, 'change')
+    expect(within(picker).getByRole('checkbox', { name: /Change who can do what — Access & Privileges/ })).toBeInTheDocument()
+    expect(within(picker).getByRole('checkbox', { name: /Change the app’s logo — App Logo/ })).toBeInTheDocument()
     // A thing done as Overwatch is still nobody else's.
-    expect(screen.queryByRole('option', { name: /as Overwatch/ })).toBeNull()
-    await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
+    await user.clear(search)
+    await user.type(search, 'overwatch')
+    expect(within(picker).queryByRole('checkbox', { name: /as Overwatch/ })).toBeNull()
+    await user.clear(search)
+    await user.type(search, 'assign somebody')
+    await user.click(within(picker).getByRole('checkbox', { name: /Assign somebody to a role/ }))
     // She heads Media, so on her team she assigns already: nothing moves yet.
     expect(await screen.findByText('— nobody’s answer changes.')).toBeInTheDocument()
-    await user.click(screen.getByRole('combobox', { name: 'How far' }))
-    await user.click(screen.getByRole('option', { name: 'Everywhere' }))
+    const howFar = screen.getByRole('radiogroup', { name: 'How far' })
+    expect(within(howFar).getByRole('radio', { name: 'On the teams they are on' })).toBeChecked()
+    await user.click(within(howFar).getByRole('radio', { name: 'Everywhere' }))
     const preview = await screen.findByRole('list', { name: 'What saving would do' })
     await waitFor(() => expect(preview).toHaveTextContent('Lets one more person do it, or do it further: Asha Mathew.'))
-    await user.click(screen.getByRole('button', { name: 'Give' }))
+    await user.click(screen.getByRole('button', { name: 'Give 1' }))
     await waitFor(() => expect(perms.rpc).toHaveLength(1))
     expect(perms.rpc[0].args).toEqual({
       p_changes: [{ capability: 'rota.assign', person: '33333333-3333-3333-3333-333333333333', reach: 'all', until: null }],
     })
+    // Given, the picker shuts.
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /^Give .+ more$/ })).toBeNull())
   })
 
   it('gives them one thing more until a day, and says until when on what they hold (0218)', async () => {
@@ -257,11 +276,15 @@ describe('Settings › Access › By person', () => {
     expect(within(given).getByRole('listitem')).toHaveTextContent(
       `Until ${new Date(2026, 10, 12, 12).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`,
     )
-    await user.click(await screen.findByRole('combobox', { name: 'Give them' }))
-    await user.click(screen.getByRole('option', { name: 'Assign somebody to a role' }))
+    await user.click(await screen.findByRole('button', { name: 'Give them more…' }))
+    const picker = screen.getByRole('dialog', { name: /^Give .+ more$/ })
+    // An area is shut until it is opened: the rota's rights are under "Team rota".
+    expect(within(picker).queryByRole('checkbox', { name: /Assign somebody to a role/ })).toBeNull()
+    await user.click(within(picker).getByRole('button', { name: /^Team rota/ }))
+    await user.click(within(picker).getByRole('checkbox', { name: /Assign somebody to a role/ }))
     const day = await chooseTomorrow(user)
     expect(screen.getByRole('button', { name: 'Until' })).not.toHaveTextContent('For good')
-    await user.click(screen.getByRole('button', { name: 'Give' }))
+    await user.click(screen.getByRole('button', { name: 'Give 1' }))
     await waitFor(() => expect(perms.rpc).toHaveLength(1))
     expect(perms.rpc[0].args).toEqual({
       p_changes: [{ capability: 'rota.assign', person: '33333333-3333-3333-3333-333333333333', reach: 'team', until: untilFromDay(day) }],
@@ -272,7 +295,8 @@ describe('Settings › Access › By person', () => {
 /** Opens the Until field and picks tomorrow, whichever month it is in. */
 async function chooseTomorrow(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: 'Until' }))
-  const dialog = screen.getByRole('dialog')
+  // The calendar opens over the picker, which is a dialog too: the calendar is the newest.
+  const dialog = screen.getAllByRole('dialog').at(-1)!
   const today = new Date()
   const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -282,3 +306,58 @@ async function chooseTomorrow(user: ReturnType<typeof userEvent.setup>) {
   return iso
 }
 
+
+describe('choosing several rights at once (the picker)', () => {
+  it('gives every right ticked in one save, each as far as it can go', async () => {
+    const { user } = show()
+    await chooseAsha(user)
+    await user.click(await screen.findByRole('button', { name: 'Give them more…' }))
+    const picker = screen.getByRole('dialog', { name: /^Give .+ more$/ })
+    expect(within(picker).getByRole('status')).toHaveTextContent('Nothing ticked yet')
+    expect(within(picker).getByRole('button', { name: 'Give' })).toBeDisabled()
+
+    await user.click(within(picker).getByRole('button', { name: /^Team rota/ }))
+    await user.click(within(picker).getByRole('checkbox', { name: /Assign somebody to a role/ }))
+    const search = within(picker).getByRole('searchbox', { name: 'Search the permissions' })
+    await user.type(search, 'logo')
+    await user.click(within(picker).getByRole('checkbox', { name: /Change the app’s logo — App Logo/ }))
+    expect(within(picker).getByRole('status')).toHaveTextContent('2 ticked')
+
+    await user.click(within(picker).getByRole('button', { name: 'Give 2' }))
+    await waitFor(() => expect(perms.rpc).toHaveLength(1))
+    const sent = (perms.rpc[0].args as { p_changes: { capability: string; reach: string }[] }).p_changes
+    expect(sent.map((c) => c.capability).sort()).toEqual(['rota.assign', 'settings.logo'])
+    // "On the teams they are on" was asked for; the logo is the whole church's and goes the one way it can.
+    expect(sent.find((c) => c.capability === 'rota.assign')?.reach).toBe('team')
+    expect(sent.find((c) => c.capability === 'settings.logo')?.reach).toBe('all')
+  })
+
+  it('ticks a whole area, and unticks it', async () => {
+    const { user } = show()
+    await chooseAsha(user)
+    await user.click(await screen.findByRole('button', { name: 'Give them more…' }))
+    const picker = screen.getByRole('dialog', { name: /^Give .+ more$/ })
+    await user.click(within(picker).getByRole('button', { name: /^Team rota/ }))
+    const all = within(picker).getByRole('button', { name: /^Tick all/ })
+    await user.click(all)
+    const boxes = within(picker).getAllByRole('checkbox')
+    expect(boxes.length).toBeGreaterThan(1)
+    for (const box of boxes) expect(box).toBeChecked()
+    await user.click(within(picker).getByRole('button', { name: 'Untick all' }))
+    for (const box of within(picker).getAllByRole('checkbox')) expect(box).not.toBeChecked()
+  })
+
+  it('throws the ticks away on Cancel', async () => {
+    const { user } = show()
+    await chooseAsha(user)
+    await user.click(await screen.findByRole('button', { name: 'Give them more…' }))
+    let picker = screen.getByRole('dialog', { name: /^Give .+ more$/ })
+    await user.click(within(picker).getByRole('button', { name: /^Team rota/ }))
+    await user.click(within(picker).getByRole('checkbox', { name: /Assign somebody to a role/ }))
+    await user.click(within(picker).getByRole('button', { name: 'Cancel' }))
+    expect(perms.rpc).toEqual([])
+    await user.click(await screen.findByRole('button', { name: 'Give them more…' }))
+    picker = screen.getByRole('dialog', { name: /^Give .+ more$/ })
+    expect(within(picker).getByRole('status')).toHaveTextContent('Nothing ticked yet')
+  })
+})

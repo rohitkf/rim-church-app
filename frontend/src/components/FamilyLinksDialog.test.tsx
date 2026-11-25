@@ -504,7 +504,8 @@ describe('somebody linked who is also on the guest list (0332)', () => {
     chooseOption(user, await screen.findByRole('combobox', { name: 'What they are to Anna' }), label)
   const pick = async (user: ReturnType<typeof userEvent.setup>, typed: string, name: string) => {
     await user.type(await screen.findByRole('textbox', { name: 'Name of the person to add' }), typed)
-    await user.click(await screen.findByRole('button', { name: new RegExp(name) }))
+    // The account, not the guest of the same name the box now offers beside it.
+    await user.click(await screen.findByRole('button', { name: new RegExp(`${name}.*On the app`) }))
   }
   const benTheGuest = { id: 'g-ben', name: 'Ben Thomas', title: 'Br', note: null, became_member: null }
 
@@ -560,5 +561,42 @@ describe('somebody linked who is also on the guest list (0332)', () => {
     await word(user, 'Anna’s husband')
     await pick(user, 'be', 'Ben Thomas')
     expect(within(screen.getByRole('group', { name: 'Confirm the link' })).queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+})
+
+describe('somebody on the guest list, found from a family (0332)', () => {
+  const word = async (user: ReturnType<typeof userEvent.setup>, label: string) =>
+    chooseOption(user, await screen.findByRole('combobox', { name: 'What they are to Anna' }), label)
+  const pastorSam = { id: 'g-sam', name: 'Sam Varghese', title: 'Pastor', note: null, became_member: null }
+
+  it('is offered by name, marked as on the guest list, and opens the form with their name', async () => {
+    db.guests = [pastorSam, { id: 'g-joined', name: 'Sam Joined', title: null, note: null, became_member: 'u-x' }]
+    const { user } = open()
+    await word(user, 'Anna’s husband')
+    await user.type(await screen.findByRole('textbox', { name: 'Name of the person to add' }), 'sam')
+    const roll = await screen.findByRole('list', { name: 'People on the guest list' })
+    // Somebody who has since joined is an account now, and is not offered as a guest.
+    expect(within(roll).getAllByRole('button').map((b) => b.textContent)).toEqual(['Pastor Sam VargheseOn the guest list'])
+
+    await user.click(within(roll).getByRole('button', { name: /Pastor Sam Varghese/ }))
+    const form = screen.getByRole('group', { name: 'Write in Anna’s husband' })
+    expect(form).toHaveTextContent('Pastor Sam Varghese is on the guest list with no account yet')
+    // The designation is how the church says the name; the family writes the name.
+    expect(within(form).getByLabelText('First name')).toHaveValue('Sam')
+    expect(within(form).getByLabelText('Last name')).toHaveValue('Varghese')
+  })
+
+  it('writes them in as anybody is written in', async () => {
+    db.guests = [pastorSam]
+    const { user } = open()
+    await word(user, 'Anna’s husband')
+    await user.type(await screen.findByRole('textbox', { name: 'Name of the person to add' }), 'sam')
+    await user.click(await screen.findByRole('button', { name: /Pastor Sam Varghese/ }))
+    await user.click(within(screen.getByRole('group', { name: 'Write in Anna’s husband' })).getByRole('button', { name: /Save|Add/ }))
+    await screen.findByRole('status')
+    expect(calls('save_family_person')).toHaveLength(1)
+    expect(calls('save_family_person')[0]).toMatchObject({ p_person: 'u-anna' })
+    // Nothing is linked: there is no account to link yet.
+    expect(calls('person_joined')).toEqual([])
   })
 })
