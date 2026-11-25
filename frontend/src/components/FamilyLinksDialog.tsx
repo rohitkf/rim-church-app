@@ -6,6 +6,8 @@ import { PersonPicker } from './PersonPicker'
 import { QueryState } from './QueryState'
 import { Select, reachPickerClasses } from './Select'
 import { useErrorText } from '../lib/useErrorText'
+import { GUESTS_KEY, fetchGuests } from '../lib/guests'
+import { guestLine, guestMatches, personJoined } from '../lib/personJoined'
 import { EMPTY_PERSON, type PersonDraft, type Suggestion } from '../lib/family'
 import {
   FAMILY_RELATIONS,
@@ -70,9 +72,12 @@ import {
 export function FamilyLinksDialog({
   person,
   onClose,
+  marksGuests = false,
 }: {
   person: { id: string; first_name: string; last_name: string }
   onClose: () => void
+  /** Whether the reader may change the guest list (svc.guests): see FamilyLinksPanel. */
+  marksGuests?: boolean
 }) {
   const [busy, setBusy] = useState(false)
   const name = fullName(person)
@@ -86,7 +91,7 @@ export function FamilyLinksDialog({
           confirm. Somebody who is not on the app yet can be written in by hand. The family is told of each change.
         </p>
 
-        <FamilyLinksPanel person={person} onBusyChange={setBusy} />
+        <FamilyLinksPanel person={person} onBusyChange={setBusy} marksGuests={marksGuests} />
 
         <div className="mt-5 flex justify-end">
           <button type="button" onClick={onClose} disabled={busy} className={quietButton}>
@@ -103,13 +108,21 @@ export function FamilyLinksDialog({
  * them: the Families page (0326) has the same thing under a family's picture.
  * `onBusyChange` tells whoever holds it that a change is on its way, so a
  * dialog does not shut under one.
+ *
+ * `marksGuests` is whether the reader holds svc.guests. The account being
+ * linked may also be on the guest list, from before they joined; for a
+ * reader who may change that list, the question that confirms the link
+ * offers to mark the guest a member in the same step (0332,
+ * lib/personJoined).
  */
 export function FamilyLinksPanel({
   person,
   onBusyChange,
+  marksGuests = false,
 }: {
   person: { id: string; first_name: string; last_name: string }
   onBusyChange?: (busy: boolean) => void
+  marksGuests?: boolean
 }) {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
@@ -121,10 +134,15 @@ export function FamilyLinksPanel({
   const [open, setOpen] = useState<{ id: string; mode: 'unlink' | 'edit' | 'remove' } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [said, setSaid] = useState<string | null>(null)
+  // The guest ticked to be marked a member along with the link; null for none.
+  const [alsoGuest, setAlsoGuest] = useState<string | null>(null)
 
   const first = person.first_name || 'them'
 
   const query = useQuery({ queryKey: familyOfKey(person.id), queryFn: () => fetchFamilyOf(person.id) })
+  const guestsQuery = useQuery({ queryKey: GUESTS_KEY, queryFn: fetchGuests, enabled: marksGuests })
+  const chosenAccount = adding && 'account' in adding ? adding.account : null
+  const onTheRoll = chosenAccount && marksGuests ? guestMatches(guestsQuery.data ?? [], fullName(chosenAccount)) : []
 
   const settled = (words: string) => {
     setAdding(null)
@@ -146,8 +164,21 @@ export function FamilyLinksPanel({
   }
 
   const link = useMutation({
-    mutationFn: (v: { to: Suggestion; word: FamilyWord }) => linkFamily(person.id, v.to.id, v.word),
-    onSuccess: (answer, v) => settled(linkedWords(person, v.to, v.word, answer)),
+    mutationFn: async (v: { to: Suggestion; word: FamilyWord; guest: { id: string } | null }) => {
+      const answer = await linkFamily(person.id, v.to.id, v.word)
+      if (!v.guest) return { answer, guest: null as string | null }
+      // The family is linked by now; the guest list is a second thing, and says so if it would not go.
+      try {
+        await personJoined(v.to.id, v.guest.id, [])
+        return { answer, guest: ` ${fullName(v.to)} is also marked as a member on the guest list.` }
+      } catch (err) {
+        return { answer, guest: ` The guest list was not changed: ${errorText(err, 'it could not be saved')}` }
+      }
+    },
+    onSuccess: (got, v) => {
+      settled(linkedWords(person, v.to, v.word, got.answer) + (got.guest ?? ''))
+      if (v.guest) void queryClient.invalidateQueries({ queryKey: GUESTS_KEY })
+    },
     onError: failed('Could not link them.'),
   })
   const unlink = useMutation({
@@ -269,6 +300,28 @@ export function FamilyLinksPanel({
                   {linkAlso(person, adding.account, word, family)}
                 </p>
               )}
+              {onTheRoll.length > 0 && (
+                <ul aria-label="Also on the guest list" className="mt-2.5 flex flex-col gap-1.5">
+                  {onTheRoll.map((m) => (
+                    <li key={m.guest.id}>
+                      <label className="tap flex items-start gap-2.5 text-body-sm text-on-surface">
+                        <input
+                          type="checkbox"
+                          id={`guest-${m.guest.id}`}
+                          className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
+                          // One account is one guest: ticking another moves the tick.
+                          checked={alsoGuest === m.guest.id}
+                          disabled={busy}
+                          onChange={(e) => setAlsoGuest(e.target.checked ? m.guest.id : null)}
+                        />
+                        <span className="min-w-0 [overflow-wrap:anywhere]">
+                          {guestLine(m)}. Mark them as a member too, so their teams and rota move to the account.
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <div className="mt-3 flex flex-wrap justify-end gap-2">
                 <button type="button" onClick={() => setAdding(null)} disabled={busy} className={quietButton}>
                   Cancel
@@ -277,7 +330,8 @@ export function FamilyLinksPanel({
                   type="button"
                   onClick={() => {
                     setError(null)
-                    link.mutate({ to: adding.account, word })
+                    const also = onTheRoll.find((m) => m.guest.id === alsoGuest)
+                    link.mutate({ to: adding.account, word, guest: also ? { id: also.guest.id } : null })
                   }}
                   disabled={busy}
                   className={primaryButton}
@@ -317,6 +371,9 @@ export function FamilyLinksPanel({
                 begin()
                 setOpen(null)
                 setAdding({ account: p })
+                // Ticked to begin with only where the whole name is the same and there is one of them.
+                const found = marksGuests ? guestMatches(guestsQuery.data ?? [], fullName(p)) : []
+                setAlsoGuest(found.length === 1 && found[0].exact ? found[0].guest.id : null)
               }}
               onWriteIn={(typed) => {
                 begin()

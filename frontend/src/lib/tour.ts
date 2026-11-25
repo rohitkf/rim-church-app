@@ -349,7 +349,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/families',
         target: 'page-title',
         title: 'Families',
-        body: 'Every family the church has linked, and everybody who is not in one yet. Search for anybody, open their family and it is drawn out: everybody a circle, and a line between two people with what they are to each other written on it. The box under it links another account as their husband, wife, son, daughter, father, mother, brother or sister, or writes in somebody who is not on the app. “View all” draws the whole church on one page. Pinch the picture to make it bigger or smaller, or hold Ctrl and turn the wheel; with a mouse, anybody in it can be dragged to another place. The Owner’s and a Pastor’s, and whoever else the Owner gives “Link families”.',
+        body: 'Every family the church has linked, and everybody who is not in one yet. Search for anybody, open their family and it is drawn out: everybody a circle, and a line between two people with what they are to each other written on it. The box under it links another account as their husband, wife, son, daughter, father, mother, brother or sister, or writes in somebody who is not on the app. Where the account being linked is still on the guest list, the same step can mark them a member there. “View all” draws the whole church on one page. Pinch the picture to make it bigger or smaller, or hold Ctrl and turn the wheel; with a mouse, anybody in it can be dragged to another place. The Owner’s and a Pastor’s, and whoever else the Owner gives “Link families”.',
       },
       {
         path: '/dbs',
@@ -459,7 +459,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/volunteers',
         target: 'people-invite',
         title: 'Volunteers',
-        body: 'Everybody with an account. Invite people, make somebody a Head or an Admin, and export everything that is known about everybody to a spreadsheet. Block stops an account without removing it, and Unblock puts everything back. Each card says how old the person is, and “Under 18” beside the name where they are. Family on a person’s card links them to their husband or wife, children or parents on the app, with nobody having to confirm, and writes in the ones who are not on the app yet.',
+        body: 'Everybody with an account. Invite people, make somebody a Head or an Admin, and export everything that is known about everybody to a spreadsheet. Block stops an account without removing it, and Unblock puts everything back. Each card says how old the person is, and “Under 18” beside the name where they are. Family on a person’s card links them to their husband or wife, children or parents on the app, with nobody having to confirm, and writes in the ones who are not on the app yet. When a guest joins the app, “Now a member” on the guest list links their account, and where they were also written into a family it offers to link them there in the same step.',
       },
       {
         path: '/departments',

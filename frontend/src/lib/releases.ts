@@ -46,6 +46,21 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'somebody-who-joins-is-linked-once',
+    date: '2026-11-25',
+    title: 'Link somebody who joins in one step',
+    lead: 'Somebody on the guest list who was also written into a family is now linked in both places at once, when they get an account.',
+    points: [
+      'On Volunteers, “Now a member” on the guest list looks for them in the families by name. Where it finds them, it asks once and links both.',
+      'Linking an account into a family does the same the other way: where they are still on the guest list, a tick marks them a member too.',
+      'A match is only offered. It starts ticked where the whole name is the same; take the tick off and only the one is linked.',
+      'From the guest list, both are linked together or neither is. It needs both rights, “Add guests” and “Link families”, as Settings › Permissions calls them.',
+    ],
+    link: { to: '/volunteers', label: 'Open Volunteers' },
+    page: '/volunteers',
+    holds: ['people.family'],
+  },
+  {
     key: 'family-graph-pinch-and-drag',
     date: '2026-11-23',
     title: 'Pinch, and drag people about, in a family’s picture',

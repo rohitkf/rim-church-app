@@ -19,10 +19,15 @@ type Answer = { data?: unknown; error: unknown }
 const db = vi.hoisted(() => ({
   rpc: vi.fn<(name: string, args: Record<string, unknown>) => Promise<{ data?: unknown; error: unknown }>>(),
   found: [] as { id: string; first_name: string; last_name: string }[],
+  guests: [] as { id: string; name: string; title: string | null; note: string | null; became_member: string | null }[],
   admin: true,
 }))
 vi.mock('../lib/supabaseClient', () => ({
-  supabase: { rpc: (name: string, args: Record<string, unknown>) => db.rpc(name, args) },
+  supabase: {
+    rpc: (name: string, args: Record<string, unknown>) => db.rpc(name, args),
+    // The guest list, read only by a reader who may change it (0332).
+    from: () => ({ select: () => ({ order: () => Promise.resolve({ data: db.guests, error: null }) }) }),
+  },
 }))
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ isAdmin: db.admin, isSuperAdmin: false }) }))
 // The name box asks for accounts as it is typed in; here it finds what the test says.
@@ -49,12 +54,12 @@ const zak = { id: 'w-zak', first_name: 'Zak', last_name: 'Thomas', dob: '2018-01
 const answers = (extra: Partial<Record<string, Answer>> = {}) =>
   db.rpc.mockImplementation((name) => Promise.resolve(extra[name] ?? (name === 'family_of' ? { data: family, error: null } : { data: null, error: null })))
 
-function open(onClose = vi.fn()) {
+function open(onClose = vi.fn(), marksGuests = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   const invalidate = vi.spyOn(client, 'invalidateQueries')
   render(
     <QueryClientProvider client={client}>
-      <FamilyLinksDialog person={anna} onClose={onClose} />
+      <FamilyLinksDialog person={anna} onClose={onClose} marksGuests={marksGuests} />
     </QueryClientProvider>,
   )
   return { onClose, invalidate, user: userEvent.setup() }
@@ -66,6 +71,7 @@ const section = (name: string) => screen.findByRole('region', { name })
 beforeEach(() => {
   db.rpc.mockReset()
   db.found = []
+  db.guests = []
   db.admin = true
   family = fam()
   answers()
@@ -490,5 +496,69 @@ describe('somebody who is not on the app', () => {
     open()
     await screen.findByRole('button', { name: 'Remove Ravi Kumar' })
     expect(screen.queryByRole('button', { name: /^Unlink/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('somebody linked who is also on the guest list (0332)', () => {
+  const word = async (user: ReturnType<typeof userEvent.setup>, label: string) =>
+    chooseOption(user, await screen.findByRole('combobox', { name: 'What they are to Anna' }), label)
+  const pick = async (user: ReturnType<typeof userEvent.setup>, typed: string, name: string) => {
+    await user.type(await screen.findByRole('textbox', { name: 'Name of the person to add' }), typed)
+    await user.click(await screen.findByRole('button', { name: new RegExp(name) }))
+  }
+  const benTheGuest = { id: 'g-ben', name: 'Ben Thomas', title: 'Br', note: null, became_member: null }
+
+  it('offers the guest on a tick, and one press links the family and marks the guest a member', async () => {
+    db.found = [ben]
+    db.guests = [benTheGuest]
+    answers({ person_joined: { data: { guest: true, family: [] }, error: null } })
+    const { user, invalidate } = open(vi.fn(), true)
+    await word(user, 'Anna’s husband')
+    await pick(user, 'be', 'Ben Thomas')
+    const confirm = screen.getByRole('group', { name: 'Confirm the link' })
+    const tick = await within(confirm).findByRole('checkbox', { name: /On the guest list as Br Ben Thomas/ })
+    // The whole name is the same and there is one of them: ticked to begin with.
+    expect(tick).toBeChecked()
+
+    await user.click(within(confirm).getByRole('button', { name: 'Link' }))
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Ben Thomas is now linked as Anna’s husband. They have both been told. Ben Thomas is also marked as a member on the guest list.',
+    )
+    expect(calls('link_family_as')).toEqual([{ p_person: 'u-anna', p_relative: 'u-ben', p_word: 'husband' }])
+    expect(calls('person_joined')).toEqual([{ p_account: 'u-ben', p_guest: 'g-ben', p_written: null }])
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['guests'] })
+  })
+
+  it('leaves the guest list alone when the tick is taken off', async () => {
+    db.found = [ben]
+    db.guests = [benTheGuest]
+    const { user } = open(vi.fn(), true)
+    await word(user, 'Anna’s husband')
+    await pick(user, 'be', 'Ben Thomas')
+    const confirm = screen.getByRole('group', { name: 'Confirm the link' })
+    await user.click(await within(confirm).findByRole('checkbox'))
+    await user.click(within(confirm).getByRole('button', { name: 'Link' }))
+    await screen.findByRole('status')
+    expect(calls('person_joined')).toEqual([])
+  })
+
+  it('says so when the family is linked and the guest list would not change', async () => {
+    db.found = [ben]
+    db.guests = [benTheGuest]
+    answers({ person_joined: { error: { message: 'nope' } } })
+    const { user } = open(vi.fn(), true)
+    await word(user, 'Anna’s husband')
+    await pick(user, 'be', 'Ben Thomas')
+    await user.click(within(screen.getByRole('group', { name: 'Confirm the link' })).getByRole('button', { name: 'Link' }))
+    expect(await screen.findByRole('status')).toHaveTextContent(/Ben Thomas is now linked as Anna’s husband\..*The guest list was not changed:/)
+  })
+
+  it('offers nothing to a reader who may not change the guest list', async () => {
+    db.found = [ben]
+    db.guests = [benTheGuest]
+    const { user } = open()
+    await word(user, 'Anna’s husband')
+    await pick(user, 'be', 'Ben Thomas')
+    expect(within(screen.getByRole('group', { name: 'Confirm the link' })).queryByRole('checkbox')).not.toBeInTheDocument()
   })
 })
