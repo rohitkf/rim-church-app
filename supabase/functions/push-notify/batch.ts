@@ -26,6 +26,28 @@ export interface Waiting {
   devices: Device[]
 }
 
+/**
+ * Whether a stored subscription address is a push service's: https, a real
+ * host name (never an address, never a name with no dot or one that ends in
+ * a private suffix), and port 443. The database refuses to store anything
+ * else (0331); this is the same rule applied again before anything is sent,
+ * for rows stored before that.
+ */
+export function endpointIsSane(endpoint: string): boolean {
+  let url: URL
+  try {
+    url = new URL(endpoint)
+  } catch {
+    return false
+  }
+  if (url.protocol !== 'https:' || url.username || url.password) return false
+  if (url.port !== '' && url.port !== '443') return false
+  const host = url.hostname.toLowerCase()
+  if (!host.includes('.') || /^[0-9.]+$/.test(host) || host.startsWith('[')) return false
+  if (/\.(local|localhost|internal|lan|home|corp)$/.test(host)) return false
+  return true
+}
+
 /** The database sends a hundred ids to a call (0291); more than this in one is not the database. */
 export const MOST_IDS = 500
 

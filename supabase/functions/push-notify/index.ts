@@ -23,7 +23,7 @@
  */
 import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'jsr:@supabase/supabase-js@2.119.0'
-import { byDevice, failureLine, idsFrom, inPool, isGone, reasonFor, type Waiting } from './batch.ts'
+import { byDevice, endpointIsSane, failureLine, idsFrom, inPool, isGone, reasonFor, type Waiting } from './batch.ts'
 
 // Kept in step with frontend/src/lib/notificationLink.ts. Two copies is the
 // price of the sender living in Deno and the app in the browser; a type
@@ -185,6 +185,12 @@ Deno.serve(async (req) => {
   const failed: Record<string, number> = {}
 
   await inPool(byDevice(waiting), SENDS_AT_ONCE, async ({ device, rows }) => {
+    // An address that is not a push service's is never called (0331): the
+    // row stays for somebody to look at, and App Health says so.
+    if (!endpointIsSane(device.endpoint)) {
+      failed['endpoint refused'] = (failed['endpoint refused'] ?? 0) + rows.length
+      return
+    }
     for (const row of rows) {
       try {
         await webpush.sendNotification(

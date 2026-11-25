@@ -33,6 +33,7 @@ interface Batch {
   reasonFor: (err: unknown) => string
   isGone: (err: unknown) => boolean
   failureLine: (failed: Record<string, number>, attempted: number) => string | null
+  endpointIsSane: (endpoint: string) => boolean
 }
 const [batch] = Object.values(import.meta.glob('../../../supabase/functions/push-notify/batch.ts', { eager: true })) as Batch[]
 
@@ -152,5 +153,37 @@ describe('the two halves agree', () => {
   it('the database sends the shape the function reads, no more to a call than it will take', () => {
     expect(handsOver).toContain("jsonb_build_object('ids', to_jsonb(p_ids[first : first + 99]))")
     expect(batch.MOST_IDS).toBeGreaterThanOrEqual(100)
+  })
+})
+
+describe('which addresses are a push service (0331)', () => {
+  it('calls the real push services and any https host name', () => {
+    for (const e of [
+      'https://fcm.googleapis.com/fcm/send/abc',
+      'https://updates.push.services.mozilla.com/wpush/v2/x',
+      'https://web.push.apple.com/Q1',
+      'https://wns2-par02p.notify.windows.com/w/?token=x',
+      'https://push.example/dev1',
+    ]) {
+      expect(batch.endpointIsSane(e), e).toBe(true)
+    }
+  })
+
+  it('never calls an address, a private name, another port, or anything but https', () => {
+    for (const e of [
+      'http://fcm.googleapis.com/x',
+      'https://127.0.0.1/x',
+      'https://169.254.169.254/latest/meta-data',
+      'https://[::1]/x',
+      'https://localhost/x',
+      'https://db.internal/x',
+      'https://intranet/x',
+      'https://example.com:8443/x',
+      'https://user:pw@example.com/x',
+      'not a url',
+      '',
+    ]) {
+      expect(batch.endpointIsSane(e), e).toBe(false)
+    }
   })
 })
