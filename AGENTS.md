@@ -1837,11 +1837,13 @@ So a session that starts from nothing works the way the last one did:
 
 ## 12. The skills installed in this repo
 
-`.claude/skills/` holds eleven skill sets copied in at a pinned commit, each
+`.claude/skills/` holds twelve skill sets copied in at a pinned commit, each
 with a `SOURCE.md` saying where it came from, its licence and what was
 left out: `superpowers`, `mattpocock-skills`, `ponytail`, `caveman`,
-`impeccable`, `hallmark`, `unslop`, `i-have-adhd`, `brag`, `headroom` and `graphify`
-(beside `security-audit`, and `frontend/.claude/skills/verify`). All but
+`impeccable`, `hallmark`, `unslop`, `i-have-adhd`, `brag`, `headroom`, `graphify`
+and `security-audit` (beside `rim-toolbox` and `frontend/.claude/skills/verify`,
+which are this repository's own). All were compared with their upstreams
+on 26 November 2026; each `SOURCE.md` says what was found. All but
 `graphify` and `security-audit` are plugin folders: they load as
 `<set>@skills-dir` and their skills are called `<set>:<skill>`.
 
@@ -1889,8 +1891,9 @@ one-line commit). This file wins; `rim-toolbox` lists the collisions.
   mechanical half: `.claude/skills/impeccable/skills/impeccable/scripts/impeccable
   detect --json frontend/src` (it was four findings and is one: the
   dashed label strip on the stage plan, which is a drawing). It is at
-  4.10.0 (24 November 2026), which adds `foundations`, a checklist of a
-  project's basics; its one "secret" here is Svix's published example in
+  4.11.1 (26 November 2026); 4.10.0 added `foundations`, a checklist of a
+  project's basics, and 4.11 an account that reports can be sent to,
+  which is never signed in to here (`impeccable login` is not run); its one "secret" here is Svix's published example in
   a test, not a key (`SOURCE.md` says more). Three things
   both skills call tells were **this design system's own choices**, so
   they were put to the Owner rather than changed: the small capital label

@@ -1,4 +1,4 @@
-Copied from https://github.com/headroomlabs-ai/headroom at commit ce0460cfa859 (version 0.45.0) on 2026-11-23 (checked on 2026-11-24: upstream's later commits leave the skill unchanged, and 0.45.0 is still the newest `headroom-ai`).
+Copied from https://github.com/headroomlabs-ai/headroom at commit ce0460cfa859 (version 0.45.0) on 2026-11-23 (checked on 2026-11-24 and again on 2026-11-26 against c9d7eae7e625: upstream's later commits leave the skill unchanged, and 0.45.0 is still the newest `headroom-ai`).
 Licence: Apache-2.0 (see LICENSE and NOTICE).
 
 Headroom makes what is sent to a model smaller before it is sent: long logs, tables of rows, tool

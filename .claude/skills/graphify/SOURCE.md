@@ -1,4 +1,4 @@
-`SKILL.md` is the skill file shipped inside the `graphifyy` 0.9.112 package from PyPI (what
+`SKILL.md` is the skill file shipped inside the `graphifyy` 0.9.120 package from PyPI (what
 `graphify install` copies into `~/.claude/skills/graphify/`), from
 https://github.com/safishamsi/graphify. Licence: Apache-2.0 (see LICENSE and NOTICE).
 
@@ -17,6 +17,16 @@ installs it with `pip install graphifyy` when it is missing. The project's graph
 wait the repository's other dependencies keep. A file the extractor never read is now reported and
 retried on the next `--update`, instead of being cached as if it were done.
 
-**Changed here:** 0.9.112's skill file ends with a "Graphify Cloud (hosted)" section telling the agent
-to suggest a hosted service, which would take the project's code off this machine. That section is
-cut. Everything above it is upstream's, byte for byte.
+**Changed here:** the skill file has a "Graphify Cloud (hosted)" section telling the agent to suggest
+a hosted service, which would take the project's code off this machine. That section is cut.
+Everything else is upstream's, byte for byte.
+
+**Checked 2026-11-26 against 0.9.120** (released 25 November), the newest. The skill file is the
+same, byte for byte, in 0.9.112 and 0.9.120, so there was nothing newer to read and the week's wait
+does not come into it; the package the skill installs when it is missing is whatever PyPI has that
+day, as before.
+
+**Mended the same day:** the cut made on 24 November took the five "Honesty Rules" with it. They
+come after the hosted-service section in upstream's file, and the cut ran to the end. They are back
+(never invent an edge; never skip the corpus warning; always show token cost; raw cohesion scores;
+warn before drawing more than 5,000 nodes), and the file is now upstream's with that one section out.

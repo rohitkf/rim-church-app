@@ -6,3 +6,5 @@ Copied from https://github.com/Nutlope/hallmark at commit 04977e15f3df on 2026-1
 
 Nothing here is fetched at run time by Claude Code: this folder is the whole install, and it
 changes only when somebody copies a newer commit in and reads the difference.
+
+**Checked 2026-11-26:** 04977e15f3df is still upstream's newest commit, so there is nothing to take.
