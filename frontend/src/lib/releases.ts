@@ -46,6 +46,17 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'safer-signing-in',
+    date: '2026-11-26',
+    title: 'Safer signing in',
+    lead: 'Three things the sign-in page now does to keep other people out of your account.',
+    points: [
+      'A phone or computer that has not opened the app for 30 days is signed out, and the sign-in page says why. Used every week, it never is.',
+      'Five wrong passwords in a row and the page waits a minute before it will try again, with “Forgot password?” beside it.',
+      'A new password is checked against passwords known to have been stolen elsewhere. If yours is one of them you are asked to choose another. Your password itself never leaves your device for this.',
+    ],
+  },
+  {
     key: 'easier-to-read-reach-and-press',
     date: '2026-11-26',
     title: 'Easier to read, reach and press',

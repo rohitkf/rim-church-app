@@ -114,6 +114,14 @@ export function PrivacyPage() {
           </ul>
         </Part>
 
+        <Part title="If something is not right">
+          <p>
+            Speak to the church first: the Owner of the app, or an Admin, can show you what is held and put it right.
+            If you are still unhappy with how your information has been handled, you can complain to the Information
+            Commissioner’s Office, the United Kingdom’s regulator for this, at ico.org.uk.
+          </p>
+        </Part>
+
         <p className="mt-10 text-body-sm text-on-surface-faint">
           This page describes what the app does. For anything it does not answer, speak to the church.
         </p>

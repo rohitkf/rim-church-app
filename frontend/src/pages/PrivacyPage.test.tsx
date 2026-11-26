@@ -28,7 +28,7 @@ describe('the page that says what is kept', () => {
   it('says what is kept, who sees it, how long, where, and how to have it removed', () => {
     show()
     expect(screen.getByRole('heading', { level: 1, name: 'What the app keeps about you' })).toBeInTheDocument()
-    for (const part of ['What you give it', 'What it keeps as you use it', 'If you register for an event', 'Who can see it', 'How long it is kept', 'Where it is held', 'Your choices']) {
+    for (const part of ['What you give it', 'What it keeps as you use it', 'If you register for an event', 'Who can see it', 'How long it is kept', 'Where it is held', 'Your choices', 'If something is not right']) {
       expect(screen.getByRole('heading', { level: 2, name: part })).toBeInTheDocument()
     }
     // The three things somebody most wants to know.

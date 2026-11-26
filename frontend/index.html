@@ -58,17 +58,11 @@
         </div>
       </div>
     </div>
-    <script>
-      // Only ever seen when the bundle failed to load or run: React clears
-      // #root long before this fires on any normal visit.
-      window.setTimeout(function () {
-        var el = document.getElementById('boot-msg')
-        if (!el) return
-        el.innerHTML =
-          'The app is taking longer than it should to start.<br>' +
-          '<a href="/" style="color:inherit" onclick="location.reload();return false">Try again</a>'
-      }, 8000)
-    </script>
+    <!-- The "taking longer than it should" line, for a bundle that never
+         arrives. A file, not a script written here: the page allows scripts
+         from this site only (vercel.json), and that rule refuses any script
+         typed into a page. -->
+    <script src="/boot.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

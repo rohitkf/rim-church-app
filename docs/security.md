@@ -21,9 +21,9 @@ only the Owner can make.
 | Every table has row rules | 122 of 122 public tables have row level security on. Fifteen have it on with no policy at all: those are closed to the app and reached only through functions that check who is asking | Supabase's security advisor; `select count(*) from pg_class … where not relrowsecurity` |
 | Functions that run with the database's own rights are pinned | Every `security definer` function sets its own `search_path` (0333 put back the one that had lost it) | `select count(*) from pg_proc where prosecdef and proconfig is null` is 0 |
 | Passwords | Eight characters at least, in the form and on the server (the server accepted six until 26 November 2026). Stored hashed by Supabase Auth | `GET /v1/projects/<ref>/config/auth` → `password_min_length` |
-| Guessing a password | Supabase limits sign-in attempts per address it comes from. **Open:** there is no lock on an account after five wrong tries, and no check against lists of leaked passwords. Both need a paid Supabase plan (Pro for the leaked-password check, Team for the attempt hook). A CAPTCHA on sign-in (Cloudflare Turnstile, free) would stop automated guessing on the current plan. **Owner** | Supabase › Authentication › Attack protection |
+| Guessing a password | Supabase limits sign-in attempts per address it comes from. The sign-in form counts for itself too: five wrong passwords for one email in a quarter of an hour and it waits a minute before asking again, then five, then fifteen (`lib/signInTries`). A new password is checked against Have I Been Pwned's list of breached ones before it is sent to be stored; five characters of its fingerprint leave the device, never the password (`lib/breachedPassword`). **Open:** both of those are the form's, so somebody calling Supabase directly is held only by Supabase's own limit. A lock on the account itself needs Supabase's Team plan; a CAPTCHA (Cloudflare Turnstile, free) would hold on this plan and needs keys from the Owner's Cloudflare account. **Owner** | `frontend/src/lib/signInProtections.test.ts`; Supabase › Authentication › Attack protection |
 | Everything is encrypted | In transit: HTTPS only, with HSTS for two years (`strict-transport-security`, set by Vercel). At rest: Supabase encrypts the database and its storage | `curl -sI https://rim-church-app.vercel.app` |
-| The browser is told what the site may do | No framing by other sites (`X-Frame-Options`, `frame-ancestors`), no content-type guessing, a trimmed referrer, and since 26 November 2026 a `Permissions-Policy` that leaves the camera, microphone and location to this site alone and switches the rest off. **Open:** no `Content-Security-Policy` for scripts yet; React's escaping is what stands between typed text and code | `frontend/vercel.json` |
+| The browser is told what the site may do | No framing by other sites, no content-type guessing, a trimmed referrer, a `Permissions-Policy` that leaves the camera, microphone and location to this site alone, and a `Content-Security-Policy`: scripts run from this site only, none typed into the page and none made up as it runs, so text that somehow got past React's escaping still could not run. What the policy refuses is recorded with the app's other errors (Settings › App Health). Pictures, video and requests may still go to any `https` address, because event pictures and links are the church's own | `frontend/vercel.json`, `frontend/src/lib/contentPolicy.test.ts` |
 | Files people upload | Seven storage buckets, six private. Each has a size limit and a list of allowed types set on the bucket itself, so the limit holds whatever the page sends. The one public bucket holds the pictures on public event pages | `select id, public, file_size_limit, allowed_mime_types from storage.buckets` |
 | Updates are installed | Dependabot proposes updates every Monday into `develop`; a weekly job fails loudly if `npm audit` finds anything rated high; CI runs the same audit on every change. The edge functions' imports are pinned by hand and a test holds them to one version | `.github/dependabot.yml`, `.github/workflows/dependency-audit.yml` |
 
@@ -48,15 +48,15 @@ function that asks `may(user, right)`. The grid of rights is in Settings ›
 Access & Privileges and in `frontend/src/lib/permissionMatrix.ts`. An
 Admin can look at the app as any standing (View as) to check it.
 
-**How long they stay signed in.** Until they sign out. The token a
-browser holds lasts an hour and is renewed quietly; the renewal never
-expires. **Open, Owner:** the picture this list was checked against signs
-everybody out after eight hours. For an app volunteers open on their own
-phones on a Sunday that would mean signing in every week. Supabase's own
-time limits need the Pro plan. On the current plan the app could sign a
-phone out itself after a stretch without use (thirty days, say), which
-covers a phone that is lost or handed on. Not built: it is a choice
-between convenience and caution that is the Owner's.
+**How long they stay signed in.** For as long as the device is in use.
+A device nobody has opened the app on for thirty days is signed out the
+next time it is opened, and the sign-in page says why (`lib/idleSignOut`,
+since 26 November 2026). Thirty days and not the eight hours a bank would
+use: volunteers open this on their own phones on a Sunday, and a limit
+shorter than the gap between two Sundays is a sign-in every week. It is
+the device's own memory, so it covers a phone that is lost or handed on;
+a token copied off a device is not touched by it. **Open:** Supabase's own
+time limit on a session, which would cover that, needs the Pro plan.
 
 **Also open:** no second step at sign-in (a code from an authenticator
 app). Supabase supports it; the app has no screen for it. Worth having for
@@ -117,8 +117,8 @@ from inside the app; both are done for them by the Owner on request.
 | The admin pages | A member opening Settings or People | Pages are gated in the app and, where it matters, in the database; an Admin's rights are rows the Owner can see | View as, each standing |
 | The API itself (Supabase's REST and functions) | Calling a function directly with the public key | 312 functions are callable signed in and 18 signed out; each asks who is calling. The 18 are the public registration functions, two version checks and the error report | Supabase's advisor, reviewed 26 November 2026 |
 | The edge functions | Calling them without rights; making them send mail or pushes | Each checks its caller. Three need a signed-in person or the server's own key; the two the public event pages use do only what one registration allows. Push endpoints must be a real push service; mail is throttled | Smoke tests after each deploy |
-| A lost or shared phone | Opening the app already signed in | **Open** (section 2: no time limit on a session) | Not tested |
-| The people who build it | A poisoned package; a secret committed by mistake | Updates wait a week before they are proposed; `npm audit` weekly and in CI; `.env` ignored. **Open:** nothing scans commits for secrets | CI |
+| A lost or shared phone | Opening the app already signed in | Signed out after thirty days without use (section 2). Before that, the Owner can remove or block the account | Unit tests |
+| The people who build it | A poisoned package; a secret committed by mistake | Updates wait a week before they are proposed; `npm audit` weekly and in CI; `.env` ignored; a test reads every file the app is built from for the shape of a key and fails if it finds one (`contentPolicy.test.ts`) | CI, every run |
 
 A full pass was run on 25 November 2026 and closed as *incomplete*: four
 areas and fourteen tables were not reviewed. The three questions it left
@@ -147,8 +147,8 @@ Where the app stood against the five on 26 November 2026:
 
 | Document | Standing |
 | --- | --- |
-| Security rules | Kept, with three things open: account lockout, the leaked-password check, a script policy |
-| Sign-in rules | Who and what: kept. How long: open, the Owner's choice |
+| Security rules | Kept. Open: a lock on the account itself, which needs a paid plan or the Owner's CAPTCHA keys |
+| Sign-in rules | Kept: thirty days without use signs a device out |
 | Data rules | Kept, and now said to people. Open: the church's own wording, and self-service copy and removal |
-| Threat map | This table. One row open (a lost phone), one check missing (secret scanning) |
+| Threat map | This table, with no row open |
 | Launch checklist | The seven lines above |
