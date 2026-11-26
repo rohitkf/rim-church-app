@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
+import { ListSearch } from '../components/ListSearch'
+import { useListSearch } from '../lib/useListSearch'
 import { ManageTeamsCard } from '../components/ManageTeamsCard'
 import { JoinRequestsPanel } from '../components/JoinRequestsPanel'
 import { AnsweredJoinRequests } from '../components/AnsweredJoinRequests'
@@ -62,6 +64,8 @@ export function DepartmentsPage() {
     return (allDepartments ?? []).filter((d) => mine.has(d.id))
   }, [allDepartments, memberDeptIds, ledDepartmentIds, seesAllTeams])
 
+  const search = useListSearch(data, (d) => [{ text: d.name, weight: 3 }])
+
   // How many are on each team shown, core and guests apart.
   const shownIds = useMemo(() => (data ?? []).map((d) => d.id), [data])
   const rosterQuery = useQuery({
@@ -97,8 +101,9 @@ export function DepartmentsPage() {
           emptyMessage={
             seesAllTeams ? 'No teams yet.' : "You're not on a team yet — ask to join one below."
           }>
+          <ListSearch search={search} label="Find a team" placeholder="Find a team" noun={['team', 'teams']} className="mb-5" />
           <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {data?.map((dept) => {
+            {search.shown.map((dept) => {
               return (
                 <Card key={dept.id} as="li" interactive className="flex flex-col">
                   <div

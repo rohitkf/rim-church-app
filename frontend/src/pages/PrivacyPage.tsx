@@ -116,7 +116,7 @@ export function PrivacyPage() {
             </li>
             <li>Turn notifications and location off in your phone’s or browser’s own settings at any time.</li>
             <li>
-              Download a copy of everything held about you, as one file, from{' '}
+              Download a copy of everything held about you, as a document you can read and print, from{' '}
               <Link to="/settings/account" className="font-medium text-accent-blue-soft">Settings, Your account</Link>.
             </li>
             <li>

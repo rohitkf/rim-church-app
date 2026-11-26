@@ -46,6 +46,30 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'a-search-box-on-every-list',
+    date: '2026-11-26',
+    title: 'A search box on every list',
+    lead: 'The box that finds somebody on Volunteers is now on the other lists too, and works the same way on each.',
+    points: [
+      'Teams, a team’s own members, the Calendar, Registrations, Church Updates, Messages, Polls, Prayer Requests, Feedback, Clock In and Service templates each have one.',
+      'On Inventory it finds a piece of kit in any team’s register: by name, tag, make, serial number or shelf.',
+      'Words in any order, and a slip of the thumb forgiven. The boxes that were already there (Families, DBS Checks, a register, an event’s orders) now do the same.',
+      'A code or a number is found as written: one digit out is a different thing.',
+    ],
+  },
+  {
+    key: 'your-copy-is-a-document-now',
+    date: '2026-11-26',
+    title: 'Your copy is a document you can read',
+    lead: 'Settings, Your account, Download a copy now gives you a page in plain words, not a file of database rows.',
+    points: [
+      'A heading for each kind of thing: your profile, your teams, when you clocked in, what the bell told you.',
+      'A team, a service or a person is named. Dates are dates. Blank answers are left out.',
+      'It opens in your browser and prints. To keep it as a PDF, print it and choose Save as PDF.',
+      'The raw data file is still there beside it, for another program to read.',
+    ],
+  },
+  {
     key: 'a-search-that-finds-things',
     date: '2026-11-26',
     title: 'A search that finds things',

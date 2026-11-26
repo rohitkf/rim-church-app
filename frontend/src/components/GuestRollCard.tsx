@@ -1,3 +1,4 @@
+import { searchList } from '../lib/searchMatch'
 import { nameToSave, tidyName } from '../lib/personName'
 import { type FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -428,12 +429,9 @@ function LinkToMemberDialog({
   const [ticked, setTicked] = useState<Set<string>>(new Set())
 
   const matches = useMemo(() => {
-    const needle = query.trim().toLowerCase()
     const all = peopleQuery.data ?? []
-    if (!needle) return all.slice(0, 8)
-    return all
-      .filter((p) => `${p.first_name} ${p.last_name}`.toLowerCase().includes(needle))
-      .slice(0, 8)
+    // Best match first, both names in either order, a slip forgiven (lib/searchMatch).
+    return searchList(query, all, (p) => [{ text: `${p.first_name} ${p.last_name}`, weight: 3 }]).slice(0, 8)
   }, [peopleQuery.data, query])
 
   function pick(person: z.infer<typeof profileSchema>) {

@@ -103,9 +103,16 @@ export function DbsCheckDialog({
   }
 
   const verify = useMutation({
-    mutationFn: () => verifyDbs(person.id, checks),
+    // With the fingerprint of the details on screen: the mark is for those, and the database checks (0335).
+    mutationFn: () => verifyDbs(person.id, checks, details?.seen),
     onSuccess: settled,
-    onError: (err) => setError(errorText(err, 'Could not mark it verified.')),
+    onError: (err) => {
+      setError(errorText(err, 'Could not mark it verified.'))
+      // Refused because the details changed: show what they are now, with
+      // the ticks taken off, since what was ticked was about the old ones.
+      setChecks({ statusChecked: false, certificateSeen: false, idSeen: false })
+      void queryClient.invalidateQueries({ queryKey: dbsKey(person.id) })
+    },
   })
   const takeBack = useMutation({
     mutationFn: () => unverifyDbs(person.id),

@@ -38,6 +38,8 @@ const DETAILS = {
   status_checked: false,
   certificate_seen: false,
   id_seen: false,
+  // The fingerprint of these details, as the database gives it (0335).
+  seen: 'fp-1' as string | null,
 }
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ profile: { id: state.me }, isSuperAdmin: state.isOwner }) }))
@@ -54,6 +56,10 @@ vi.mock('../lib/supabaseClient', () => ({
       state.calls.push({ name, args })
       if (state.refuse) return Promise.resolve({ data: null, error: { message: state.refuse, code: '42501' } })
       if (name === 'verify_dbs') {
+        // The database's own rule (0335): the mark is for the details that were shown, or for none.
+        if (args.p_seen !== state.details?.seen) {
+          return Promise.resolve({ data: null, error: { code: 'P0001', message: 'These details were changed after you opened them. Look at them again before you mark them verified.' } })
+        }
         state.details = {
           ...state.details,
           verified_at: '2026-11-22T12:00:00Z',
@@ -135,6 +141,29 @@ describe('checking somebody’s DBS', () => {
     expect(screen.getByRole('checkbox', { name: 'Seen the shared certificate online' })).toBeInTheDocument()
   })
 
+  it('marks nothing when the details changed after they were opened, and shows what they are now', async () => {
+    // The person saved a different certificate between the checker's reading and the checker's click.
+    const user = userEvent.setup()
+    show()
+    expect(await screen.findByText('001234567890')).toBeInTheDocument()
+    state.details = { ...state.details, certificate_number: '009999999999', seen: 'fp-2' }
+    await user.click(screen.getByRole('checkbox', { name: 'Seen the original certificate' }))
+    await user.click(screen.getByRole('button', { name: 'Mark as verified' }))
+
+    expect(await screen.findByText(/These details were changed after you opened them/)).toBeInTheDocument()
+    // The details on screen are the new ones, and what was ticked was about the old ones.
+    expect(await screen.findByText('009999999999')).toBeInTheDocument()
+    expect(screen.queryByText('001234567890')).toBeNull()
+    expect(screen.getByRole('checkbox', { name: 'Seen the original certificate' })).not.toBeChecked()
+    expect(screen.queryByText('Verified')).toBeNull()
+
+    // Looked at again, ticked again: the mark is for what is there now.
+    await user.click(screen.getByRole('checkbox', { name: 'Seen the original certificate' }))
+    await user.click(screen.getByRole('button', { name: 'Mark as verified' }))
+    expect(await screen.findByText('Verified')).toBeInTheDocument()
+    expect(state.calls.at(-1)).toEqual({ name: 'verify_dbs', args: { p_person: 'u1', p_status_checked: false, p_certificate_seen: true, p_id_seen: false, p_seen: 'fp-2' } })
+  })
+
   it('does not mark anything verified until something is ticked, and records what was', async () => {
     const user = userEvent.setup()
     show()
@@ -146,7 +175,7 @@ describe('checking somebody’s DBS', () => {
     await user.click(button)
     await waitFor(() =>
       expect(state.calls).toEqual([
-        { name: 'verify_dbs', args: { p_person: 'u1', p_status_checked: false, p_certificate_seen: true, p_id_seen: true } },
+        { name: 'verify_dbs', args: { p_person: 'u1', p_status_checked: false, p_certificate_seen: true, p_id_seen: true, p_seen: 'fp-1' } },
       ]),
     )
     expect(await screen.findByText('Verified')).toBeInTheDocument()
@@ -187,7 +216,7 @@ describe('checking somebody’s DBS', () => {
     await user.click(screen.getByRole('button', { name: 'Mark as verified' }))
     await waitFor(() =>
       expect(state.calls).toEqual([
-        { name: 'verify_dbs', args: { p_person: 'u1', p_status_checked: false, p_certificate_seen: true, p_id_seen: false } },
+        { name: 'verify_dbs', args: { p_person: 'u1', p_status_checked: false, p_certificate_seen: true, p_id_seen: false, p_seen: 'fp-1' } },
       ]),
     )
     expect(await screen.findByText('Verified')).toBeInTheDocument()

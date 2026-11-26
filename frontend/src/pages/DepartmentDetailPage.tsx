@@ -23,6 +23,8 @@ import { Under18Mark } from '../components/Under18Mark'
 import { HEAD_ON_PAGE, ON_CARD } from '../lib/stickyHead'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { SearchField } from '../components/SearchField'
+import { searchList, tokensOf } from '../lib/searchMatch'
 import { HANDBOOK_BUCKET, useHandbookUrl } from '../lib/useHandbookUrl'
 import { HandbookUploadModal } from '../components/HandbookUploadModal'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
@@ -260,6 +262,21 @@ export function DepartmentDetailPage() {
   const guestMembers = orderByName(
     (membersQuery.data ?? []).filter((m) => m.member_type === 'guest'),
   )
+
+  /*
+   * Finding one person on a team of forty: by name, by what they are on
+   * the team, or by email address for a reader who is shown those. One
+   * box over both lists; the counts beside the headings stay the team's.
+   */
+  const [findMember, setFindMember] = useState('')
+  const findingMember = tokensOf(findMember).length > 0
+  const memberFields = (m: (typeof coreMembers)[number]) => [
+    { text: m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : '', weight: 3 },
+    { text: designationOf(m.user_id), weight: 1.5 },
+    { text: m.profiles?.email ?? '' },
+  ]
+  const shownCore = findingMember ? searchList(findMember, coreMembers, memberFields) : coreMembers
+  const shownGuests = findingMember ? searchList(findMember, guestMembers, memberFields) : guestMembers
 
   const memberIds = membersQuery.data?.map((m) => m.user_id) ?? []
   const sensitiveQuery = useQuery({
@@ -593,6 +610,23 @@ export function DepartmentDetailPage() {
               </span>
             </div>
 
+            {(coreMembers.length + guestMembers.length > 1 || findMember) && (
+              <SearchField
+                className="mt-4"
+                value={findMember}
+                onChange={setFindMember}
+                label="Find somebody on this team"
+                placeholder="Find somebody on this team"
+                status={
+                  findingMember
+                    ? shownCore.length + shownGuests.length === 0
+                      ? `Nobody on this team matches “${findMember.trim()}”. Try fewer letters.`
+                      : `${shownCore.length} core, ${shownGuests.length} guest${shownGuests.length === 1 ? '' : 's'} found`
+                    : null
+                }
+              />
+            )}
+
             <QueryState isLoading={membersQuery.isLoading} error={membersQuery.error}>
               {/*
                 The table needs room for every column it has, and for an
@@ -616,7 +650,7 @@ export function DepartmentDetailPage() {
                 be the loudest thing on every row.
               */}
               <ul className="mt-4 flex flex-col gap-2.5 @3xl:hidden">
-                {coreMembers.map((m) => {
+                {shownCore.map((m) => {
                   const rank = designationOf(m.user_id)
                   return (
                     <li key={m.id} className="rounded-[var(--radius-row)] bg-raised p-3.5 hairline">
@@ -706,7 +740,7 @@ export function DepartmentDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {coreMembers.map((m) => (
+                    {shownCore.map((m) => (
                         <tr key={m.id} className="border-b border-border-subtle last:border-0">
                           <td className="py-3 pr-4 font-medium text-on-surface">
                             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -912,7 +946,7 @@ export function DepartmentDetailPage() {
             </p>
             <QueryState isLoading={membersQuery.isLoading} error={membersQuery.error}>
               <ul className="mt-4 flex flex-col gap-3">
-                {guestMembers.map((m) => (
+                {shownGuests.map((m) => (
                     <li
                       key={m.id}
                       className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] hairline p-3"

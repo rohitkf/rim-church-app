@@ -1,3 +1,4 @@
+import { matchScore, tokensOf } from './searchMatch'
 import type { InventoryItem, InventoryStatus } from './types'
 
 export const STATUS_LABEL: Record<InventoryStatus, string> = {
@@ -127,19 +128,16 @@ export function summarise(items: InventoryItem[], todayIso: string): InventorySu
  * model, the manufacturer's serial, and where it lives.
  */
 export function matchesSearch(item: InventoryItem, term: string): boolean {
-  const q = term.trim().toLowerCase()
-  if (!q) return true
-  return [
-    item.asset_tag,
-    item.name,
-    item.brand,
-    item.model,
-    item.serial_number,
-    item.location,
-    item.category,
-  ]
-    .filter((v): v is string => !!v)
-    .some((v) => v.toLowerCase().includes(q))
+  if (tokensOf(term).length === 0) return true
+  // The app's one matcher (lib/searchMatch): words in any order across the
+  // fields ("sennheiser mic"), a slip forgiven, as the search over everything does.
+  return (
+    matchScore(term, [
+      { text: item.name, weight: 3 },
+      { text: `${item.asset_tag ?? ''} ${item.brand ?? ''} ${item.model ?? ''}`, weight: 2 },
+      { text: `${item.serial_number ?? ''} ${item.location ?? ''} ${item.category ?? ''}` },
+    ]) !== null
+  )
 }
 
 /**

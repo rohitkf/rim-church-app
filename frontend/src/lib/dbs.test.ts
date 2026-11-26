@@ -1,3 +1,4 @@
+import tied from '../../../supabase/migrations/0335_a_dbs_mark_is_for_the_details_that_were_checked.sql?raw'
 import { describe, expect, it, vi } from 'vitest'
 import migration from '../../../supabase/migrations/0324_a_dbs_is_details_and_somebody_checks_it.sql?raw'
 import ownersOwn from '../../../supabase/migrations/0325_the_owner_can_check_their_own_dbs.sql?raw'
@@ -225,5 +226,40 @@ describe('the form and the database ask for the same thing', () => {
     expect(migration).toMatch(/revoke all on public\.dbs_details from authenticated;\s*grant select on public\.dbs_details to authenticated;/)
     expect(migration).toMatch(/revoke all on public\.dbs_log from authenticated;\s*grant select on public\.dbs_log to authenticated;/)
     expect(migration).not.toMatch(/create policy \w+ on public\.dbs_(details|log)\s+for (insert|update|delete|all)/)
+  })
+})
+
+/*
+ * A mark is for the details that were checked (0335). verify_dbs() used to
+ * stamp whatever was stored at the click, so details swapped between the
+ * checker's reading and the checker's click were marked unseen.
+ */
+describe('a DBS mark and the details it is for', () => {
+  const verify = tied.slice(tied.indexOf('create or replace function public.verify_dbs('), tied.indexOf('revoke all on function public.verify_dbs('))
+
+  it('compares what the checker was shown with what is stored, under a lock, before it marks anything', () => {
+    const compared = verify.indexOf('select public.dbs_seen(d) into stored from public.dbs_details d where d.user_id = p_person for update;')
+    const refused = verify.indexOf('if p_seen <> stored then')
+    const marked = verify.indexOf('update public.dbs_details d set')
+    expect(compared).toBeGreaterThan(-1)
+    expect(refused).toBeGreaterThan(compared)
+    expect(marked).toBeGreaterThan(refused)
+    // A click that says nothing of what was seen is refused too.
+    expect(verify).toContain('if p_seen is null then')
+  })
+
+  it('leaves only the one shape of the function, with its path and its standing kept', () => {
+    expect(tied).toContain('drop function if exists public.verify_dbs(uuid, boolean, boolean, boolean);')
+    expect(verify).toContain('security definer')
+    expect(verify).toContain('set search_path = public')
+    expect(tied).toContain('revoke all on function public.verify_dbs(uuid, boolean, boolean, boolean, text) from public, anon;')
+  })
+
+  it('fingerprints what a checker checks, and nothing the checking writes', () => {
+    const seen = tied.slice(tied.indexOf('create or replace function public.dbs_seen('), tied.indexOf('revoke all on function public.dbs_seen('))
+    for (const column of ['kind', 'certificate_number', 'surname', 'issued_on', 'workforce', 'update_service', 'share_code', 'consented_at']) expect(seen).toContain(`d.${column}`)
+    for (const written of ['verified_at', 'verified_by', 'status_checked', 'certificate_seen', 'id_seen', 'updated_at']) expect(seen).not.toContain(`d.${written}`)
+    // Handed to the checker with the details, by the function that shows them.
+    expect(tied).toContain("'seen', public.dbs_seen(d)")
   })
 })

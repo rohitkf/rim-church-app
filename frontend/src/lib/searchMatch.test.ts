@@ -54,6 +54,9 @@ describe('finding', () => {
     expect(score('avalability', 'Availability')).not.toBeNull()
     expect(score('claendra', 'Calendar')).not.toBeNull()
     expect(score('rita', 'Team Rota')).not.toBeNull()
+    // A number is not a spelling: one digit out is another tag, another serial, another day.
+    expect(score('sn99813', 'SN99812')).toBeNull()
+    expect(score('sn998', 'SN99812')).not.toBeNull()
     // Short words are different things, not slips.
     expect(score('rot', 'Rita')).toBeNull()
     expect(score('sam', 'Sue')).toBeNull()

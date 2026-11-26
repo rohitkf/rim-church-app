@@ -28,6 +28,8 @@ import {
 } from '../lib/feedback'
 import { Lifespan } from '../components/Lifespan'
 import { QueryState } from '../components/QueryState'
+import { ListSearch } from '../components/ListSearch'
+import { useListSearch } from '../lib/useListSearch'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { ActionButton, IconBadge, PageHeader, Pill, SectionTile, SegmentedControl, Tile, inputClasses } from '../components/Surface'
 
@@ -242,7 +244,13 @@ function EveryonesFeedback({ items, openedId }: { items: Feedback[]; openedId: s
     return opened && !isOpen(opened.status) ? 'all' : 'open'
   })
   const test = FILTERS.find((f) => f.value === filter)!.test
-  const groups = groupByKind(items.filter(test))
+  // Within what is being shown (open, or all): by what was written, who sent it, or the answer given.
+  const search = useListSearch(items.filter(test), (f) => [
+    { text: f.body, weight: 3 },
+    { text: `${f.sender?.first_name ?? ''} ${f.sender?.last_name ?? ''}`, weight: 2 },
+    { text: `${f.reply ?? ''} ${f.kind} ${f.status}` },
+  ])
+  const groups = groupByKind(search.shown)
 
   return (
     <section aria-label="Everyone’s feedback" className="mt-5">
@@ -265,10 +273,14 @@ function EveryonesFeedback({ items, openedId }: { items: Feedback[]; openedId: s
         ))}
       </div>
 
+      <ListSearch search={search} label="Find a piece of feedback" placeholder="Find feedback by what it says or who sent it" noun={['piece', 'pieces']} className="mt-5" />
+
       {groups.length === 0 ? (
-        <p className="mt-5 text-body-sm text-on-surface-variant">
-          {filter === 'open' ? 'Nothing waiting — every piece of feedback has been answered.' : 'No feedback yet.'}
-        </p>
+        search.searching ? null : (
+          <p className="mt-5 text-body-sm text-on-surface-variant">
+            {filter === 'open' ? 'Nothing waiting — every piece of feedback has been answered.' : 'No feedback yet.'}
+          </p>
+        )
       ) : (
         <div className="mt-5 flex flex-col gap-8">
           {groups.map(({ kind, items: inKind }) => (

@@ -21,7 +21,7 @@ only the Owner can make.
 | Every table has row rules | 122 of 122 public tables have row level security on. Fifteen have it on with no policy at all: those are closed to the app and reached only through functions that check who is asking | Supabase's security advisor; `select count(*) from pg_class … where not relrowsecurity` |
 | Functions that run with the database's own rights are pinned | Every `security definer` function sets its own `search_path` (0333 put back the one that had lost it; 0334 restates it on each function it replaces) | `select count(*) from pg_proc where prosecdef and proconfig is null` is 0 |
 | Passwords | Eight characters at least, in the form and on the server (the server accepted six until 26 November 2026). Stored hashed by Supabase Auth | `GET /v1/projects/<ref>/config/auth` → `password_min_length` |
-| Guessing a password | Supabase limits sign-in attempts per address it comes from. The sign-in form counts for itself too: five wrong passwords for one email in a quarter of an hour and it waits a minute before asking again, then five, then fifteen (`lib/signInTries`). A new password is checked against Have I Been Pwned's list of breached ones before it is sent to be stored; five characters of its fingerprint leave the device, never the password (`lib/breachedPassword`). **Open:** both of those are the form's, so somebody calling Supabase directly is held only by Supabase's own limit. A lock on the account itself needs Supabase's Team plan; a CAPTCHA (Cloudflare Turnstile, free) would hold on this plan and needs keys from the Owner's Cloudflare account. **Owner** | `frontend/src/lib/signInProtections.test.ts`; Supabase › Authentication › Attack protection |
+| Guessing a password | Supabase limits sign-in attempts per address it comes from. The sign-in form counts for itself too: five wrong passwords for one email in a quarter of an hour and it waits a minute before asking again, then five, then fifteen (`lib/signInTries`). A new password is checked against Have I Been Pwned's list of breached ones before it is sent to be stored; five characters of its fingerprint leave the device, never the password (`lib/breachedPassword`). **Open:** both of those are the form's, so somebody calling Supabase directly is held only by Supabase's own limit. A lock on the account itself needs Supabase's Team plan. A CAPTCHA (Cloudflare Turnstile) would hold on this plan; the Owner has said there is no need for one (26 November 2026), and none was ever built: the app has no CAPTCHA anywhere | `frontend/src/lib/signInProtections.test.ts`; Supabase › Authentication › Attack protection |
 | Everything is encrypted | In transit: HTTPS only, with HSTS for two years (`strict-transport-security`, set by Vercel). At rest: Supabase encrypts the database and its storage | `curl -sI https://rim-church-app.vercel.app` |
 | The browser is told what the site may do | No framing by other sites, no content-type guessing, a trimmed referrer, a `Permissions-Policy` that leaves the camera, microphone and location to this site alone, and a `Content-Security-Policy`: scripts run from this site only, none typed into the page and none made up as it runs, so text that somehow got past React's escaping still could not run. What the policy refuses is recorded with the app's other errors (Settings › App Health). Pictures, video and requests may still go to any `https` address, because event pictures and links are the church's own | `frontend/vercel.json`, `frontend/src/lib/contentPolicy.test.ts` |
 | Files people upload | Seven storage buckets, six private. Each has a size limit and a list of allowed types set on the bucket itself, so the limit holds whatever the page sends. The one public bucket holds the pictures on public event pages | `select id, public, file_size_limit, allowed_mime_types from storage.buckets` |
@@ -121,7 +121,13 @@ is held in the EU, which the UK treats as adequate. A person can download
 what is held about them and remove their own account, both from Settings ›
 Your account (0334, `lib/myData`). The copy is every table whose rows are
 deleted with the account, found from the database's own foreign keys and
-not from a list, so a table added later is in it the day it is made; the
+not from a list, so a table added later is in it the day it is made. It
+is given as a document in plain words (`lib/myDataReadable`: a heading for
+each kind of thing, a name where the database keeps an id, nothing for a
+blank), because the first version handed over the rows as stored and the
+Owner could not read theirs; the rows as stored are still offered beside
+it. A table or a column the document has not heard of is shown under its
+own name, so it never holds less than the database gave. The
 keys a browser was given for notifications and four tables of the
 database's own bookkeeping are left out. Removing asks for the account's
 email address to be typed, and the database checks it again and refuses
@@ -139,14 +145,18 @@ the Owner, who must hand the app on first.
 | The API itself (Supabase's REST and functions) | Calling a function directly with the public key | 318 functions that run with the database's rights are callable signed in and 19 signed out; each asks who is calling. The 19 are the public registration functions, two version checks, the error report, the request guard itself and what the church says on `/privacy` | Supabase's advisor, reviewed 26 November 2026; counted again after 0334 |
 | The edge functions | Calling them without rights; making them send mail or pushes | Each checks its caller. Three need a signed-in person or the server's own key; the two the public event pages use do only what one registration allows. Push endpoints must be a real push service; mail is throttled | Smoke tests after each deploy |
 | A lost or shared phone | Opening the app already signed in | Signed out after thirty days without use (section 2). Before that, the Owner can remove or block the account | Unit tests |
+| A DBS check | Changing the details between the checker's reading and the checker's click, so details nobody looked at are marked verified | The mark is refused unless the details are still the ones shown (0335) | Replayed on a local database: refused, and the honest check still passes |
 | Somebody's own account | Removing it, or copying its data, from a phone left unlocked | The copy holds only that account's rows. Removal needs the account's email address typed, is refused for the Owner, and cannot be done from inside a preview | `lib/myData.test.ts`, replayed on a local database |
 | The people who build it | A poisoned package; a secret committed by mistake | Updates wait a week before they are proposed; `npm audit` weekly and in CI; `.env` ignored; a test reads every file the app is built from for the shape of a key and fails if it finds one (`contentPolicy.test.ts`) | CI, every run |
 
 A full pass was run on 25 November 2026 and closed as *incomplete*: four
-areas and fourteen tables were not reviewed. The three questions it left
-for the Owner are still open: whether a payment an attendee reports counts
-as money in, what "get my tickets" may say, and tying a DBS mark to the
-details that were checked.
+areas and fourteen tables were not reviewed. It left three questions for
+the Owner. One is answered and done: a DBS mark is tied to the details
+that were checked (0335; `verify_dbs()` is handed the fingerprint the
+checker was shown and marks nothing if what is stored has changed). Two
+are with the Owner: whether a payment an attendee reports counts as money
+in when a refund is asked for, and whether "get my tickets" may say that
+it sent.
 
 ## 5. Launch checklist
 
@@ -169,7 +179,7 @@ Where the app stood against the five on 26 November 2026:
 
 | Document | Standing |
 | --- | --- |
-| Security rules | Kept. Open: a lock on the account itself, which needs a paid plan or the Owner's CAPTCHA keys |
+| Security rules | Kept. Open: a lock on the account itself, which needs a paid plan. No CAPTCHA, at the Owner's word |
 | Sign-in rules | Kept: thirty days without use signs a device out. A second step is built and switched off, at the Owner's word |
 | Data rules | Kept, said to people, and in their own hands: a copy and removal from Settings. Open: the church's own wording in the four boxes, and a qualified reading |
 | Threat map | This table, with no row open |

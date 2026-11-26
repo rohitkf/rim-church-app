@@ -13,6 +13,8 @@ import { todayIso } from '../lib/monthGrid'
 import { formatServiceDay } from '../lib/sunday'
 import { POLLS_KEY, POLL_AUDIENCES, audienceLabel, type PollAudience } from '../lib/pollAudience'
 import { QueryState } from '../components/QueryState'
+import { ListSearch } from '../components/ListSearch'
+import { useListSearch } from '../lib/useListSearch'
 import { ActionButton, Eyebrow, Field, PageHeader, Pill, SegmentedControl, Tile, inputClasses, type PillTone } from '../components/Surface'
 import { CheckIcon, CloseIcon, ShareIosIcon } from '../components/icons'
 import { pollLink, shareLink } from '../lib/shareLink'
@@ -241,6 +243,7 @@ export function PollsPage() {
     () => (pollsQuery.data ?? []).filter((p) => new Date(p.clears_at).getTime() > now),
     [pollsQuery.data, now],
   )
+  const search = useListSearch(polls, (p) => [{ text: p.question, weight: 3 }, { text: p.options.map((o) => o.label).join(' ') }])
 
   // A tap on the notification lands on the poll it was about.
   useEffect(() => {
@@ -372,8 +375,9 @@ export function PollsPage() {
         isEmpty={polls.length === 0}
         emptyMessage={canAsk ? 'No polls yet — ask something.' : 'Nobody has asked you anything yet.'}
       >
+        <ListSearch search={search} label="Find a poll" placeholder="Find a poll by its question or an answer" noun={['poll', 'polls']} className="mt-4" />
         <ul className="mt-4 flex flex-col gap-4">
-          {polls.map((poll) => {
+          {search.shown.map((poll) => {
             const open = pollIsOpen(poll.closes_at, now)
             const asked = [...poll.options].sort((a, b) => a.sort_order - b.sort_order)
             const { counts, mine, voters } = tallyFromRows(
