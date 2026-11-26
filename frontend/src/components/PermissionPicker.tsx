@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ActionButton, Overlay, inputClasses } from './Surface'
 import { Chevron } from './Collapsible'
 import { groupCapabilities, searchGroups } from '../lib/permissionGroups'
@@ -55,6 +55,14 @@ export function PermissionPicker({
   const chosen = useMemo(() => new Set(picked), [picked])
   const searching = typed.trim().length > 0
 
+  // The keyboard comes with the popup: without this, Tab went on through
+  // the page behind it. The sheet itself takes the focus rather than the
+  // search box, which on a phone would open the keys over the list.
+  const sheet = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    sheet.current?.focus()
+  }, [])
+
   const toggle = (key: CapabilityKey) =>
     onPickedChange(chosen.has(key) ? picked.filter((k) => k !== key) : [...picked, key])
   const setArea = (keys: readonly CapabilityKey[], on: boolean) => {
@@ -64,7 +72,7 @@ export function PermissionPicker({
 
   return (
     <Overlay label={title} onDismiss={onClose} align="sheet" closable={!saving}>
-      <div className="flex max-h-[94svh] w-full max-w-lg flex-col rounded-t-[var(--radius-tile)] bg-surface-low shadow-[var(--shadow-lifted)] hairline-strong sm:rounded-[var(--radius-tile)]">
+      <div ref={sheet} tabIndex={-1} className="flex max-h-[94svh] w-full max-w-lg flex-col outline-none rounded-t-[var(--radius-tile)] bg-surface-low shadow-[var(--shadow-lifted)] hairline-strong sm:rounded-[var(--radius-tile)]">
         <div className="mx-auto mt-3 h-[5px] w-[38px] shrink-0 rounded-full bg-white/22 sm:hidden" />
         <div className="px-6 pt-5">
           <h2 className="break-words text-headline-md">{title}</h2>
