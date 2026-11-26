@@ -67,7 +67,7 @@ describe('AppShell dock', () => {
     // Messages is one of the teams' own pages, so it arrives with the
     // answer to "is this person on a team" rather than on first paint.
     expect(await screen.findByRole('link', { name: 'Messages' })).toBeInTheDocument()
-    for (const label of ['Dashboard', 'Service Planner', 'Availability', 'Team Rota', 'Checklists', 'Teams']) {
+    for (const label of ['Dashboard', 'Calendar', 'Availability', 'Team Rota', 'Checklists', 'Teams']) {
       expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
     }
   })
@@ -100,7 +100,7 @@ describe('AppShell dock', () => {
     // The accessible name comes from the title either way; the visible
     // text is what the dock spends space on.
     expect(dock()).toHaveTextContent('Dashboard')
-    expect(dock()).not.toHaveTextContent('Service Planner')
+    expect(dock()).not.toHaveTextContent('Calendar')
   })
 
   it('moves the label when you navigate', async () => {
@@ -139,7 +139,7 @@ describe('AppShell dock', () => {
     await user.click(screen.getByRole('button', { name: 'More' }))
 
     const sheet = screen.getByRole('dialog', { name: 'All destinations' })
-    for (const label of ['Dashboard', 'Service Planner', 'Availability', 'Team Rota', 'Checklists', 'Set Lists']) {
+    for (const label of ['Dashboard', 'Calendar', 'Availability', 'Team Rota', 'Checklists', 'Set Lists']) {
       expect(within(sheet).getByRole('link', { name: label })).toBeInTheDocument()
     }
   })
@@ -246,7 +246,7 @@ describe('AppShell dock', () => {
       // query, and the window is not settled until they are all in.
       await standOn('/', 'Availability')
       expect(onBar('Dashboard')).toBe(true)
-      expect(onBar('Service Planner')).toBe(true)
+      expect(onBar('Calendar')).toBe(true)
       expect(onBar('Availability')).toBe(true)
       expect(onBar('Inventory')).toBe(false)
     })
@@ -285,7 +285,9 @@ describe('AppShell dock', () => {
     // other destination is here, in order.
     expect(labels).toEqual([
       'Dashboard',
-      'Service Planner',
+      // Where the services are planned: the Service Planner is not a
+      // second entry beside it.
+      'Calendar',
       'Availability',
       'Team Rota',
       'Checklists',
@@ -300,7 +302,6 @@ describe('AppShell dock', () => {
       'Church Updates',
       'Polls',
       'Feedback',
-      'Calendar',
       'Giving',
       'Prayer Requests',
       'Teams',

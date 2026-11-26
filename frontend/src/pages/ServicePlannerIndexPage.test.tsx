@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { RouterProvider, createMemoryRouter } from 'react-router-dom'
-import { ServicePlannerIndexPage } from './ServicePlannerIndexPage'
+import { RouterProvider, createMemoryRouter, useLocation } from 'react-router-dom'
+import { ServicePlannerIndexPage, ServicesView } from './ServicePlannerIndexPage'
 import { chooseOption } from '../test/select'
 import { pickDate } from '../test/pickers'
 
@@ -31,6 +31,10 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }))
 const planner = vi.hoisted(() => ({ services: [] as Record<string, unknown>[] }))
+const access = vi.hoisted(() => ({ calendar: true, settled: true }))
+vi.mock('../lib/usePageAccess', () => ({
+  usePageAccess: () => ({ settled: access.settled, canOpen: (path: string) => path !== '/events' || access.calendar }),
+}))
 vi.mock('../lib/monthGrid', async () => {
   const actual = await vi.importActual<typeof import('../lib/monthGrid')>('../lib/monthGrid')
   return { ...actual, todayIso: () => '2026-09-26' }
@@ -47,7 +51,8 @@ function renderPage() {
   // useBlocker, which only exists on one.
   const router = createMemoryRouter(
     [
-      { path: '/service-planner', element: <ServicePlannerIndexPage /> },
+      // The list on its own, as somebody without the Calendar gets it; with the Calendar it is that page's Services view.
+      { path: '/service-planner', element: <ServicesView standalone /> },
       { path: '/service-planner/:id', element: <p>Opened service</p> },
     ],
     { initialEntries: ['/service-planner'] },
@@ -236,5 +241,64 @@ describe('the services listed under the calendar', () => {
     const next = await screen.findByRole('region', { name: 'Next service' })
     expect(within(next).getByText('Service near')).toBeInTheDocument()
     expect(screen.queryByText('Service far')).toBeNull()
+  })
+})
+
+/*
+ * The planner's own address (November 2026). The list of services is the
+ * Calendar's Services view now, so every link that was ever made to
+ * /service-planner — a bookmark, a notification, the Dashboard's "New
+ * service" — lands there, carrying what it asked for.
+ */
+describe('the planner’s own address', () => {
+  function Calendar() {
+    const { pathname, search } = useLocation()
+    return <p data-testid="calendar">{pathname + search}</p>
+  }
+  function open(at: string) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const router = createMemoryRouter(
+      [
+        { path: '/service-planner', element: <ServicePlannerIndexPage /> },
+        { path: '/events', element: <Calendar /> },
+      ],
+      { initialEntries: [at] },
+    )
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    )
+  }
+
+  it('goes to the Calendar’s Services view', async () => {
+    access.calendar = true
+    access.settled = true
+    open('/service-planner')
+    expect(await screen.findByTestId('calendar')).toHaveTextContent('/events?show=service')
+  })
+
+  it('carries a new service and its date with it', async () => {
+    access.calendar = true
+    open('/service-planner?new=1&date=2026-10-04')
+    const at = (await screen.findByTestId('calendar')).textContent ?? ''
+    const asked = new URLSearchParams(at.split('?')[1])
+    expect(Object.fromEntries(asked)).toEqual({ new: '1', date: '2026-10-04', show: 'service' })
+  })
+
+  it('is the list on its own for somebody the Calendar is closed to', async () => {
+    access.calendar = false
+    open('/service-planner')
+    expect(await screen.findByRole('heading', { name: 'Service Planner' })).toBeInTheDocument()
+    expect(screen.queryByTestId('calendar')).toBeNull()
+  })
+
+  it('waits to know who may open what before it sends anybody anywhere', () => {
+    access.calendar = false
+    access.settled = false
+    open('/service-planner')
+    expect(screen.queryByTestId('calendar')).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Service Planner' })).toBeNull()
+    access.settled = true
   })
 })

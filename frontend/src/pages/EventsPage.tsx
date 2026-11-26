@@ -38,6 +38,8 @@ import { dayCount, formatRange } from '../lib/dateRange'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { FinishedServices } from '../components/FinishedServices'
 import { Lifespan } from '../components/Lifespan'
+import { ServicesView } from './ServicePlannerIndexPage'
+import { usePageAccess } from '../lib/usePageAccess'
 import { ShowMore } from '../components/ShowMore'
 import { FIRST_PAGE, NEXT_PAGE, firstDays, moreWords } from '../lib/showMore'
 
@@ -339,6 +341,12 @@ export function EventsPage() {
   // including the church's own, which belong to no team.
   const { can } = usePermissions()
   const everywhere = can('svc.events')
+  // The services' own view, and starting one, are the Service Planner's
+  // (its page level, and svc.manage): this page hosts them since the two
+  // became one (ServicesView).
+  const { canOpen } = usePageAccess()
+  const plansServices = canOpen('/service-planner')
+  const startsServices = plansServices && can('svc.manage')
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const today = todayIso()
@@ -347,6 +355,8 @@ export function EventsPage() {
 
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() })
   const [adding, setAdding] = useState(false)
+  /** The day whose cell opened the form, when one did: a service started from there is on that day. */
+  const [tapped, setTapped] = useState<string | null>(null)
   /**
    * The event being changed, or null when the form is adding a new one.
    *
@@ -464,21 +474,23 @@ export function EventsPage() {
   // Somebody who may not add for the whole church has to say whose it is.
   const noTeamChosen = !everywhere && departmentIds.length === 0
 
-  const diary = useMemo(
-    () =>
-      buildDiary({
-        people: peopleQuery.data ?? [],
-        couples: couplesQuery.data ?? [],
-        services: servicesQuery.data ?? [],
-        events: eventsQuery.data ?? [],
-        today,
-        // The calendar dots the days something was on as well as the days
-        // something is on: a month you can page back into that shows
-        // nothing ever happened in it is a calendar lying by omission.
-        includePast: true,
-      }),
-    [peopleQuery.data, couplesQuery.data, servicesQuery.data, eventsQuery.data, today],
-  )
+  const diary = useMemo(() => {
+    const entries = buildDiary({
+      people: peopleQuery.data ?? [],
+      couples: couplesQuery.data ?? [],
+      services: servicesQuery.data ?? [],
+      events: eventsQuery.data ?? [],
+      today,
+      // The calendar dots the days something was on as well as the days
+      // something is on: a month you can page back into that shows
+      // nothing ever happened in it is a calendar lying by omission.
+      includePast: true,
+    })
+    // A service's row opens its running order, for whoever may open one:
+    // nobody else is offered a link to a page that would turn them away.
+    if (plansServices) return entries
+    return entries.map((e) => (e.kind === 'service' ? { ...e, href: undefined } : e))
+  }, [peopleQuery.data, couplesQuery.data, servicesQuery.data, eventsQuery.data, today, plansServices])
 
   // One kind only, when somebody asks (?show=birthday): the calendar's
   // dots and both lists follow it, and the choice lives in the address so
@@ -490,6 +502,19 @@ export function EventsPage() {
   const fromParam = (p: string | null): Category | null =>
     p === 'meetings' ? 'repeating' : p && p in CATEGORY_LABEL && p !== 'repeating' ? (p as Category) : null
   const show = fromParam(showParam)
+  // Services alone, for whoever plans them, is the planner's own view:
+  // times, today and next, what finished this week, and New service.
+  const servicesView = show === 'service' && plansServices
+  /** Open the new-service form (it lives in the address, as it did on the planner), on the Services view. */
+  const startService = (on?: string) =>
+    setParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('show', 'service')
+      next.set('new', '1')
+      if (on) next.set('date', on)
+      else next.delete('date')
+      return next
+    })
   // How much more than its first screen each list has been asked for, and for which kind (lib/showMore.ts).
   const [asked, setAsked] = useState<{ show: Category | null; upcoming: number; past: number }>({ show: null, upcoming: 0, past: 0 })
   const choose = (kind: Category | null) => {
@@ -794,6 +819,7 @@ export function EventsPage() {
   function openAdd(on?: string) {
     closeForm()
     setDate(on ?? today)
+    setTapped(on ?? null)
     // Somebody who may only add their own team's events starts on their
     // team, not on "the whole church" they are not offered.
     if (!everywhere && myTeams[0]) setDepartmentIds([myTeams[0].id])
@@ -934,6 +960,32 @@ export function EventsPage() {
       return { year: at.getFullYear(), month: at.getMonth() }
     })
 
+  // The legend is the filter: each kind's dot and name, pressed to show
+  // that kind alone, and Everything to show them all. Drawn under the
+  // month, whichever view is showing it.
+  const legend = (
+          // The tour's "Planning a service" step points at these (lib/tour).
+          <div role="group" aria-label="Show" data-tour="services" className="mt-4 flex flex-wrap gap-1.5">
+            {([null, 'service', 'birthday', 'anniversary', 'event', 'repeating'] as (Category | null)[]).map((kind) => {
+              const on = show === kind
+              return (
+                <button
+                  key={kind ?? 'all'}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => choose(kind)}
+                  className={`tap inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-label-md transition-colors duration-200 ${
+                    on ? 'bg-primary text-on-primary' : 'bg-raised text-on-surface-variant hairline hover:text-on-surface'
+                  }`}
+                >
+                  {kind && <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${KIND_TONE[kind].dot}`} />}
+                  {kind ? PLURAL[kind] : 'Everything'}
+                </button>
+              )
+            })}
+          </div>
+  )
+
   const isLoading =
     peopleQuery.isLoading || servicesQuery.isLoading || eventsQuery.isLoading
   const loadError = peopleQuery.error || servicesQuery.error || eventsQuery.error
@@ -947,14 +999,22 @@ export function EventsPage() {
         title="Calendar"
         description="Birthdays, anniversaries, services and everything else the church has a date for — in one diary."
         action={
-          canAdd && (
-            <ActionButton onClick={() => openAdd()} glyph={<span aria-hidden="true">+</span>}>
-              Add to calendar
+          servicesView && startsServices ? (
+            /* On the services, the one thing to add is a service. */
+            <ActionButton onClick={() => startService()} glyph={<span aria-hidden="true">+</span>}>
+              New service
             </ActionButton>
+          ) : (
+            (canAdd || startsServices) && (
+              <ActionButton onClick={() => openAdd()} glyph={<span aria-hidden="true">+</span>}>
+                Add to calendar
+              </ActionButton>
+            )
           )
         }
       />
-      <Lifespan page="events" className="mb-4" />
+      {/* The services say how long they are kept themselves (ServicesView). */}
+      {!servicesView && <Lifespan page="events" className="mb-4" />}
 
       {error && (
         <p className="mt-4 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
@@ -962,6 +1022,11 @@ export function EventsPage() {
         </p>
       )}
 
+      {servicesView ? (
+        /* The services, as the planner showed them. It keeps the month this
+           page is on, so pressing another filter does not lose the place. */
+        <ServicesView cursor={cursor} onCursorChange={setCursor} legend={legend} />
+      ) : (
       <QueryState isLoading={isLoading} error={loadError}>
         <section className="mt-6 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4 sm:p-6">
           <div className="flex items-center justify-between gap-3">
@@ -1016,12 +1081,12 @@ export function EventsPage() {
                   {/* Tapping a square adds an event on that day. A real
                       button behind the square rather than a handler on it,
                       so it can be tabbed to and says which day it means. */}
-                  {canAdd && (
+                  {(canAdd || startsServices) && (
                     <button
                       type="button"
                       onClick={() => openAdd(cell.iso)}
-                      aria-label={`Add an event on ${formatServiceDay(cell.iso)}`}
-                      title={`Add an event on ${formatServiceDay(cell.iso)}`}
+                      aria-label={`Add to the calendar on ${formatServiceDay(cell.iso)}`}
+                      title={`Add to the calendar on ${formatServiceDay(cell.iso)}`}
                       className="absolute inset-0 z-0 rounded-sm transition-colors duration-200 hover:bg-surface-container focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary"
                     />
                   )}
@@ -1050,27 +1115,7 @@ export function EventsPage() {
             })}
           </div>
 
-          {/* The legend is the filter: each kind's dot and name, pressed
-              to show that kind alone, and Everything to show them all. */}
-          <div role="group" aria-label="Show" className="mt-4 flex flex-wrap gap-1.5">
-            {([null, 'service', 'birthday', 'anniversary', 'event', 'repeating'] as (Category | null)[]).map((kind) => {
-              const on = show === kind
-              return (
-                <button
-                  key={kind ?? 'all'}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => choose(kind)}
-                  className={`tap inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-label-md transition-colors duration-200 ${
-                    on ? 'bg-primary text-on-primary' : 'bg-raised text-on-surface-variant hairline hover:text-on-surface'
-                  }`}
-                >
-                  {kind && <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${KIND_TONE[kind].dot}`} />}
-                  {kind ? PLURAL[kind] : 'Everything'}
-                </button>
-              )
-            })}
-          </div>
+          {legend}
         </section>
 
         {days.length === 0 && pastDays.length === 0 ? (
@@ -1142,6 +1187,7 @@ export function EventsPage() {
           </>
         )}
       </QueryState>
+      )}
 
       {adding && !editing && category === null && (
         /*
@@ -1158,20 +1204,36 @@ export function EventsPage() {
             <div className="mt-5 flex flex-col gap-3">
               {(
                 [
-                  ['event', 'Event', 'A one-off, on a date or over a few days.', 'A conference, a baptism, a workday, a leaders’ meeting.'],
-                  ['meeting', 'Regular meeting', 'Happens every week or every month.', 'Bible study, choir practice, a prayer meeting.'],
+                  // A service is the planner's to start (svc.manage): offered first to whoever may, since it is the one with a running order behind it.
+                  ...(startsServices
+                    ? ([['service', 'Service', 'A service with a running order to plan.', 'Sunday’s English service, a youth service, a special service.']] as const)
+                    : []),
+                  ...(canAdd
+                    ? ([
+                        ['event', 'Event', 'A one-off, on a date or over a few days.', 'A conference, a baptism, a workday, a leaders’ meeting.'],
+                        ['meeting', 'Regular meeting', 'Happens every week or every month.', 'Bible study, choir practice, a prayer meeting.'],
+                      ] as const)
+                    : []),
                 ] as const
               ).map(([kind, name, what, examples], i) => (
                 <button
                   key={kind}
                   type="button"
                   autoFocus={i === 0}
-                  onClick={() => pickKind(kind)}
+                  onClick={() => {
+                    if (kind !== 'service') return pickKind(kind)
+                    // A day that was tapped goes with it, as it would to an event.
+                    // From the button at the top there is none, and the
+                    // service form starts where it always has.
+                    const on = tapped
+                    closeForm()
+                    startService(on ?? undefined)
+                  }}
                   className="tap flex items-start gap-3 rounded-[var(--radius-card)] bg-surface-container p-4 text-left hairline transition-colors hover:bg-raised-strong"
                 >
                   <span
                     aria-hidden="true"
-                    className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${KIND_TONE[kind === 'meeting' ? 'repeating' : 'event'].dot}`}
+                    className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${KIND_TONE[kind === 'meeting' ? 'repeating' : kind].dot}`}
                   />
                   <span className="min-w-0">
                     <span className="block text-headline-sm text-on-surface">{name}</span>

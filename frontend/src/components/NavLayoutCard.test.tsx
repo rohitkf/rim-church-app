@@ -71,10 +71,17 @@ describe('arranging the menu', () => {
     await user.type(sunday, 'Services')
     await user.click(screen.getByRole('button', { name: 'Save menu' }))
     await waitFor(() => expect(db.writes).toHaveLength(1))
-    expect(lastWrite().top).toEqual(['/'])
+    // The Calendar is second, above the groups, since the services are planned from it.
+    expect(lastWrite().top).toEqual(['/', '/events'])
     expect(lastWrite().groups[0].name).toBe('Services')
     expect(lastWrite().groups[0].items).toEqual(expect.arrayContaining(['/availability', '/rota', '/checklists']))
     expect(lastWrite().groups[0].items).not.toContain('/serving')
+  })
+
+  it('says the Service Planner opens from the Calendar, so nobody wonders why it is not in their menu', async () => {
+    show()
+    const list = await screen.findByRole('list', { name: 'Menu arrangement' })
+    expect(within(list).getByText('Opens from Calendar. In the menu only for somebody Calendar is closed to.')).toBeInTheDocument()
   })
 
   it('moves a whole group, pages and all', async () => {

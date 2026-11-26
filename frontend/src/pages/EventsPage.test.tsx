@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EventsPage } from './EventsPage'
 import { formatTimeValue } from '../lib/dateTimeFormat'
@@ -40,6 +40,25 @@ vi.mock('../auth/AuthContext', () => ({
     isAdmin: true,
     isDepartmentHead: () => false,
   }),
+}))
+
+// Who may open the planner: the Calendar's Services view is the planner's
+// own list for them, and a filter of the diary for anybody else.
+const access = vi.hoisted(() => ({ planner: true }))
+vi.mock('../lib/usePageAccess', () => ({
+  usePageAccess: () => ({ settled: true, standing: 'admin', canOpen: (path: string) => path !== '/service-planner' || access.planner }),
+}))
+// The planner's view has its own tests (ServicePlannerIndexPage.test); here
+// it is enough to see that the Calendar hands it the month and the chips.
+vi.mock('./ServicePlannerIndexPage', () => ({
+  ServicesView: ({ cursor, legend }: { cursor: { year: number; month: number }; legend: React.ReactNode }) => (
+    <section aria-label="The services">
+      <p>
+        month {cursor.year}-{cursor.month + 1}
+      </p>
+      {legend}
+    </section>
+  ),
 }))
 
 vi.mock('../lib/monthGrid', async () => {
@@ -148,6 +167,7 @@ const meeting = (over: Record<string, unknown> = {}) => ({
 })
 
 beforeEach(() => {
+  access.planner = true
   state.events = [meeting()]
   state.written = []
   state.people = []
@@ -487,6 +507,90 @@ describe('showing one kind at a time', () => {
 
     await userEvent.click(within(filter).getByRole('button', { name: 'Everything' }))
     expect(screen.getAllByText('Members meeting')).not.toHaveLength(0)
+  })
+})
+
+/*
+ * The services are planned from here (November 2026). The Service Planner's
+ * list and this page showed the same services a tap apart, so the Services
+ * chip now shows the planner's own view in the diary's place.
+ */
+describe('the services, planned from the Calendar', () => {
+  function Where() {
+    const { pathname, search } = useLocation()
+    return <p data-testid="where">{pathname + search}</p>
+  }
+  function showWithAddress(at = '/events') {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[at]}>
+          <EventsPage />
+          <Where />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+  }
+
+  it('shows the planner’s view in the diary’s place when Services is pressed', async () => {
+    showWithAddress()
+    expect(await screen.findAllByText('Members meeting')).not.toHaveLength(0)
+    await userEvent.click(within(screen.getByRole('group', { name: 'Show' })).getByRole('button', { name: 'Services' }))
+
+    const services = screen.getByRole('region', { name: 'The services' })
+    expect(screen.queryByText('Members meeting')).toBeNull()
+    // The same chips, still there to go back by, and the address says which view.
+    expect(within(services).getByRole('button', { name: 'Services' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('where')).toHaveTextContent('/events?show=service')
+
+    await userEvent.click(within(services).getByRole('button', { name: 'Everything' }))
+    expect(await screen.findAllByText('Members meeting')).not.toHaveLength(0)
+    expect(screen.queryByRole('region', { name: 'The services' })).toBeNull()
+  })
+
+  it('opens on the services when the address asks, on the month the Calendar is on', async () => {
+    showWithAddress('/events?show=service')
+    // The Calendar's own month, which starts on this one: the two views share it.
+    const now = new Date()
+    expect(await screen.findByRole('region', { name: 'The services' })).toHaveTextContent(`month ${now.getFullYear()}-${now.getMonth() + 1}`)
+  })
+
+  it('offers New service there, which opens the planner’s form by the address', async () => {
+    showWithAddress('/events?show=service')
+    await userEvent.click(await screen.findByRole('button', { name: /New service/ }))
+    expect(screen.getByTestId('where')).toHaveTextContent('show=service')
+    expect(screen.getByTestId('where')).toHaveTextContent('new=1')
+    // On the services the one thing to add is a service.
+    expect(screen.queryByRole('button', { name: /Add to calendar/ })).toBeNull()
+  })
+
+  it('offers a service first when adding from the diary, and goes to the planner’s form', async () => {
+    showWithAddress()
+    await userEvent.click(await screen.findByRole('button', { name: /Add to calendar/ }))
+    const first = screen.getByRole('dialog', { name: 'Add to the calendar' })
+    const choices = within(first).getAllByRole('button').map((b) => b.textContent ?? '')
+    const at = (word: string) => choices.findIndex((c) => c.startsWith(word))
+    expect(at('Service')).toBeGreaterThanOrEqual(0)
+    expect(at('Service')).toBeLessThan(at('Event'))
+
+    await userEvent.click(within(first).getByRole('button', { name: /^Service/ }))
+    expect(screen.queryByRole('dialog', { name: 'Add to the calendar' })).toBeNull()
+    expect(screen.getByTestId('where')).toHaveTextContent('show=service')
+    expect(screen.getByTestId('where')).toHaveTextContent('new=1')
+    expect(state.written).toHaveLength(0)
+  })
+
+  it('stays a filter of the diary for somebody the planner is closed to, with no service to add', async () => {
+    access.planner = false
+    showWithAddress()
+    expect(await screen.findAllByText('Members meeting')).not.toHaveLength(0)
+    await userEvent.click(within(screen.getByRole('group', { name: 'Show' })).getByRole('button', { name: 'Services' }))
+    expect(screen.queryByRole('region', { name: 'The services' })).toBeNull()
+    expect(screen.getByText('No services coming up.')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /Add to calendar/ }))
+    const first = screen.getByRole('dialog', { name: 'Add to the calendar' })
+    expect(within(first).queryByRole('button', { name: /^Service/ })).toBeNull()
   })
 })
 

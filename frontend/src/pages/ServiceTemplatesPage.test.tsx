@@ -13,6 +13,7 @@ const db = vi.hoisted(() => ({
 }))
 
 vi.mock('../lib/usePermissions', () => ({ usePermissions: () => ({ can: () => true }) }))
+vi.mock('../lib/usePageAccess', () => ({ usePageAccess: () => ({ settled: true, canOpen: () => true }) }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_: unknown, fallback: string) => fallback }))
 vi.mock('../lib/queries', () => ({
   fetchServiceTemplates: () =>

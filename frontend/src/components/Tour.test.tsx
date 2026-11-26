@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -70,12 +70,13 @@ vi.mock('../lib/onboarding', async () => {
 })
 
 function Page({ name }: { name: string }) {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   return (
     <div>
       <header data-tour="page-title">{name}</header>
-      <p data-testid="where">{pathname}</p>
+      <p data-testid="where">{pathname + search}</p>
       {pathname === '/' && <div data-tour="dock">the dock</div>}
+      {search === '?show=service' && <div data-tour="services">the chips</div>}
       {pathname === '/' && <button data-tour="search">search</button>}
       {pathname === '/' && <button data-tour="bell">bell</button>}
       {pathname === '/' && <button data-tour="account">account</button>}
@@ -181,18 +182,21 @@ describe('walking it', () => {
     const user = userEvent.setup()
     db.row = { user_id: 'me', seen: { welcome: 'x', around: 'x' }, pushed_at: null }
     show()
-    // The church chapter opens on the Service Planner, having gone there.
-    expect(await screen.findByText('Service Planner')).toBeInTheDocument()
-    expect(screen.getByTestId('where')).toHaveTextContent('/service-planner')
+    // The church chapter opens on the Calendar, having gone there.
+    expect(await within(await screen.findByRole('dialog')).findByText('Calendar')).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/events$/)
     expect(dialog().textContent).toContain('What’s on · Part 1 of 1')
 
+    // The services are planned from it: the next step is the same page
+    // with its Services view chosen, not a page of its own.
     await user.click(screen.getByRole('button', { name: /Next/ }))
-    expect(await screen.findByText('Calendar')).toBeInTheDocument()
-    expect(screen.getByTestId('where')).toHaveTextContent('/events')
+    expect(await screen.findByText('Planning a service')).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent('/events?show=service')
 
-    // Back goes back.
+    // Back goes back, and puts the Calendar back to showing everything.
     await user.click(screen.getByRole('button', { name: 'Back' }))
-    expect(await screen.findByText('Service Planner')).toBeInTheDocument()
+    expect(await within(dialog()).findByText('Calendar')).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/events$/)
 
     // Through to the end: ten steps for somebody on no team (Prayer Requests joined it).
     for (let i = 0; i < 10; i += 1) await user.click(await screen.findByRole('button', { name: /Next/ }))
@@ -201,6 +205,18 @@ describe('walking it', () => {
 
     await user.click(screen.getByRole('button', { name: 'Done' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
+  it('shows the services step on the planner’s own page to somebody the Calendar is closed to', async () => {
+    const user = userEvent.setup()
+    db.row = { user_id: 'me', seen: { welcome: 'x', around: 'x' }, pushed_at: null }
+    access.open = new Set(['/', '/service-planner', '/updates'])
+    show()
+    // No chips to point at there, so it settles on the page's title after a moment.
+    expect(await screen.findByText('Planning a service', undefined, { timeout: 4000 })).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/service-planner$/)
+    await user.click(screen.getByRole('button', { name: /Next/ }))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/updates'))
   })
 
   it('offers to skip this part or the whole thing, and marks what was skipped', async () => {

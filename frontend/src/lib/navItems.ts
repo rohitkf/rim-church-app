@@ -3,7 +3,6 @@ import {
   FamilyTreeIcon,
   ShieldIcon,
   BoxIcon,
-  CakeIcon,
   UserCheckIcon,
   FeedbackIcon,
   GiftHeartIcon,
@@ -32,7 +31,32 @@ import {
  * A destination. Who it is offered to is lib/pageAccess's (the church's
  * choice); where it sits is lib/navLayout's.
  */
-export type NavItem = DockItem
+export type NavItem = DockItem & {
+  /**
+   * The page this one is reached from. The services are planned from the
+   * Calendar (November 2026), so the planner is not a second entry in the
+   * menu beside it. It stays in this list because it is still a page: it
+   * has a rule for who may open it, a room in Settings and a name the
+   * church can change. Somebody the Calendar is closed to keeps it in
+   * their menu, or they would have no way in.
+   */
+  within?: string
+}
+
+/**
+ * What goes in one person's menu: the pages they may open, less any that
+ * is reached from inside another page they may also open. That other page
+ * is marked as covering it, so the menu still shows where they are.
+ */
+export function menuItems<T extends NavItem>(items: T[], canOpen: (path: string) => boolean): T[] {
+  const folded = items.filter((i) => i.within && canOpen(i.to) && canOpen(i.within))
+  return items
+    .filter((i) => canOpen(i.to) && !folded.includes(i))
+    .map((i) => {
+      const covers = folded.filter((f) => f.within === i.to).map((f) => f.to)
+      return covers.length > 0 ? { ...i, covers } : i
+    })
+}
 
 /*
  * The destinations, in the order a Sunday actually happens.
@@ -45,9 +69,10 @@ export type NavItem = DockItem
  * Four runs, and the reason for each:
  *
  *   1. Where am I, and what is the morning: the dashboard, then the
- *      running order it is all pointing at. The planner is second because
- *      it is the thing most often opened on purpose — the shape of the
- *      service is what everything else hangs off.
+ *      Calendar, where the services are and the running order it is all
+ *      pointing at. It is second because it is the thing most often
+ *      opened on purpose: the shape of the service is what everything
+ *      else hangs off.
  *   2. Your Sunday, in the order it reaches you: say whether you can serve,
  *      see who was put on, tick what you have done on the day — and the
  *      songs, which the worship team reaches for last of those.
@@ -62,7 +87,13 @@ export type NavItem = DockItem
  */
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
-  { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon, group: 'Sunday' },
+  // The services are planned from the Calendar (November 2026), which
+  // has taken the planner's place as the second thing in the menu. The
+  // planner's own entry is kept for somebody the Calendar is closed to.
+  // Called Calendar since November 2026: it holds services, birthdays and
+  // anniversaries as well, and "Events" was one of the five things on it.
+  { to: '/events', label: 'Calendar', icon: CalendarIcon },
+  { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon, group: 'Sunday', within: '/events' },
 
   // Your Sunday, in the order it happens to you, ending with the songs:
   // say whether you can serve, see who was put on, tick off what is yours
@@ -103,11 +134,9 @@ export const NAV_ITEMS: NavItem[] = [
   // Talk, because it is talk about the app rather than in it.
   { to: '/feedback', label: 'Feedback', icon: FeedbackIcon, group: 'Talk' },
 
-  // Looked up rather than lived in: the diary, the teams, the people who
-  // fill them, and the cupboard they draw on.
-  // Called Calendar since November 2026: it holds services, birthdays and
-  // anniversaries as well, and "Events" was one of the five things on it.
-  { to: '/events', label: 'Calendar', icon: CakeIcon, group: 'Church life' },
+  // Looked up rather than lived in: the teams, the people who fill them,
+  // and the cupboard they draw on. (The diary was here until it became
+  // where the services are planned; it is second now, above.)
   // Events anybody can sign up for from a link (0244): the Owner's, and
   // whoever the grid gives "Run registrations".
   { to: '/registrations', label: 'Registrations', icon: UserCheckIcon, group: 'Church life' },

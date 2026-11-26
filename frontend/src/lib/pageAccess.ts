@@ -79,7 +79,7 @@ export const PAGE_RULES: Record<string, PageRule> = {
     default: 'everyone',
     choices: ['everyone', 'team', 'leads', 'admins', 'owner'],
     enforcement: 'page',
-    note: 'Hides the page. The services themselves still show on the Dashboard.',
+    note: 'Hides the running orders and the Calendar’s Services view. The services themselves still show on the Dashboard and as lines on the Calendar.',
   },
   '/countdown': {
     // Not a level: its own row, "See the Countdown" (countdown.view, 0264),

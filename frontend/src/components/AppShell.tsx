@@ -19,7 +19,7 @@ import { AlertBanner } from './AlertBanner'
 import { AppNoticeBanner } from './AppNoticeBanner'
 import { AppIdentityNotice } from './AppIdentityNotice'
 import { DockNav } from './DockNav'
-import { NAV_ITEMS as navItems } from '../lib/navItems'
+import { NAV_ITEMS as navItems, menuItems } from '../lib/navItems'
 import { usePageAccess } from '../lib/usePageAccess'
 import { NAV_LAYOUT_KEY, applyNavLayout, fetchNavLayout, navLabels } from '../lib/navLayout'
 import { NavNamesContext } from '../lib/navNames'
@@ -107,7 +107,9 @@ export function AppShell() {
   // Only what this person may open, under the church's choices (Settings
   // › Access & Privileges) — the same answer PageGate gives at the door.
   const { canOpen } = usePageAccess()
-  const items = applyNavLayout(navItems, layoutQuery.data ?? null).filter((item) => canOpen(item.to))
+  // A page reached from inside another (the planner, from the Calendar)
+  // is not a second entry beside it.
+  const items = menuItems(applyNavLayout(navItems, layoutQuery.data ?? null), canOpen)
   // And what the church calls each page, for the page's heading and the
   // search box to say the same as the menu.
   const names = navLabels(layoutQuery.data)

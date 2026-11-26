@@ -11,6 +11,7 @@ import {
   dueChapters,
   endTour,
   startTour,
+  placeOf,
   stepsOf,
   subscribeTour,
   tourStandingOf,
@@ -104,7 +105,7 @@ interface Position {
 
 function TourRunView({ run, ctx }: { run: TourRun; ctx: TourContext }) {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const queryClient = useQueryClient()
 
   // Settled once, when the run starts: a step must not vanish from under
@@ -189,13 +190,18 @@ function TourRunView({ run, ctx }: { run: TourRun; ctx: TourContext }) {
   // again, or the two would argue for ever.
   const stepKey = `${pos.chapter}:${pos.step}:${finished}`
   const went = useRef<string | null>(null)
+  // Where the step is shown, which for a page reached from inside another
+  // (the services, from the Calendar) is that other page with its view
+  // chosen. So the whole address is compared: the step before may have
+  // been on the same page with something else showing.
+  const place = step ? placeOf(step, ctx) : null
   useEffect(() => {
-    if (!step || went.current === stepKey) return
+    if (!place || went.current === stepKey) return
     went.current = stepKey
-    if (pathname !== step.path) navigate(step.path)
-  }, [step, stepKey, pathname, navigate])
+    if (pathname + search !== place) navigate(place)
+  }, [place, stepKey, pathname, search, navigate])
 
-  const onPage = !step || pathname === step.path
+  const onPage = !place || pathname === place.split('?')[0]
   const anchor = useAnchor(step?.target, onPage, stepKey)
 
   // Keys: the arrows walk, Escape asks.

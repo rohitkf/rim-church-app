@@ -252,6 +252,7 @@ export function NavLayoutCard() {
             const Icon = iconOf(row.to)
             const item = NAV_ITEMS.find((i) => i.to === row.to)
             const original = defaultLabel(row.to)
+            const host = item?.within ? rows.find((r) => r.kind === 'item' && r.to === item.within) : undefined
             const renamed = !!row.label.trim() && row.label.trim() !== original
             const level = item ? levelOf(item.to, access, settings.issues_raise_scope) : 'everyone'
             return (
@@ -284,6 +285,12 @@ export function NavLayoutCard() {
                     {/* A page's name is what this card is for: it wraps, it is never cut. */}
                     <span className="break-words">{nameOf(row)}</span>
                     {renamed && <span className="break-words text-label-sm text-on-surface-faint">was {original}</span>}
+                    {/* A page reached from inside another is not a second entry beside it (lib/navItems). */}
+                    {host && (
+                      <span className="break-words text-label-sm text-on-surface-faint">
+                        Opens from {nameOf(host)}. In the menu only for somebody {nameOf(host)} is closed to.
+                      </span>
+                    )}
                     {/* On a phone the row has no room for the name and who-may-open side by side. */}
                     {level !== 'everyone' && (
                       <span className="font-mono text-label-sm text-on-surface-faint sm:hidden">{levelShort(level)}</span>

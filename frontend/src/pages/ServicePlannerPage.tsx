@@ -33,6 +33,7 @@ import { QueryState } from '../components/QueryState'
 import { ActionButton, ActionLink, Eyebrow, Overlay, Panel, Row, Tile } from '../components/Surface'
 import { TimerIcon } from '../components/icons'
 import { usePageAccess } from '../lib/usePageAccess'
+import { servicesHome } from '../lib/servicesHome'
 import { AssigneePill, RailCountdown, TimelineCard, TimelineRow } from '../components/Timeline'
 import { DragHandle } from '../components/DragHandle'
 import { NumberDialField } from '../components/NumberDial'
@@ -824,7 +825,7 @@ export function ServicePlannerPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] })
-      navigate('/service-planner')
+      navigate(servicesHome(canOpen))
     },
     onError: (err: unknown) =>
       setServiceError(errorText(err, 'Could not delete the service.')),
@@ -995,12 +996,12 @@ export function ServicePlannerPage() {
       missing={{
         title: 'Service not found',
         body: 'It may have been deleted, or the link may be wrong.',
-        back: { to: '/service-planner', label: 'Service Planner' },
+        back: { to: servicesHome(canOpen), label: 'Services' },
       }}
     >
       <div>
-        <Link to="/service-planner" className="tap inline-flex items-center text-body-sm text-accent-blue-soft">
-          ← Back to Service Planner
+        <Link to={servicesHome(canOpen)} className="tap inline-flex items-center text-body-sm text-accent-blue-soft">
+          ← Back to services
         </Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
