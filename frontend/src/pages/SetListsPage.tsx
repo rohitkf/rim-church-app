@@ -15,6 +15,7 @@ import {
   inputClasses,
 } from '../components/Surface'
 import { Chevron } from '../components/Collapsible'
+import { serviceAnchor, useServiceFocus } from '../lib/serviceLinks'
 import {
   fetchCanEditSetList,
   fetchDepartments,
@@ -113,7 +114,9 @@ export function SetListsPage() {
   // this week's is the question — so the page opens on the question and
   // still lets somebody look back at what was sung last Sunday.
   const [toggled, setToggled] = useState<Record<string, boolean>>({})
-  const isExpanded = (id: string) => toggled[id] ?? !isFinished(id)
+  // The service a link from its running order asked for (lib/serviceLinks): it arrives open, finished or not.
+  const focusId = useServiceFocus()
+  const isExpanded = (id: string) => toggled[id] ?? (!isFinished(id) || id === focusId)
   const toggle = (id: string) =>
     setToggled((s) => ({ ...s, [id]: !(s[id] ?? !isFinished(id)) }))
 
@@ -218,6 +221,7 @@ export function SetListsPage() {
                  about what a Sunday looks like. */
               <Tile
                 key={service.id}
+                id={serviceAnchor(service.id)}
                 as="li"
                 padded={false}
                 className={finished ? 'opacity-70' : ''}

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { DebriefsPage } from './DebriefsPage'
 
 /*
@@ -142,11 +143,15 @@ beforeEach(() => {
   state.now = Date.parse('2026-09-14T06:00:00Z')
 })
 
-function show() {
+// The page reads its address: a link from a service's running order
+// (`?service=<id>`) opens on that service.
+function show(at = '/debriefs') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <DebriefsPage />
+      <MemoryRouter initialEntries={[at]}>
+        <DebriefsPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }

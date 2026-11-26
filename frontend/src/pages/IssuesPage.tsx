@@ -41,6 +41,7 @@ import { TeamMark } from '../components/TeamMark'
 import { Lifespan } from '../components/Lifespan'
 import { DayHeading } from '../components/DayHeading'
 import { Chevron, useExpanded } from '../components/Collapsible'
+import { serviceAnchor, useServiceFocus } from '../lib/serviceLinks'
 import { ServiceSections } from '../components/ServiceSections'
 import { ServiceCountdown } from '../components/ServiceCountdown'
 import { useConfirmAction } from '../components/ConfirmAction'
@@ -83,6 +84,8 @@ export function IssuesPage() {
   const [error, setError] = useState<string | null>(null)
   const [mineOnly, setMineOnly] = useState(false)
   const { isExpanded, toggle } = useExpanded()
+  // The service a link from its running order asked for (lib/serviceLinks).
+  const focusId = useServiceFocus()
   const { ask, dialog } = useConfirmAction()
 
   const myTeamIds = useMemo(() => [...new Set([...teamIds, ...ledDepartmentIds])], [teamIds, ledDepartmentIds])
@@ -226,10 +229,11 @@ export function IssuesPage() {
     const openCount = issues.filter((i) => i.outcome === null).length
     // Shut until opened — except the service a notification pointed at,
     // which arrives open on the issue.
-    const open = (service.id === linkedService) !== isExpanded(service.id)
+    const open = (service.id === linkedService || service.id === focusId) !== isExpanded(service.id)
     return (
       <section
         key={service.id}
+        id={serviceAnchor(service.id)}
         aria-label={service.service_type}
         className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline sm:p-6"
       >

@@ -34,6 +34,7 @@ import { ActionButton, ActionLink, Eyebrow, Overlay, Panel, Row, Tile } from '..
 import { TimerIcon } from '../components/icons'
 import { usePageAccess } from '../lib/usePageAccess'
 import { servicesHome } from '../lib/servicesHome'
+import { ServiceLinks } from '../components/ServiceLinks'
 import { AssigneePill, RailCountdown, TimelineCard, TimelineRow } from '../components/Timeline'
 import { DragHandle } from '../components/DragHandle'
 import { NumberDialField } from '../components/NumberDial'
@@ -1039,6 +1040,8 @@ export function ServicePlannerPage() {
                 </p>
               </>
             )}
+            {/* This service's other pages, each opening on this service. */}
+            {serviceQuery.data && serviceId && <ServiceLinks serviceId={serviceId} date={serviceQuery.data.date} here="/service-planner" className="mt-3" />}
             <ServiceLinkControl
               service={serviceQuery.data}
               canEdit={canEdit}

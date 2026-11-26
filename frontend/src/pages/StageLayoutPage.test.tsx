@@ -43,6 +43,8 @@ vi.mock('../lib/toast', () => ({ showToast: (text: string) => db.toasts.push(tex
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ session: { user: { id: 'me' } }, isAdmin: db.isAdmin }) }))
 vi.mock('../lib/useTheme', () => ({ useTheme: () => ({ resolved: 'dark' }) }))
+// The links to this service's other pages have their own tests (ServiceLinks.test).
+vi.mock('../lib/usePageAccess', () => ({ usePageAccess: () => ({ settled: true, canOpen: () => false }) }))
 vi.mock('../lib/downloadFile', () => ({
   downloadFile: (data: Uint8Array, name: string) => db.saved.push({ name, bytes: data.length }),
 }))

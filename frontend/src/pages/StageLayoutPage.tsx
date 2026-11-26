@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
+import { ServiceLinks } from '../components/ServiceLinks'
 import { ActionButton, Overlay, PageHeader, Pill, SegmentedControl, Tile, inputClasses } from '../components/Surface'
 import { Select, triggerClasses } from '../components/Select'
 import { QueryState } from '../components/QueryState'
@@ -496,6 +497,8 @@ export function StageLayoutPage() {
           ) : undefined
         }
       />
+      {/* This service's other pages, each opening on this service. */}
+      {service && <ServiceLinks serviceId={serviceId} date={service.date} here="/stage" className="mb-4" />}
       <Lifespan page="stage" className="mb-4" />
 
       <QueryState isLoading={serviceQuery.isLoading || layoutQuery.isLoading || areasQuery.isLoading} error={serviceQuery.error ?? layoutQuery.error ?? areasQuery.error}>

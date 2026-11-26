@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NAV_ITEMS, menuItems } from './navItems'
+import { NAV_ITEMS, menuItems, pageTabs } from './navItems'
 import { PAGE_RULES } from './pageAccess'
 
 /*
@@ -62,9 +62,9 @@ describe('a page reached from inside another', () => {
  * pages added later sat above every heading, under none.
  */
 describe('the menu’s headings', () => {
-  const HEADINGS = ['Serving', 'Service Planning', 'After the Service', 'Communications', 'Church Life', 'People & Teams']
+  const HEADINGS = ['Serving', 'Services', 'Communications', 'Church Life', 'People & Teams']
 
-  it('are these six, in this order, each in one run', () => {
+  it('are these five, in this order, each in one run', () => {
     const runs: string[] = []
     for (const item of NAV_ITEMS) {
       if (item.group && runs[runs.length - 1] !== item.group) runs.push(item.group)
@@ -79,21 +79,110 @@ describe('the menu’s headings', () => {
     expect(NAV_ITEMS.slice(0, 2).every((i) => !i.group)).toBe(true)
   })
 
-  it('hold more than one page each, and none more than five', () => {
+  it('hold more than one entry each, and none more than five, for somebody who may open everything', () => {
+    const menu = menuItems(NAV_ITEMS, everything)
     for (const heading of HEADINGS) {
-      const pages = NAV_ITEMS.filter((i) => i.group === heading)
-      expect(pages.length, heading).toBeGreaterThan(1)
-      expect(pages.length, heading).toBeLessThanOrEqual(5)
+      const entries = menu.filter((i) => i.group === heading)
+      expect(entries.length, heading).toBeGreaterThan(1)
+      expect(entries.length, heading).toBeLessThanOrEqual(5)
     }
   })
 
-  it('put each page where somebody would look for it', () => {
-    const under = (heading: string) => NAV_ITEMS.filter((i) => i.group === heading).map((i) => i.to)
-    expect(under('Serving')).toEqual(['/availability', '/rota', '/checklists', '/clock-in'])
-    expect(under('Service Planning')).toEqual(['/service-planner', '/set-lists', '/songs', '/stage', '/countdown'])
-    expect(under('After the Service')).toEqual(['/debriefs', '/issues'])
-    expect(under('Communications')).toEqual(['/updates', '/messages', '/team-chat', '/polls', '/feedback'])
-    expect(under('Church Life')).toEqual(['/prayer', '/giving', '/registrations', '/door'])
-    expect(under('People & Teams')).toEqual(['/departments', '/volunteers', '/families', '/dbs', '/inventory'])
+  it('put each entry where somebody would look for it', () => {
+    const menu = menuItems(NAV_ITEMS, everything)
+    const under = (heading: string) => menu.filter((i) => i.group === heading).map((i) => i.label)
+    expect(under('Serving')).toEqual(['Availability', 'Team Rota', 'Checklists', 'Clock In'])
+    expect(under('Services')).toEqual(['Set Lists', 'Stage Layout', 'Countdown', 'After the Service'])
+    expect(under('Communications')).toEqual(['Church Updates', 'Chat', 'Polls', 'Feedback'])
+    expect(under('Church Life')).toEqual(['Prayer Requests', 'Giving', 'Registrations'])
+    expect(under('People & Teams')).toEqual(['Teams', 'People', 'Inventory'])
+  })
+})
+
+/*
+ * Pages that are one entry, with tabs (the Owner, November 2026: "do all
+ * 6"). Each is still its own page behind its own rule, so the menu and
+ * the strip are both worked out per person.
+ */
+describe('pages that are one entry in the menu', () => {
+  const entry = (canOpen: (path: string) => boolean, to: string) => menuItems(NAV_ITEMS, canOpen).find((i) => i.to === to)
+
+  it('are one entry under the family’s name, lit on every page inside it', () => {
+    expect(entry(everything, '/debriefs')).toMatchObject({ label: 'After the Service', covers: ['/issues'] })
+    expect(entry(everything, '/volunteers')).toMatchObject({ label: 'People', covers: ['/families', '/dbs'] })
+    expect(entry(everything, '/messages')).toMatchObject({ label: 'Chat', covers: ['/team-chat'] })
+    for (const inside of ['/issues', '/families', '/dbs', '/team-chat', '/songs', '/door']) expect(entry(everything, inside), inside).toBeUndefined()
+  })
+
+  it('keep the page’s own name where that already says what is inside', () => {
+    expect(entry(everything, '/set-lists')).toMatchObject({ label: 'Set Lists', covers: ['/songs'] })
+    expect(entry(everything, '/registrations')).toMatchObject({ label: 'Registrations', covers: ['/door'] })
+  })
+
+  it('are that page under its own name for somebody who may open only one of them', () => {
+    const doorOnly = open('/', '/door')
+    expect(entry(doorOnly, '/door')).toMatchObject({ label: 'Reception' })
+    expect(entry(doorOnly, '/door')?.covers).toBeUndefined()
+    const admin = (path: string) => path !== '/families' && path !== '/dbs'
+    expect(entry(admin, '/volunteers')).toMatchObject({ label: 'Volunteers' })
+    expect(entry(admin, '/volunteers')?.covers).toBeUndefined()
+  })
+
+  it('start from the first page that is open when the one they are reached from is not', () => {
+    // A Pastor with Families and DBS Checks and not the roles page: still one entry, not two.
+    const pastor = (path: string) => path !== '/volunteers'
+    expect(entry(pastor, '/families')).toMatchObject({ label: 'People', covers: ['/dbs'] })
+    expect(entry(pastor, '/dbs')).toBeUndefined()
+  })
+
+  it('keep the name the church gave a page where the family has none of its own', () => {
+    const renamed = NAV_ITEMS.map((i) => (i.to === '/set-lists' ? { ...i, label: 'Worship Sets' } : i))
+    expect(menuItems(renamed, everything).find((i) => i.to === '/set-lists')?.label).toBe('Worship Sets')
+  })
+})
+
+describe('the tabs across a page', () => {
+  it('are the page and the ones beside it, in the app’s order, under the church’s names', () => {
+    const names = { '/issues': 'Service Related Issues' }
+    expect(pageTabs('/issues', everything, names)).toEqual({
+      name: 'After the Service',
+      tabs: [
+        { to: '/debriefs', label: 'Debriefs' },
+        { to: '/issues', label: 'Service Related Issues' },
+      ],
+    })
+    expect(pageTabs('/volunteers', everything)?.tabs.map((t) => t.to)).toEqual(['/volunteers', '/families', '/dbs'])
+    // No family name: the strip is called what the church calls the page it is on.
+    expect(pageTabs('/songs', everything, { '/set-lists': 'Worship Sets' })?.name).toBe('Worship Sets')
+  })
+
+  it('leave out a tab that is closed to this person', () => {
+    const pastor = (path: string) => path !== '/volunteers'
+    expect(pageTabs('/families', pastor)?.tabs.map((t) => t.to)).toEqual(['/families', '/dbs'])
+  })
+
+  it('are not drawn with one page left, or none', () => {
+    expect(pageTabs('/door', open('/door'))).toBeNull()
+    expect(pageTabs('/debriefs', open('/debriefs'))).toBeNull()
+  })
+
+  it('are not drawn on a page with no tabs, a page further in, or the planner under the Calendar', () => {
+    expect(pageTabs('/rota', everything)).toBeNull()
+    expect(pageTabs('/registrations/abc', everything)).toBeNull()
+    // Reached from the Calendar's Services chip, not from a tab.
+    expect(pageTabs('/events', everything)).toBeNull()
+    expect(pageTabs('/service-planner', everything)).toBeNull()
+  })
+
+  it('name only pages that exist, each with a rule of its own', () => {
+    for (const item of NAV_ITEMS.filter((i) => i.tab)) {
+      expect(item.within, item.to).toBeTruthy()
+      expect(PAGE_RULES[item.to], item.to).toBeTruthy()
+      // One level only: a tab is not itself a page with tabs.
+      expect(NAV_ITEMS.find((i) => i.to === item.within)?.within, item.to).toBeUndefined()
+    }
+    for (const item of NAV_ITEMS.filter((i) => i.family)) {
+      expect(NAV_ITEMS.some((i) => i.within === item.to && i.tab), item.to).toBe(true)
+    }
   })
 })

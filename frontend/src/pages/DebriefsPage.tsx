@@ -16,6 +16,7 @@ import { useAppSettings, useDisplay } from "../lib/appSettings";
 import { useErrorText } from "../lib/useErrorText";
 import { useConfirmAction } from "../components/ConfirmAction";
 import { Chevron, useExpanded } from "../components/Collapsible";
+import { serviceAnchor, useServiceFocus } from "../lib/serviceLinks";
 import { ServiceCountdown } from "../components/ServiceCountdown";
 import { ServiceSections } from "../components/ServiceSections";
 import { sectionServices } from "../lib/serviceSections";
@@ -307,6 +308,8 @@ export function DebriefsPage() {
   const myId = session?.user.id;
   const { ask, dialog } = useConfirmAction();
   const { isExpanded, toggle } = useExpanded();
+  // The service a link from its running order asked for (lib/serviceLinks): it arrives open.
+  const focusId = useServiceFocus();
 
   const [error, setError] = useState<string | null>(null);
 
@@ -529,11 +532,13 @@ export function DebriefsPage() {
                       // Open by default while it is the most recent one: that is the
                       // service anybody is here to write up.
                       const open =
-                        (service.id === firstOpenId) !== isExpanded(service.id);
+                        (service.id === firstOpenId || service.id === focusId) !==
+                        isExpanded(service.id);
 
                       return (
                         <section
                           key={service.id}
+                          id={serviceAnchor(service.id)}
                           className="rounded-[var(--radius-card)] bg-surface-lowest p-5 hairline sm:p-6"
                         >
                           <button
