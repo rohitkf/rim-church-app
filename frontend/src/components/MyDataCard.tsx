@@ -2,28 +2,51 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { countMyData, deleteMyAccount, fetchMyData, isOwnEmail, leaveAfterClosing, myDataFileName, saveMyData } from '../lib/myData'
+import {
+  deleteMyAccount,
+  fetchMyData,
+  fetchMyDataLookups,
+  isOwnEmail,
+  leaveAfterClosing,
+  myDataDocumentName,
+  myDataFileName,
+  saveMyData,
+  saveMyDataDocument,
+} from '../lib/myData'
+import { countReadable, readableData } from '../lib/myDataReadable'
 import { useErrorText } from '../lib/useErrorText'
 import { ActionButton, Field, SectionTile, inputClasses } from './Surface'
 
 /**
  * Settings › Your account: a copy of what the app holds about you (0334).
  *
- * One press, one file. It is everything whose rows would be deleted with
- * the account: the profile, teams, answers, messages, clock-ins, prayer
- * requests. The file is the database's own rows, named as the database
- * names them, so nothing is left out by a summary.
+ * One press, one document: everything whose rows would be deleted with
+ * the account, under plain headings, with a name where the database keeps
+ * an id (lib/myDataReadable). It opens in any browser and prints.
+ *
+ * The first version handed over the database's rows as they are stored,
+ * and the Owner sent theirs back the same day: all there, none of it
+ * readable. That file is still offered, second and quietly, for whoever
+ * wants every column.
  */
 export function MyDataCard() {
+  const { session, profile } = useAuth()
   const errorText = useErrorText()
-  const [made, setMade] = useState<{ file: string; tables: number; rows: number } | null>(null)
+  const me = session?.user.id ?? null
+  const [made, setMade] = useState<{ file: string; sections: number; entries: number } | null>(null)
   const copy = useMutation({
-    mutationFn: fetchMyData,
-    onSuccess: (data) => {
+    mutationFn: async (as: 'document' | 'data') => {
+      const data = await fetchMyData()
       const now = new Date()
+      const doc = readableData(data, as === 'document' ? await fetchMyDataLookups(me) : undefined)
+      if (as === 'document') {
+        saveMyDataDocument(doc, `${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim(), now)
+        return { file: myDataDocumentName(now), ...countReadable(doc) }
+      }
       saveMyData(data, now)
-      setMade({ file: myDataFileName(now), ...countMyData(data) })
+      return { file: myDataFileName(now), ...countReadable(doc) }
     },
+    onSuccess: setMade,
   })
 
   return (
@@ -31,7 +54,7 @@ export function MyDataCard() {
       title="A copy of what is kept about you"
       hint={
         <>
-          Everything the app holds that is yours, as one file you can open and keep.{' '}
+          Everything the app holds that is yours, as one document you can read, print and keep.{' '}
           <Link to="/privacy" className="font-medium text-accent-blue-soft hover:underline">
             What the app keeps, and for how long
           </Link>
@@ -47,15 +70,23 @@ export function MyDataCard() {
         )}
         {made && !copy.isPending && (
           <p role="status" className="text-body-sm text-on-surface-variant">
-            Saved as {made.file}: {made.rows} {made.rows === 1 ? 'entry' : 'entries'} from {made.tables}{' '}
-            {made.tables === 1 ? 'list' : 'lists'}. It opens in any text editor.
+            Saved as {made.file}: {made.entries} {made.entries === 1 ? 'entry' : 'entries'} under {made.sections}{' '}
+            {made.sections === 1 ? 'heading' : 'headings'}.{' '}
+            {made.file.endsWith('.html') ? 'Open it from your downloads; it opens in your browser.' : 'It opens in any text editor.'}
           </p>
         )}
-        <div>
-          <ActionButton size="sm" tone="quiet" disabled={copy.isPending} onClick={() => copy.mutate()}>
-            {copy.isPending ? 'Gathering…' : 'Download a copy'}
+        <div className="flex flex-wrap items-center gap-2">
+          <ActionButton size="sm" disabled={copy.isPending} onClick={() => copy.mutate('document')}>
+            {copy.isPending && copy.variables === 'document' ? 'Gathering…' : 'Download a copy'}
+          </ActionButton>
+          <ActionButton size="sm" tone="quiet" disabled={copy.isPending} onClick={() => copy.mutate('data')}>
+            {copy.isPending && copy.variables === 'data' ? 'Gathering…' : 'As a data file'}
           </ActionButton>
         </div>
+        <p className="text-label-md text-on-surface-faint">
+          The data file is the same information as the database stores it, column by column, for another program to
+          read.
+        </p>
       </div>
     </SectionTile>
   )

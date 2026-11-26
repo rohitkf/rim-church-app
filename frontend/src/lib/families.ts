@@ -1,3 +1,4 @@
+import { matchScore, tokensOf } from './searchMatch'
 import { z } from 'zod'
 import { supabase } from './supabaseClient'
 
@@ -220,19 +221,15 @@ export function groupAnchor(g: FamilyGroup): FamilyMember | null {
   return anchorOf(g.head) ?? g.members.find((m) => m.user_id) ?? null
 }
 
-/** Lower case, accents off, so "jose" finds "José". */
-const plain = (text: string) =>
-  text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-
-/** Whether every word typed is in the name, in any order: "jacob an" finds Anna Jacob. */
+/**
+ * Whether what was typed finds the name: every word, in any order, a slip
+ * forgiven in a longer one, accents aside ("jacob an" finds Anna Jacob,
+ * "jose" finds José). The app's one matcher (lib/searchMatch), so this box
+ * finds what the search over everything finds.
+ */
 export function nameMatches(name: string, typed: string): boolean {
-  const words = plain(typed).split(/\s+/).filter(Boolean)
-  if (words.length === 0) return true
-  const hay = plain(name)
-  return words.every((w) => hay.includes(w))
+  if (tokensOf(typed).length === 0) return true
+  return matchScore(typed, [{ text: name }]) !== null
 }
 
 /** A family is found by anybody in it. */

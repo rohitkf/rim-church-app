@@ -13,6 +13,8 @@ import { daysAfter, toLocalInput, untilText, updateEndProblem } from '../lib/exp
 import { useNow } from '../lib/useNow'
 import { DateTimeField } from '../components/DateTimeFields'
 import { QueryState } from '../components/QueryState'
+import { ListSearch } from '../components/ListSearch'
+import { useListSearch } from '../lib/useListSearch'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { ActionButton, Eyebrow, Field, PageHeader, Pill, Tile, inputClasses } from '../components/Surface'
 import { LinkedText } from '../components/LinkedText'
@@ -81,6 +83,7 @@ export function ChurchUpdatesPage() {
   // a screen that has been open since before then.
   const now = useNow(60_000)
   const updates = (updatesQuery.data ?? []).filter((u) => new Date(u.ends_at).getTime() > now)
+  const search = useListSearch(updates, (u) => [{ text: u.title, weight: 3 }, { text: u.body }])
 
   // A tap on the notification lands on the update it was about.
   useEffect(() => {
@@ -142,8 +145,9 @@ export function ChurchUpdatesPage() {
           isAdmin ? 'Nothing posted yet — the first update goes to everybody.' : 'No updates yet.'
         }
       >
+        <ListSearch search={search} label="Find an update" placeholder="Find an update by its title or what it says" noun={['update', 'updates']} className="mt-5" />
         <ul className="mt-5 flex flex-col gap-4">
-          {updates.map((update) => (
+          {search.shown.map((update) => (
             <li key={update.id} id={`update-${update.id}`}>
               <Tile
                 tone={update.pinned ? 'accent' : 'plain'}

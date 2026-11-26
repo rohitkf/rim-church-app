@@ -33,6 +33,7 @@
  * first two ask `lib/registrationBreakdown`, so a number here and the
  * same line of "How the tickets are paid for" are the same people.
  */
+import { matchScore, tokensOf } from './searchMatch'
 import { emailWantsDoing } from './emailDelivery'
 import { WAYS, paymentOf, wayOf, wayWords, type PaymentPlace, type Way } from './registrationBreakdown'
 import { sharesAnEmail, wantsVerifying, type OrderRow } from './registrations'
@@ -137,10 +138,21 @@ export function orderFits(o: OrderRow, filters: OrderFilters, duplicates: Readon
 
 /** Whether an order says the words typed: a name, an email, a code, a phone, a promo code, a note, an attendee. */
 export function orderSays(o: OrderRow, query: string): boolean {
-  const q = query.trim().toLowerCase()
-  if (!q) return true
-  const hay = [o.name, o.email ?? '', o.code, o.phone ?? '', o.promo_code ?? '', o.notes ?? '', ...o.tickets.map((t) => t.attendee_name ?? '')]
-  return hay.some((h) => h.toLowerCase().includes(q))
+  if (tokensOf(query).length === 0) return true
+  // A booking code or a promo code is found as written and no other way:
+  // one letter out is somebody else's booking, not a slip.
+  const written = query.trim().toLowerCase()
+  if (o.code.toLowerCase().includes(written) || (o.promo_code ?? '').toLowerCase().includes(written)) return true
+  // Everything else by the app's one matcher (lib/searchMatch): names in
+  // either order, a slip forgiven, a telephone number however it is spaced.
+  return (
+    matchScore(query, [
+      { text: o.name, weight: 3 },
+      { text: o.tickets.map((t) => t.attendee_name ?? '').join(' '), weight: 2 },
+      { text: `${o.email ?? ''} ${o.notes ?? ''}` },
+      { text: o.phone ?? '' },
+    ]) !== null
+  )
 }
 
 /** One of the filters', and says the words typed. */

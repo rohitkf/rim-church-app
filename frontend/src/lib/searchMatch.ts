@@ -92,7 +92,8 @@ function wordQuality(token: string, word: string): number {
   if (word === token) return 1
   if (word.startsWith(token)) return 0.85
   if (token.length >= 2 && word.includes(token)) return 0.5
-  const most = forgiven(token.length)
+  // A number is not a spelling: a tag, a serial or a date one digit out is a different thing.
+  const most = /\d/.test(token) ? 0 : forgiven(token.length)
   if (most === 0) return 0
   // Against the start of the word, so a slip in "volnt" still finds "volunteers".
   for (const length of [token.length, token.length + 1, token.length - 1]) {

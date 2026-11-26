@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
+import { ListSearch } from '../components/ListSearch'
+import { useListSearch } from '../lib/useListSearch'
 import { ActionButton, Card, Eyebrow, PageHeader, Statistic, Tile, type TileTone } from '../components/Surface'
 import { ExportInventoryDialog } from '../components/ExportInventoryDialog'
 import { PurchaseRequests } from '../components/PurchaseRequests'
@@ -56,6 +58,20 @@ export function InventoryIndexPage() {
     }
     return map
   }, [items])
+
+  /*
+   * Finding a piece of kit without knowing whose it is. The page is a tile
+   * for each team, so "where is the spare mic?" meant opening registers one
+   * at a time. The box looks through every item this person may see, by
+   * what it is called, its tag, make, model, serial number, shelf or team,
+   * and each result opens its own entry in its team's register.
+   */
+  const teamNames = useMemo(() => new Map((departmentsQuery.data ?? []).map((d) => [d.id, d.name])), [departmentsQuery.data])
+  const search = useListSearch(items, (i) => [
+    { text: i.name, weight: 3 },
+    { text: `${i.asset_tag ?? ''} ${i.brand ?? ''} ${i.model ?? ''}`, weight: 2 },
+    { text: `${i.serial_number ?? ''} ${i.category ?? ''} ${i.location ?? ''} ${teamNames.get(i.department_id) ?? ''}` },
+  ])
 
   const churchValue = totalValue(items)
   const flagged = items.filter((i) => needsAttention(i, today)).length
@@ -136,7 +152,34 @@ export function InventoryIndexPage() {
         isEmpty={departmentsQuery.data?.length === 0}
         emptyMessage="No teams visible to you yet."
       >
-        <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <ListSearch
+          search={search}
+          label="Find a piece of kit"
+          placeholder="Find kit in any team: name, tag, make, serial or shelf"
+          noun={['item', 'items']}
+          className="mb-5"
+        />
+        {search.searching && search.shown.length > 0 && (
+          <ul data-testid="kit-found" className="flex flex-col gap-2">
+            {search.shown.slice(0, 50).map((item) => (
+              <li key={item.id}>
+                <Link
+                  to={`/inventory/${item.department_id}?item=${item.id}`}
+                  className="tap flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-[var(--radius-row)] bg-raised px-4 py-3.5 hairline transition-colors duration-200 hover:bg-raised-strong"
+                >
+                  <span className="min-w-0">
+                    <span className="block break-words text-body-md font-medium text-on-surface">{item.name}</span>
+                    <span className="block break-words text-label-sm text-on-surface-variant">
+                      {[item.asset_tag, item.brand, item.model, item.location].filter(Boolean).join(' · ') || 'No details yet'}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-label-sm text-on-surface-faint">{teamNames.get(item.department_id) ?? ''}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+        <ul hidden={search.searching} className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {departmentsQuery.data?.map((dept) => {
             const teamItems = byTeam.get(dept.id) ?? []
             const teamFlagged = teamItems.filter((i) => needsAttention(i, today)).length

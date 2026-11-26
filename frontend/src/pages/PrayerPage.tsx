@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ActionButton, Overlay, PageHeader, Pill, SectionTile, SegmentedControl, inputClasses } from '../components/Surface'
 import { QueryState } from '../components/QueryState'
+import { ListSearch } from '../components/ListSearch'
+import { useListSearch } from '../lib/useListSearch'
 import { Switch } from '../components/SettingRows'
 import { useConfirmAction } from '../components/ConfirmAction'
 import { useErrorText } from '../lib/useErrorText'
@@ -70,6 +72,12 @@ export function PrayerPage() {
     (wanted === 'inbox' && !board?.pastoral) || (wanted === 'lists' && !showLists) || (wanted === 'assigned' && !showAssigned)
       ? 'requests'
       : wanted
+  // Within the tab being read: by what was asked, who asked (where this reader is shown that), the testimony, or an update to it.
+  const search = useListSearch(sections && tab !== 'lists' ? sections[tab] : [], (r) => [
+    { text: r.body, weight: 3 },
+    { text: `${r.author?.first_name ?? ''} ${r.author?.last_name ?? ''}`, weight: 2 },
+    { text: `${r.testimony ?? ''} ${r.updates.map((u) => u.body).join(' ')}` },
+  ])
   const choose = (next: Tab) => setParams(next === 'requests' ? {} : { tab: next }, { replace: true })
 
   const tabs: { value: Tab; label: string; hint: string; count: number }[] = sections
@@ -185,13 +193,16 @@ export function PrayerPage() {
                     {EMPTY[tab]}
                   </p>
                 ) : (
+                  <>
+                  <ListSearch search={search} label="Find a request" placeholder="Find a request by what it says or who asked" noun={['request', 'requests']} />
                   <ul aria-label={tabs.find((t) => t.value === tab)?.label} className="flex flex-col gap-3">
-                    {sections[tab].map((r) => (
+                    {search.shown.map((r) => (
                       <li key={r.id}>
                         {tab === 'testimonies' ? <TestimonyCard request={r} board={board} /> : <RequestCard request={r} board={board} />}
                       </li>
                     ))}
                   </ul>
+                  </>
                 )}
               </div>
             </>

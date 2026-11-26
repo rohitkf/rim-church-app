@@ -4,7 +4,7 @@ const rpc = vi.hoisted(() => vi.fn())
 const signOut = vi.hoisted(() => vi.fn(() => Promise.resolve({ error: null })))
 vi.mock('./supabaseClient', () => ({ supabase: { rpc, auth: { signOut } } }))
 
-import { closedJustNow, countMyData, deleteMyAccount, fetchMyData, isOwnEmail, leaveAfterClosing, myDataFileName } from './myData'
+import { closedJustNow, countMyData, deleteMyAccount, fetchMyData, isOwnEmail, leaveAfterClosing, myDataDocumentName, myDataFileName } from './myData'
 import migration from '../../../supabase/migrations/0334_a_second_step_and_your_own_data.sql?raw'
 
 /*
@@ -17,8 +17,9 @@ beforeEach(() => {
 })
 
 describe('a copy of what is kept', () => {
-  it('names the file by the day it was made', () => {
+  it('names the file by the day it was made, the document and the data file alike', () => {
     expect(myDataFileName(new Date(2026, 10, 6))).toBe('my-data-2026-11-06.json')
+    expect(myDataDocumentName(new Date(2026, 10, 6))).toBe('my-data-2026-11-06.html')
   })
 
   it('counts what came back, and does not trip on an answer it cannot read', () => {

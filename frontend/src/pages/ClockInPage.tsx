@@ -4,6 +4,8 @@ import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { ActionButton, PageHeader, SectionTile, inputClasses } from '../components/Surface'
 import { QueryState } from '../components/QueryState'
+import { SearchField } from '../components/SearchField'
+import { searchList, tokensOf } from '../lib/searchMatch'
 import { ClockInPlaceCard } from '../components/ClockInPlaceCard'
 import { ClockInPunctuality } from '../components/ClockInPunctuality'
 import { ClockInRequests } from '../components/ClockInRequests'
@@ -94,11 +96,23 @@ export function ClockInPage() {
   const rows = useMemo(() => rowsQuery.data ?? [], [rowsQuery.data])
   // Each person's own lines in the day's history: how their time came, and every change to it.
   const historyOf = (uid: string) => (historyQuery.data ?? []).filter((e) => e.user_id === uid)
+  /*
+   * Finding one person on the day: whether they are in, and when. They may
+   * be among those who have clocked in or those still to arrive, on any of
+   * several teams, so both are narrowed by the name before the teams are
+   * drawn. The figures at the top stay the whole day's.
+   */
+  const [find, setFind] = useState('')
+  const finding = tokensOf(find).length > 0
+  const stillOut = stillOutQuery.data ?? []
+  const foundRows = finding ? searchList(find, rows, (r) => [{ text: `${r.person?.first_name ?? ''} ${r.person?.last_name ?? ''}`, weight: 3 }]) : rows
+  const foundOut = finding ? searchList(find, stillOut, (o) => [{ text: personName(o.user_id), weight: 3 }]) : stillOut
+  const foundPeople = new Set([...foundRows.map((r) => r.user_id), ...foundOut.map((o) => o.user_id)]).size
   const groups = groupClockIns(
-    rows,
+    foundRows,
     teamsQuery.data ?? [],
     (id) => departmentsQuery.data?.find((d) => d.id === id)?.name ?? null,
-    stillOutQuery.data ?? [],
+    foundOut,
     lateAfter,
   )
   const lateToday = rows.filter((r) => isLate(r, lateAfter)).length
@@ -173,10 +187,27 @@ export function ClockInPage() {
             <AddClockIn day={day} rows={rows} timeZone={timeZone} onDone={refresh} onCancel={() => setAdding(false)} />
           )}
 
+          {(rows.length + stillOut.length > 1 || find) && (
+            <SearchField
+              className="mt-4"
+              value={find}
+              onChange={setFind}
+              label="Find somebody"
+              placeholder="Find somebody by name"
+              status={
+                finding
+                  ? foundPeople === 0
+                    ? `Nobody matches “${find.trim()}”. Try fewer letters.`
+                    : `${foundPeople} ${foundPeople === 1 ? 'person' : 'people'} found`
+                  : null
+              }
+            />
+          )}
+
           <QueryState
             isLoading={rowsQuery.isLoading || teamsQuery.isLoading}
             error={rowsQuery.error ?? teamsQuery.error}
-            isEmpty={groups.length === 0}
+            isEmpty={groups.length === 0 && !finding}
             emptyMessage="Nobody was due, and nobody has clocked in, on this day."
           >
             {/* A card a team, washed in its colour as the Team Rota's are,

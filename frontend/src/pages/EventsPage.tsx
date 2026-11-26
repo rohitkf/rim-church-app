@@ -7,6 +7,8 @@ import { celebrationDate, fetchBirthDates } from '../lib/birthDates'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
+import { SearchField } from '../components/SearchField'
+import { matchScore, tokensOf } from '../lib/searchMatch'
 import { ActionButton, Field, FieldGroup, Overlay, PageHeader, SegmentedControl, inputClasses } from '../components/Surface'
 import { fetchDepartments, fetchServices } from '../lib/queries'
 import { monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
@@ -530,7 +532,19 @@ export function EventsPage() {
       { replace: true },
     )
   }
-  const shown = useMemo(() => (show ? diary.filter((entry) => categoryOf(entry) === show) : diary), [diary, show])
+  /*
+   * Finding one thing in a year of them: by what it is called, where or
+   * when it is, or who added it. It narrows what the kind chosen above
+   * already narrowed, and keeps the diary's order: a diary is read by date,
+   * not by how well a name matched.
+   */
+  const [find, setFind] = useState('')
+  const finding = tokensOf(find).length > 0
+  const shown = useMemo(() => {
+    const ofKind = show ? diary.filter((entry) => categoryOf(entry) === show) : diary
+    if (!finding) return ofKind
+    return ofKind.filter((entry) => matchScore(find, [{ text: entry.title, weight: 3 }, { text: entry.detail }, { text: entry.addedBy }]) !== null)
+  }, [diary, show, find, finding])
 
   // Opened from somewhere else for one event (?event=<id>, the Dashboard's
   // View event): its card opens once it has loaded, and the address lets
@@ -573,9 +587,11 @@ export function EventsPage() {
       show && show !== 'event' && show !== 'repeating'
         ? []
         : byDay(
-            pastDiaryEntries(eventsQuery.data ?? [], today, keepPastDays).filter((e) => !show || categoryOf(e) === show),
+            pastDiaryEntries(eventsQuery.data ?? [], today, keepPastDays)
+              .filter((e) => !show || categoryOf(e) === show)
+              .filter((e) => !finding || matchScore(find, [{ text: e.title, weight: 3 }, { text: e.detail }, { text: e.addedBy }]) !== null),
           ).reverse(),
-    [eventsQuery.data, today, keepPastDays, show],
+    [eventsQuery.data, today, keepPastDays, show, find, finding],
   )
 
   /*
@@ -589,8 +605,10 @@ export function EventsPage() {
    * "show me the meetings".
    */
   const extra = asked.show === show ? asked : { show, upcoming: 0, past: 0 }
-  const upcoming = useMemo(() => firstDays(days, FIRST_PAGE + extra.upcoming), [days, extra.upcoming])
-  const past = useMemo(() => firstDays(pastDays, FIRST_PAGE + extra.past), [pastDays, extra.past])
+  // What was looked for is shown whole: "show more" is no answer to "where is it?".
+  const upcoming = useMemo(() => firstDays(days, finding ? 10_000 : FIRST_PAGE + extra.upcoming), [days, extra.upcoming, finding])
+  const past = useMemo(() => firstDays(pastDays, finding ? 10_000 : FIRST_PAGE + extra.past), [pastDays, extra.past, finding])
+  const foundCount = days.reduce((n, [, entries]) => n + entries.length, 0) + pastDays.reduce((n, [, entries]) => n + entries.length, 0)
 
   const saveEvent = useMutation({
     mutationFn: async () => {
@@ -1118,10 +1136,29 @@ export function EventsPage() {
           {legend}
         </section>
 
+        {(diary.length > 1 || find) && (
+          <SearchField
+            className="mt-6"
+            value={find}
+            onChange={setFind}
+            label="Find something in the diary"
+            placeholder="Find something in the diary: a name, a place, a person"
+            status={
+              finding
+                ? foundCount === 0
+                  ? `Nothing ${show ? `among the ${PLURAL[show].toLowerCase()} ` : ''}matches “${find.trim()}”. Try fewer letters.`
+                  : `${foundCount} found`
+                : null
+            }
+          />
+        )}
+
         {days.length === 0 && pastDays.length === 0 ? (
+          finding ? null : (
           <p className="mt-6 text-body-sm text-on-surface-variant">
             {show ? `No ${PLURAL[show].toLowerCase()} coming up.` : 'Nothing in the diary yet.'}
           </p>
+          )
         ) : (
           <>
             {days.length > 0 && (

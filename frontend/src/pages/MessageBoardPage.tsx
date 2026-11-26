@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
+import { ListSearch } from '../components/ListSearch'
+import { useListSearch } from '../lib/useListSearch'
 import { ActionButton, PageHeader, inputClasses } from '../components/Surface'
 import { formatRelativeTime } from '../lib/relativeTime'
 import { messageRowSchema, type MessageRow } from '../lib/types'
@@ -73,6 +75,7 @@ export function MessageBoardPage() {
   const [confirm, setConfirm] = useState<{ kind: 'one'; id: string } | { kind: 'all' } | null>(null)
 
   const messagesQuery = useQuery({ queryKey: ['messages'], queryFn: fetchMessages })
+  const search = useListSearch(messagesQuery.data, (m) => [{ text: m.body, weight: 3 }, { text: `${m.author?.first_name ?? ''} ${m.author?.last_name ?? ''}`, weight: 2 }])
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments })
   const membershipsQuery = useOwnMemberships()
 
@@ -299,8 +302,9 @@ export function MessageBoardPage() {
           isEmpty={messagesQuery.data?.length === 0}
           emptyMessage="No messages yet."
         >
+          <ListSearch search={search} label="Find a message" placeholder="Find a message by what it says or who posted it" noun={['message', 'messages']} className="mb-4" />
           <ul className="flex flex-col gap-4">
-            {messagesQuery.data?.map((m) => (
+            {search.shown.map((m) => (
               <li key={m.id} className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-4">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="flex flex-wrap items-baseline gap-2">

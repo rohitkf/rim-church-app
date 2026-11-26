@@ -209,6 +209,12 @@ export const dbsDetailsSchema = z.object({
   status_checked: z.boolean(),
   certificate_seen: z.boolean(),
   id_seen: z.boolean(),
+  /**
+   * A fingerprint of these details (0335), handed back when they are
+   * marked verified: the database refuses the mark if what is stored is no
+   * longer what was shown. Absent from a database that has not heard of it.
+   */
+  seen: z.string().nullable().optional(),
 })
 export type DbsDetails = z.infer<typeof dbsDetailsSchema>
 
@@ -264,12 +270,19 @@ export interface DbsChecks {
   idSeen: boolean
 }
 
-export async function verifyDbs(userId: string, checks: DbsChecks): Promise<void> {
+/**
+ * Mark the details verified: the details the checker was shown, and no
+ * others. `seen` is the fingerprint that came with them (dbs_of); if the
+ * person has changed their details since, the database marks nothing and
+ * says to look again (0335).
+ */
+export async function verifyDbs(userId: string, checks: DbsChecks, seen: string | null | undefined): Promise<void> {
   const { error } = await supabase.rpc('verify_dbs', {
     p_person: userId,
     p_status_checked: checks.statusChecked,
     p_certificate_seen: checks.certificateSeen,
     p_id_seen: checks.idSeen,
+    p_seen: seen ?? null,
   })
   if (error) throw error
 }

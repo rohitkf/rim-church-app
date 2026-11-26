@@ -223,7 +223,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/settings/account',
         target: 'page-title',
         title: 'Your account',
-        body: 'Your own data, in your own hands. Download a copy of everything the app holds about you, as one file. And remove your own account, with everything that is yours, by typing its email address.',
+        body: 'Your own data, in your own hands. Download a copy of everything the app holds about you, as a document you can read, print and keep. And remove your own account, with everything that is yours, by typing its email address.',
       },
       {
         path: '/departments',

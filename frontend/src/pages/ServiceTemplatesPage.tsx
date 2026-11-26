@@ -7,6 +7,8 @@ import { usePermissions } from '../lib/usePermissions'
 import { usePageAccess } from '../lib/usePageAccess'
 import { servicesHome } from '../lib/servicesHome'
 import { QueryState } from '../components/QueryState'
+import { ListSearch } from '../components/ListSearch'
+import { useListSearch } from '../lib/useListSearch'
 import { NumberDialField } from '../components/NumberDial'
 import { TimeField } from '../components/DateTimeFields'
 import { PageHeader } from '../components/Surface'
@@ -86,6 +88,7 @@ export function ServiceTemplatesPage() {
   const [baseline, setBaseline] = useState<TemplateFormState>({ name: '', startTime: '10:00', sessions: [] })
 
   const templatesQuery = useQuery({ queryKey: ['service-templates'], queryFn: fetchServiceTemplates })
+  const search = useListSearch(templatesQuery.data, (t) => [{ text: t.name, weight: 3 }])
   const upcomingQuery = useQuery({
     queryKey: ['template-upcoming', editingId],
     queryFn: () => countUpcomingFromTemplate(editingId!),
@@ -308,8 +311,9 @@ export function ServiceTemplatesPage() {
           isEmpty={templatesQuery.data?.length === 0}
           emptyMessage="No templates yet — create your first one above."
         >
+          <ListSearch search={search} label="Find a template" placeholder="Find a template" noun={['template', 'templates']} className="mt-3" />
           <ul className="mt-3 flex flex-col gap-3">
-            {templatesQuery.data?.map((t) => (
+            {search.shown.map((t) => (
               <li
                 key={t.id}
                 className="flex items-center gap-4 rounded-[var(--radius-card)] bg-surface-lowest hairline p-4"

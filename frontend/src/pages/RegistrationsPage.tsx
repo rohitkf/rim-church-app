@@ -4,6 +4,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ActionButton, FitFigure, PageHeader, Pill, StackedBar, Statistic, Tile } from '../components/Surface'
 import { QueryState } from '../components/QueryState'
+import { ListSearch } from '../components/ListSearch'
+import { useListSearch } from '../lib/useListSearch'
 import { Lifespan } from '../components/Lifespan'
 import { pounds } from '../lib/money'
 import { registerUrl } from '../lib/registrationLinks'
@@ -47,7 +49,9 @@ export function RegistrationsPage() {
     }),
     { orders: 0, tickets: 0, expected: 0, received: 0, attention: 0 },
   )
-  const groups = groupEvents(rows, now)
+  // The figures above are the whole of it; the box narrows only the list beneath.
+  const search = useListSearch(rows, (e) => [{ text: e.title, weight: 3 }, { text: `${e.location_name ?? ''} ${e.status} ${e.slug}` }])
+  const groups = groupEvents(search.shown, now)
 
   return (
     <div>
@@ -84,6 +88,8 @@ export function RegistrationsPage() {
             <Statistic className="flex-col" value={<FitFigure>{totals.attention}</FitFigure>} unit={totals.attention === 1 ? 'needs a look' : 'need a look'} />
           </Tile>
         </div>
+
+        <ListSearch search={search} label="Find an event" placeholder="Find an event by name or place" noun={['event', 'events']} className="mt-6" />
 
         {groups.map((g) => (
           <section key={g.key} aria-labelledby={`events-${g.key}`} className="mt-8">

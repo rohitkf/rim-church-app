@@ -18,7 +18,14 @@ const step = vi.hoisted(() => ({
   clearSecondStep: vi.fn(),
 }))
 vi.mock('../lib/secondStep', async (real) => ({ ...(await real<typeof import('../lib/secondStep')>()), ...step }))
-const data = vi.hoisted(() => ({ fetchMyData: vi.fn(), saveMyData: vi.fn(), deleteMyAccount: vi.fn(), leaveAfterClosing: vi.fn() }))
+const data = vi.hoisted(() => ({
+  fetchMyData: vi.fn(),
+  fetchMyDataLookups: vi.fn(),
+  saveMyData: vi.fn(),
+  saveMyDataDocument: vi.fn(),
+  deleteMyAccount: vi.fn(),
+  leaveAfterClosing: vi.fn(),
+}))
 vi.mock('../lib/myData', async (real) => ({ ...(await real<typeof import('../lib/myData')>()), ...data }))
 const privacy = vi.hoisted(() => ({ fetchPrivacyDetails: vi.fn(), savePrivacyDetails: vi.fn() }))
 vi.mock('../lib/privacyDetails', async (real) => ({ ...(await real<typeof import('../lib/privacyDetails')>()), ...privacy }))
@@ -124,14 +131,32 @@ describe('the Owner clearing somebody else’s', () => {
 })
 
 describe('a copy of what is kept', () => {
-  it('saves the database’s answer as a file and says what was in it', async () => {
-    const answer = { tables: { profiles: [{}], messages: [{}, {}] } }
+  const answer = { tables: { profiles: [{ first_name: 'Grace' }], messages: [{ body: 'one' }, { body: 'two' }] } }
+  const emptyLookups = { team: new Map(), service: new Map(), role: new Map(), person: new Map(), session: new Map(), me: 'me' }
+
+  it('saves a document a person can read, under the reader’s name, and says what is in it', async () => {
+    data.fetchMyData.mockResolvedValue(answer)
+    data.fetchMyDataLookups.mockResolvedValue(emptyLookups)
+    show(<MyDataCard />, { profile: { first_name: 'Grace', last_name: 'Mensah' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Download a copy' }))
+    expect(await screen.findByRole('status')).toHaveTextContent(/Saved as my-data-\d{4}-\d{2}-\d{2}\.html: 3 entries under 2 headings\. Open it from your downloads/)
+    const [doc, who] = data.saveMyDataDocument.mock.calls[0]
+    expect(who).toBe('Grace Mensah')
+    expect(doc.sections.map((s: { title: string }) => s.title)).toEqual(['Your profile', 'Messages you posted'])
+    // The names of teams and services are looked up for the reader, by their own id.
+    expect(data.fetchMyDataLookups).toHaveBeenCalledWith('me')
+    expect(data.saveMyData).not.toHaveBeenCalled()
+    expect(screen.getByRole('link', { name: 'What the app keeps, and for how long' })).toHaveAttribute('href', '/privacy')
+  })
+
+  it('still offers the database’s own rows, for whoever wants every column', async () => {
     data.fetchMyData.mockResolvedValue(answer)
     show(<MyDataCard />)
-    await userEvent.click(screen.getByRole('button', { name: 'Download a copy' }))
-    expect(await screen.findByRole('status')).toHaveTextContent(/Saved as my-data-\d{4}-\d{2}-\d{2}\.json: 3 entries from 2 lists/)
+    await userEvent.click(screen.getByRole('button', { name: 'As a data file' }))
+    expect(await screen.findByRole('status')).toHaveTextContent(/Saved as my-data-\d{4}-\d{2}-\d{2}\.json: 3 entries under 2 headings\. It opens in any text editor/)
     expect(data.saveMyData).toHaveBeenCalledWith(answer, expect.any(Date))
-    expect(screen.getByRole('link', { name: 'What the app keeps, and for how long' })).toHaveAttribute('href', '/privacy')
+    expect(data.saveMyDataDocument).not.toHaveBeenCalled()
+    expect(data.fetchMyDataLookups).not.toHaveBeenCalled()
   })
 
   it('says so when the copy could not be made', async () => {
@@ -139,7 +164,7 @@ describe('a copy of what is kept', () => {
     show(<MyDataCard />)
     await userEvent.click(screen.getByRole('button', { name: 'Download a copy' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Sign in first.')
-    expect(data.saveMyData).not.toHaveBeenCalled()
+    expect(data.saveMyDataDocument).not.toHaveBeenCalled()
   })
 })
 
