@@ -108,11 +108,10 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       {
         to: '/settings/account',
         label: 'Your account',
-        blurb: 'A second step at sign-in, a copy of what is kept about you, and removing your account.',
+        blurb: 'A copy of what is kept about you, and removing your account.',
         icon: LockIcon,
         tone: 'indigo',
-        keywords:
-          'account security two step factor 2fa mfa authenticator code sign in password download my data copy export privacy delete remove close leave gdpr',
+        keywords: 'account download my data copy export privacy delete remove close leave gdpr',
       },
     ],
   },

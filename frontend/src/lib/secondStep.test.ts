@@ -12,6 +12,11 @@ const rpc = vi.hoisted(() => vi.fn())
 vi.mock('./supabaseClient', () => ({ supabase: { auth: { mfa, getSession }, rpc } }))
 
 import migration from '../../../supabase/migrations/0334_a_second_step_and_your_own_data.sql?raw'
+import settingsPage from '../pages/SettingsPage.tsx?raw'
+import tourFile from './tour.ts?raw'
+import releasesFile from './releases.ts?raw'
+import privacyPage from '../pages/PrivacyPage.tsx?raw'
+import sections from './settingsSections.ts?raw'
 
 /*
  * A second step at sign-in (0334). The database refuses a half signed-in
@@ -186,5 +191,26 @@ describe('the request guard', () => {
     expect(guard).toContain('set search_path = public')
     // Where somebody stands is still answered at the first step: the page that asks for the code needs nothing else.
     expect(guard).toMatch(/called is distinct from 'my_standing'\s+and coalesce\(claims ->> 'aal', 'aal1'\) <> 'aal2'/)
+  })
+})
+
+/*
+ * The Owner said there is no need for any two-step sign-in for now (26
+ * November 2026). It is switched off, not taken out, and everything that
+ * would tell somebody about it has to go quiet together: a tour step or a
+ * note about a thing no screen offers is a promise the app does not keep.
+ */
+describe('whether it is offered', () => {
+  it('is drawn in Settings only when it is offered, the Owner’s list with it', () => {
+    expect(settingsPage).toContain('{SECOND_STEP_OFFERED && <SecondStepCard />}')
+    expect(settingsPage).toContain('{SECOND_STEP_OFFERED && <SecondStepPeopleCard />}')
+    expect(settingsPage.match(/<SecondStep(People)?Card \/>/g)).toHaveLength(2)
+  })
+
+  it('is said in the tour, the notes, the search and on /privacy exactly when it is offered', async () => {
+    const { SECOND_STEP_OFFERED } = await fresh()
+    for (const [name, text] of Object.entries({ tourFile, releasesFile, privacyPage, sections })) {
+      expect(/authenticator|second step/i.test(text), name).toBe(SECOND_STEP_OFFERED)
+    }
   })
 })

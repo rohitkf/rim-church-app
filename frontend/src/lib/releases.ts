@@ -49,12 +49,10 @@ export const RELEASES: Release[] = [
     key: 'your-account-in-your-hands',
     date: '2026-11-26',
     title: 'Your account, in your own hands',
-    lead: 'A new room in Settings, called Your account (the cog in the menu, then Your account), for three things you used to have to ask for.',
+    lead: 'A new room in Settings, called Your account (the cog in the menu, then Your account), for two things you used to have to ask for.',
     points: [
-      'A second step at sign-in, if you want one: after your password, a six-digit code from an authenticator app on your phone. Somebody who learns your password still cannot sign in as you.',
       'A copy of everything the app holds about you, as one file, whenever you like.',
       'Removing your own account, with everything that is yours, by typing its email address.',
-      'Lost the phone your authenticator is on? The church’s Owner can clear it, and your password alone signs you in again.',
     ],
   },
   {

@@ -223,7 +223,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/settings/account',
         target: 'page-title',
         title: 'Your account',
-        body: 'Your sign-in and your own data. Add a second step to signing in: after your password, a six-digit code from an authenticator app on your phone, so a learned password is not enough. Download a copy of everything the app holds about you, as one file. And remove your own account, with everything that is yours, by typing its email address. If you lose the phone your authenticator is on, the church’s Owner can clear it for you.',
+        body: 'Your own data, in your own hands. Download a copy of everything the app holds about you, as one file. And remove your own account, with everything that is yours, by typing its email address.',
       },
       {
         path: '/departments',

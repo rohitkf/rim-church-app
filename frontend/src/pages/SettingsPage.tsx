@@ -17,6 +17,7 @@ import { AppHealthCard } from '../components/AppHealthCard'
 import { AppearanceCard } from '../components/AppearanceCard'
 import { NotificationsCard } from '../components/NotificationsCard'
 import { SecondStepCard } from '../components/SecondStepCard'
+import { SECOND_STEP_OFFERED } from '../lib/secondStep'
 import { SecondStepPeopleCard } from '../components/SecondStepPeopleCard'
 import { CloseAccountCard, MyDataCard } from '../components/MyDataCard'
 import { PrivacyDetailsCard } from '../components/PrivacyDetailsCard'
@@ -442,15 +443,16 @@ export function GeneralSettingsPane() {
 }
 
 /**
- * Your own sign-in and your own data (0334): a second step, a copy of
- * what is kept, and removing the account. Everybody's; the Owner also
- * sees who has a second step, to clear one for a lost phone.
+ * Your own data (0334): a copy of what is kept, and removing the account.
+ * Everybody's. A second step at sign-in belongs here too, with the
+ * Owner's list for clearing one, and is not offered for now
+ * (`SECOND_STEP_OFFERED`, lib/secondStep).
  */
 export function YourAccountPane() {
   return (
     <div className="flex flex-col gap-4">
-      <SecondStepCard />
-      <SecondStepPeopleCard />
+      {SECOND_STEP_OFFERED && <SecondStepCard />}
+      {SECOND_STEP_OFFERED && <SecondStepPeopleCard />}
       <MyDataCard />
       <CloseAccountCard />
     </div>

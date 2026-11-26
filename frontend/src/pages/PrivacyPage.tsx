@@ -124,10 +124,6 @@ export function PrivacyPage() {
               takes your details, answers, messages, clock-ins and prayer requests with it. A line you wrote for a
               team, such as a debrief note, stays without your name.
             </li>
-            <li>
-              Add a second step to signing in: a code from an authenticator app on your phone, asked for after your
-              password.
-            </li>
           </ul>
         </Part>
 

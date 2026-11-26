@@ -15,6 +15,25 @@ import { supabase } from './supabaseClient'
  * of it, and the only place that speaks to those endpoints.
  */
 
+/**
+ * Whether the app offers it.
+ *
+ * Off: the Owner said there is no need for any two-step sign-in for now
+ * (26 November 2026, the day it shipped; nobody had set one up). Nothing
+ * was taken out. The room in Settings does not draw the card that sets
+ * one up or the Owner's list, the tour and the notes do not mention it,
+ * and enrolment is switched off on the server too (Supabase › Auth,
+ * `mfa_totp_enroll_enabled`), so one cannot be made by calling Supabase
+ * directly either. The database's rule and the page that asks for the
+ * code stay as they are: with no authenticator on any account they do
+ * nothing, and they are there the day this is turned back on.
+ *
+ * To offer it again: set this to true, switch enrolment back on, and put
+ * the lines back in the tour, the release note, /privacy and
+ * docs/security.md (`secondStep.test.ts` holds them together).
+ */
+export const SECOND_STEP_OFFERED = false
+
 export interface SecondStep {
   /** A code is owed before the app will open. */
   needed: boolean
