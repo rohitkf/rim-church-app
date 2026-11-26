@@ -109,7 +109,7 @@ describe('Page by Page', () => {
   it('lists every page as a folded section under the menu’s headings, saying what each holds', async () => {
     await show()
     for (const page of SETTINGS_PAGES) expect(section(page.label)).toHaveAttribute('aria-expanded', 'false')
-    for (const heading of ['Home', 'Sunday', 'Talk', 'Everywhere']) expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+    for (const heading of ['Home', 'Serving', 'Service Planning', 'Communications', 'Everywhere']) expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
     expect(section('Team Rota')).toHaveTextContent(/\d+ settings · \d+ rules · opens to Teams/)
     expect(section('Team Chat')).toHaveTextContent('1 setting · 3 rules')
     // The bell's two settings are the whole church's: they live in General, and the section says so.

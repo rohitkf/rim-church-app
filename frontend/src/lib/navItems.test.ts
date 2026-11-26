@@ -55,3 +55,45 @@ describe('a page reached from inside another', () => {
     }
   })
 })
+
+/*
+ * Groups with proper names, and every page under the one it belongs to
+ * (the Owner, November 2026). "Sunday" had grown to ten pages and two
+ * pages added later sat above every heading, under none.
+ */
+describe('the menu’s headings', () => {
+  const HEADINGS = ['Serving', 'Service Planning', 'After the Service', 'Communications', 'Church Life', 'People & Teams']
+
+  it('are these six, in this order, each in one run', () => {
+    const runs: string[] = []
+    for (const item of NAV_ITEMS) {
+      if (item.group && runs[runs.length - 1] !== item.group) runs.push(item.group)
+    }
+    // A heading that came round twice would draw twice in the menu.
+    expect(runs).toEqual(HEADINGS)
+  })
+
+  it('leave only the Dashboard and the Calendar above them', () => {
+    expect(NAV_ITEMS.filter((i) => !i.group).map((i) => i.to)).toEqual(['/', '/events'])
+    // And those two come first, or a heading would be drawn above them.
+    expect(NAV_ITEMS.slice(0, 2).every((i) => !i.group)).toBe(true)
+  })
+
+  it('hold more than one page each, and none more than five', () => {
+    for (const heading of HEADINGS) {
+      const pages = NAV_ITEMS.filter((i) => i.group === heading)
+      expect(pages.length, heading).toBeGreaterThan(1)
+      expect(pages.length, heading).toBeLessThanOrEqual(5)
+    }
+  })
+
+  it('put each page where somebody would look for it', () => {
+    const under = (heading: string) => NAV_ITEMS.filter((i) => i.group === heading).map((i) => i.to)
+    expect(under('Serving')).toEqual(['/availability', '/rota', '/checklists', '/clock-in'])
+    expect(under('Service Planning')).toEqual(['/service-planner', '/set-lists', '/songs', '/stage', '/countdown'])
+    expect(under('After the Service')).toEqual(['/debriefs', '/issues'])
+    expect(under('Communications')).toEqual(['/updates', '/messages', '/team-chat', '/polls', '/feedback'])
+    expect(under('Church Life')).toEqual(['/prayer', '/giving', '/registrations', '/door'])
+    expect(under('People & Teams')).toEqual(['/departments', '/volunteers', '/families', '/dbs', '/inventory'])
+  })
+})

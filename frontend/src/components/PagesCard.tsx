@@ -62,11 +62,12 @@ const ALL_KEYS = [...columnsOf(SETTINGS_CATALOG)] as (keyof AppSettings)[]
 
 const TONES: Record<string, BadgeTone> = {
   Home: 'blue',
-  Sunday: 'blue',
-  'After the service': 'orange',
-  Talk: 'indigo',
-  'Church life': 'green',
-  'People & things': 'neutral',
+  Serving: 'blue',
+  'Service Planning': 'blue',
+  'After the Service': 'orange',
+  Communications: 'indigo',
+  'Church Life': 'green',
+  'People & Teams': 'neutral',
   Everywhere: 'indigo',
 }
 

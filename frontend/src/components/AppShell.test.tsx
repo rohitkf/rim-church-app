@@ -155,14 +155,16 @@ describe('AppShell dock', () => {
         .getAllByRole('link')
         .map((l) => l.textContent)
     expect(within(sheet).getAllByRole('heading').map((h) => h.textContent)).toEqual([
-      'Sunday',
-      'After the service',
-      'Talk',
-      'Church life',
-      'People & things',
+      'Serving',
+      'Service Planning',
+      'After the Service',
+      'Communications',
+      'Church Life',
+      'People & Teams',
     ])
-    expect(under('After the service')).toEqual(['Debriefs', 'Issues'])
-    expect(under('Sunday')).toContain('Set Lists')
+    expect(under('After the Service')).toEqual(['Debriefs', 'Issues'])
+    expect(under('Serving')).toEqual(['Availability', 'Team Rota', 'Checklists'])
+    expect(under('Service Planning')).toContain('Set Lists')
   })
 
   it('keeps wherever you are on the bar itself, so the dock still says where you are', async () => {
@@ -236,7 +238,8 @@ describe('AppShell dock', () => {
 
     it('keeps a neighbour on each side, wherever you are', async () => {
       await standOn('/messages', 'Messages')
-      expect(onBar('Issues')).toBe(true)
+      // What the church is saying comes first under Communications, then the teams.
+      expect(onBar('Church Updates')).toBe(true)
       expect(onBar('Messages')).toBe(true)
       expect(onBar('Team Chat')).toBe(true)
     })
@@ -297,13 +300,13 @@ describe('AppShell dock', () => {
       'Countdown',
       'Debriefs',
       'Issues',
+      'Church Updates',
       'Messages',
       'Team Chat',
-      'Church Updates',
       'Polls',
       'Feedback',
-      'Giving',
       'Prayer Requests',
+      'Giving',
       'Teams',
       'Inventory',
     ])

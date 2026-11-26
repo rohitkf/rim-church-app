@@ -60,7 +60,7 @@ describe('arranging the menu', () => {
     show()
     const list = await screen.findByRole('list', { name: 'Menu arrangement' })
     const groups = within(list).getAllByRole('textbox', { name: 'Group name' }).map((i) => (i as HTMLInputElement).value)
-    expect(groups).toEqual(['Sunday', 'After the service', 'Talk', 'Church life', 'People & things'])
+    expect(groups).toEqual(['Serving', 'Service Planning', 'After the Service', 'Communications', 'Church Life', 'People & Teams'])
     expect(within(list).getAllByRole('listitem')[0]).toHaveTextContent('Dashboard')
   })
 
@@ -87,35 +87,36 @@ describe('arranging the menu', () => {
   it('moves a whole group, pages and all', async () => {
     const user = show()
     await screen.findByRole('list', { name: 'Menu arrangement' })
-    await user.click(screen.getByRole('button', { name: 'Move Talk up' }))
+    await user.click(screen.getByRole('button', { name: 'Move Communications up' }))
     await user.click(screen.getByRole('button', { name: 'Save menu' }))
     await waitFor(() => expect(db.writes).toHaveLength(1))
     expect(lastWrite().groups.map((g) => g.name)).toEqual([
-      'Sunday',
-      'Talk',
-      'After the service',
-      'Church life',
-      'People & things',
+      'Serving',
+      'Service Planning',
+      'Communications',
+      'After the Service',
+      'Church Life',
+      'People & Teams',
     ])
-    expect(lastWrite().groups[1].items).toEqual(['/messages', '/team-chat', '/updates', '/polls', '/feedback'])
+    expect(lastWrite().groups[2].items).toEqual(['/updates', '/messages', '/team-chat', '/polls', '/feedback'])
   })
 
   it('moves a page into another group past its heading', async () => {
     const user = show()
     await screen.findByRole('list', { name: 'Menu arrangement' })
-    // Countdown is last in Sunday; one place down is past the next heading.
+    // Countdown is last in Service Planning; one place down is past the next heading.
     screen.getByRole('button', { name: /Reorder Countdown/ }).focus()
     await user.keyboard('{ArrowDown}')
     await user.click(screen.getByRole('button', { name: 'Save menu' }))
     await waitFor(() => expect(db.writes).toHaveLength(1))
-    expect(lastWrite().groups[0].items).not.toContain('/countdown')
-    expect(lastWrite().groups[1].items[0]).toBe('/countdown')
+    expect(lastWrite().groups[1].items).not.toContain('/countdown')
+    expect(lastWrite().groups[2].items[0]).toBe('/countdown')
   })
 
   it('adds a group and removes it again only while it is empty', async () => {
     const user = show()
     await screen.findByRole('list', { name: 'Menu arrangement' })
-    expect(screen.getByRole('button', { name: 'Remove group Sunday' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remove group Serving' })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: /Add group/ }))
     const remove = screen.getByRole('button', { name: 'Remove group New group' })
     expect(remove).toBeEnabled()
