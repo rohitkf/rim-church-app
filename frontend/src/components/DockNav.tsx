@@ -20,6 +20,11 @@ export interface DockItem {
    * above them all.
    */
   group?: string
+  /**
+   * Other pages this one stands for in the menu, because they are reached
+   * from inside it (lib/navItems' `within`): it is lit on those too.
+   */
+  covers?: string[]
 }
 
 
@@ -94,7 +99,7 @@ export function DockNav({
   const measured = useRef<{ left: number; width: number } | null>(null)
 
   const onPath = (to: string) => (to === '/' ? pathname === '/' : pathname.startsWith(to))
-  const isCurrent = (item: DockItem) => onPath(item.to)
+  const isCurrent = (item: DockItem) => onPath(item.to) || (item.covers ?? []).some(onPath)
   const activeIndex = items.findIndex((item) => isCurrent(item))
 
   // The window that slides. Always the same number of slots at one width,

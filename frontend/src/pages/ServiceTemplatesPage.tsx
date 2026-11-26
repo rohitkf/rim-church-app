@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { usePermissions } from '../lib/usePermissions'
+import { usePageAccess } from '../lib/usePageAccess'
+import { servicesHome } from '../lib/servicesHome'
 import { QueryState } from '../components/QueryState'
 import { NumberDialField } from '../components/NumberDial'
 import { TimeField } from '../components/DateTimeFields'
@@ -68,6 +70,7 @@ function formatTotal(minutes: number): string {
 export function ServiceTemplatesPage() {
   // Building templates is the church's to grant (Settings › Access & Privileges).
   const mayTemplates = usePermissions().can('svc.templates')
+  const { canOpen } = usePageAccess()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
 
@@ -168,12 +171,12 @@ export function ServiceTemplatesPage() {
     saveTemplate.mutate()
   }
 
-  if (!mayTemplates) return <Navigate to="/service-planner" replace />
+  if (!mayTemplates) return <Navigate to={servicesHome(canOpen)} replace />
 
   return (
     <div className="mx-auto max-w-2xl">
-      <Link to="/service-planner" className="tap inline-flex items-center text-body-sm text-accent-blue-soft">
-        ← Back to Service Planner
+      <Link to={servicesHome(canOpen)} className="tap inline-flex items-center text-body-sm text-accent-blue-soft">
+        ← Back to services
       </Link>
       <PageHeader
         title="Service Templates"

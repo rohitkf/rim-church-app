@@ -46,6 +46,21 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'services-are-planned-from-the-calendar',
+    date: '2026-11-26',
+    title: 'Services are planned from the Calendar',
+    lead: 'The Service Planner’s list and the Calendar showed the same services on two pages. They are one page now: the Calendar.',
+    points: [
+      'Press Services under the month to see what the planner showed: today’s service, the next, what is coming and what has finished. Tap one for its running order.',
+      'New service is at the top there. From the whole diary, Add to calendar asks whether it is a service, an event or a regular meeting.',
+      'The menu has one entry in place of two. Old links to the Service Planner still work and land on the Calendar’s services.',
+      'Running orders, templates and who may open them have not changed.',
+    ],
+    // The planner's own address: it lands on the Calendar's services, or on the list itself for somebody the Calendar is closed to.
+    link: { to: '/service-planner', label: 'Open the services' },
+    page: '/service-planner',
+  },
+  {
     key: 'tick-permissions-from-a-grouped-list',
     date: '2026-11-25',
     title: 'Give several permissions at once, from a grouped list',

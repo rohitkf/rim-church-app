@@ -62,8 +62,14 @@ export interface TourContext {
 }
 
 export interface TourStep {
-  /** The page it is shown on. */
+  /** The page it is about: whoever may not open it is not shown the step. */
   path: string
+  /**
+   * Where it is shown, when that page is reached from inside another: the
+   * services, planned from the Calendar. Used when the person may open
+   * that other page; otherwise the step is shown on `path` itself.
+   */
+  at?: string
   /**
    * The `data-tour` anchor on that page to point at. `page-title` is every
    * page's header. None at all means a card in the middle of the screen,
@@ -159,16 +165,17 @@ export const TOUR_CHAPTERS: TourChapter[] = [
     title: 'What’s on',
     steps: [
       {
-        path: '/service-planner',
-        target: 'page-title',
-        title: 'Service Planner',
-        body: 'The running order of each service, session by session, who is taking each, who stands in, who translates and who is coordinating it. A session can carry a note for everybody who reads it, which goes onto the exported sheet too. Whoever plans it can drag the names on a session into order, and whoever may open the Countdown has a button to it on the running order. A service can carry a link, to its stream or its notes, and while it runs the clock here keeps time with the Dashboard and Countdown. Under the title it says when availability answers close for that service; whoever manages services can give one service a deadline of its own there.',
-      },
-      {
         path: '/events',
         target: 'page-title',
         title: 'Calendar',
-        body: 'Birthdays, anniversaries, services, church events and the meetings that happen every week or month, in one diary. It shows a screen at a time; Show more brings the rest.',
+        body: 'Birthdays, anniversaries, services, church events and the meetings that happen every week or month, in one diary. It shows a screen at a time; Show more brings the rest. The chips under the month choose what is shown, and Add to calendar starts a new service, event or regular meeting for whoever may add one.',
+      },
+      {
+        path: '/service-planner',
+        at: '/events?show=service',
+        target: 'services',
+        title: 'Planning a service',
+        body: 'Services, on the Calendar, is where services are planned: today’s, the next, what is coming and what has finished. Opening one gives its running order, session by session, who is taking each, who stands in, who translates and who is coordinating it. A session can carry a note for everybody who reads it, which goes onto the exported sheet too. Whoever plans it can drag the names on a session into order, and whoever may open the Countdown has a button to it on the running order. A service can carry a link, to its stream or its notes, and while it runs the clock there keeps time with the Dashboard and Countdown. Under its title it says when availability answers close for that service; whoever manages services can give one service a deadline of its own there.',
       },
       {
         path: '/updates',
@@ -568,6 +575,11 @@ function roomOf(step: TourStep): string | null {
  * The steps of a chapter this person would actually see: on pages they
  * may open, in rooms they may enter, and true of them.
  */
+/** Where a step is shown to this person: inside the page it is reached from, when that is open to them. */
+export function placeOf(step: TourStep, ctx: Pick<TourContext, 'canOpen'>): string {
+  return step.at && ctx.canOpen(step.at.split('?')[0]) ? step.at : step.path
+}
+
 export function stepsOf(chapter: TourChapter, ctx: TourContext): TourStep[] {
   return chapter.steps.filter((s) => {
     if (!ctx.canOpen(s.path)) return false

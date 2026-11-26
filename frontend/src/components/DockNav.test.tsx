@@ -140,4 +140,24 @@ describe('DockNav on a screen too narrow for every destination', () => {
     )
     expect(screen.getByRole('button', { name: /more|all destinations/i })).toBeInTheDocument()
   })
+
+  // The planner's pages are reached from the Calendar (lib/navItems'
+  // `within`), so on a running order the Calendar is where you are.
+  it('lights an entry on the pages it stands for', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1920 })
+    const { container } = render(
+      <MemoryRouter initialEntries={['/service-planner/abc']}>
+        <DockNav
+          items={[
+            { to: '/', label: 'Dashboard', icon: GridIcon },
+            { to: '/events', label: 'Calendar', icon: CalendarIcon, covers: ['/service-planner'] },
+            { to: '/checklists', label: 'Checklists', icon: ChecklistIcon },
+          ]}
+        />
+      </MemoryRouter>,
+    )
+    const lit = container.querySelectorAll('[data-dock-active="true"]')
+    expect(lit).toHaveLength(1)
+    expect(lit[0]).toHaveAttribute('href', '/events')
+  })
 })

@@ -1,12 +1,13 @@
-import { Fragment, type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, type Dispatch, type FormEvent, type ReactNode, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
 import { Lifespan } from '../components/Lifespan'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
 import { QueryState } from '../components/QueryState'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
+import { usePageAccess } from '../lib/usePageAccess'
 import { fetchServices, fetchServiceTemplates, fetchTemplateSessions } from '../lib/queries'
 import { addMinutesIso, combineDateAndTime } from '../lib/time'
 import { agendaDate, monthGrid, monthTitle, todayIso } from '../lib/monthGrid'
@@ -34,7 +35,60 @@ import { addDays, formatRange } from '../lib/dateRange'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+/** Which month a calendar is showing. */
+export type MonthCursor = { year: number; month: number }
+
+/**
+ * The Service Planner's own address.
+ *
+ * The list of services used to be a page here, with a month, a list and a
+ * New service button, and the Calendar was another page with the same
+ * month and the same services in it. The Owner (November 2026): "Seems
+ * like duplication for the service planner page and the church calendar
+ * page. Can we somehow combine these 2 pages into a single one". They are
+ * one page now: the Calendar, whose Services view is everything this page
+ * was (ServicesView below).
+ *
+ * The address stays, because a great many things point at it: the back
+ * link of every service, the Dashboard's "plan one", the search box, old
+ * what's-new notes. It sends them to the Calendar's Services view, with
+ * whatever they asked for (?new=1&date=…) carried along. Somebody whose
+ * church has closed the Calendar to them but left the planner open still
+ * gets the list here, on its own.
+ */
 export function ServicePlannerIndexPage() {
+  const { canOpen, settled } = usePageAccess()
+  const [params] = useSearchParams()
+  if (!settled) return null
+  if (canOpen('/events')) {
+    const next = new URLSearchParams(params)
+    next.set('show', 'service')
+    return <Navigate to={`/events?${next.toString()}`} replace />
+  }
+  return <ServicesView standalone />
+}
+
+/**
+ * The services, as whoever plans them wants them: the month with each
+ * service on its day, today's and the next day's, what is coming, and
+ * what finished this week, each with the times its running order gives
+ * it. It is the Calendar's Services view (pages/EventsPage), which hands
+ * it the month it is showing and its row of filters; `standalone` gives
+ * it a heading of its own, for the one case above.
+ */
+export function ServicesView({
+  standalone = false,
+  cursor: cursorFromPage,
+  onCursorChange,
+  legend,
+}: {
+  standalone?: boolean
+  /** The month, when the page around it keeps it: changing the filter must not lose the place. */
+  cursor?: MonthCursor
+  onCursorChange?: Dispatch<SetStateAction<MonthCursor>>
+  /** Drawn under the month: the Calendar's filters. */
+  legend?: ReactNode
+}) {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
   // Who may start a service, and set one repeating, is the church's to
@@ -180,7 +234,9 @@ export function ServicePlannerIndexPage() {
   }
 
   const now = new Date()
-  const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() })
+  const [ownCursor, setOwnCursor] = useState<MonthCursor>({ year: now.getFullYear(), month: now.getMonth() })
+  const cursor = cursorFromPage ?? ownCursor
+  const setCursor = onCursorChange ?? setOwnCursor
   const today = todayIso()
   const settings = useAppSettings()
 
@@ -355,6 +411,7 @@ export function ServicePlannerIndexPage() {
 
   return (
     <div>
+      {standalone && (
       <PageHeader
         title="Service Planner"
         description={
@@ -374,6 +431,7 @@ export function ServicePlannerIndexPage() {
           )
         }
       />
+      )}
       <Lifespan page="planner" className="mb-4" />
 
       <QueryState isLoading={servicesQuery.isLoading} error={servicesQuery.error}>
@@ -499,6 +557,7 @@ export function ServicePlannerIndexPage() {
               )
             })}
           </div>
+          {legend}
         </section>
 
         {canCreate && creating && (
