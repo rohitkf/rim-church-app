@@ -177,3 +177,25 @@ describe('what is chosen, said back in words', () => {
     expect(ticketBreakdown(people, 'Paypal').groups.map((g) => g.title)).toContain('Paypal')
   })
 })
+
+/*
+ * Cancelled after "I have paid" (0336): no refund is owed until the money
+ * is found, so these are a thing to do, and nothing else on the page says
+ * which of the cancelled ones they are.
+ */
+describe('a payment to look for', () => {
+  const some = [
+    row({ name: 'Said Then Left', payment_method: 'bank', payment_status: 'reported', status: 'cancelled' }),
+    row({ name: 'Said And Staying', payment_method: 'bank', payment_status: 'reported' }),
+    row({ name: 'Left Unpaid', status: 'cancelled' }),
+    row({ name: 'Found Already', payment_method: 'bank', payment_status: 'received', status: 'cancelled', refund_status: 'owed' }),
+    row({ name: 'Verified Then Left', payment_method: 'paypal', payment_status: 'reported', status: 'cancelled', payment_verified_at: '2026-11-19T10:00:00Z', refund_status: 'owed' }),
+    row({ name: 'Free Then Left', total_pence: 0, payment_status: 'not_needed', status: 'cancelled' }),
+  ]
+  it('is a cancelled registration that was only said to be paid, and no other', () => {
+    expect(some.filter((o) => orderMatches(o, { ...NO_FILTERS, only: 'to_find' }, '')).map((o) => o.name)).toEqual(['Said Then Left'])
+  })
+  it('has its place under To do in the Status list, in words', () => {
+    expect(filterWords({ ...NO_FILTERS, only: 'to_find' })).toBe('Payment to look for')
+  })
+})

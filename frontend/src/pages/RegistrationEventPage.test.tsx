@@ -932,6 +932,53 @@ describe('an event’s page', () => {
  * pass. What is put back is the database's to decide and is proved there:
  * here, that the page asks, and what it does with the answer.
  */
+/*
+ * 0336 stopped a say-so owing a refund. Seen in a browser the same day: a
+ * registration cancelled after "I have paid" then read as any other
+ * cancellation, and the one thing it waits on was two taps into a menu.
+ */
+describe('a registration cancelled after “I have paid”', () => {
+  const said = () =>
+    order({ id: 'o-said', code: 'FGHJKMNPQRST', name: 'Said Thenleft', email: 'said@example.org', quantity: 1, subtotal_pence: 2000, discount_pence: 0, total_pence: 2000, promo_code: null, status: 'cancelled', payment_status: 'reported', payment_method: 'bank', proof_reference: 'REF-123', proof_at: at(2026, 11, 19, 9, 0) })
+
+  it('says so on its card, with the reference they gave and the one button it waits on', async () => {
+    state.orders = [...orders(), said()]
+    const user = show()
+    const card = await screen.findByRole('listitem', { name: 'Said Thenleft' })
+    expect(within(card).getByText('Cancelled')).toBeInTheDocument()
+    expect(within(card).getByText('Said they paid')).toBeInTheDocument()
+    expect(within(card).getByText('Ref REF-123')).toBeInTheDocument()
+    expect(within(card).getByText('No refund is owed until the payment is found in the account.')).toBeInTheDocument()
+    expect(within(card).queryByText('Refund owed')).toBeNull()
+    // Any other cancellation says none of it.
+    const asha = screen.getByRole('listitem', { name: 'Asha Mathew' })
+    expect(within(asha).queryByText('Said they paid')).toBeNull()
+    expect(within(asha).queryByRole('button', { name: 'The payment did arrive' })).toBeNull()
+    await user.click(within(card).getByRole('button', { name: 'The payment did arrive' }))
+    await waitFor(() => expect(state.marked).toEqual([['o-said', 'received']]))
+  })
+
+  it('is counted under the tiles, a tap to exactly those', async () => {
+    state.orders = [...orders(), said()]
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Said Thenleft' })
+    const todo = screen.getByRole('group', { name: 'What wants doing' })
+    expect(within(todo).getAllByRole('button').map((b) => b.textContent)).toEqual(['1receipt to check', '1payment to look for', '1not paid yet'])
+    await user.click(within(todo).getByRole('button', { name: /payment to look for/ }))
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveTextContent(/^Payment to look for$/)
+    expect(screen.getAllByRole('listitem', { name: /Owusu|Joseph|Mensah|Mathew|Reported|Thenleft/ }).map((l) => l.getAttribute('aria-label'))).toEqual(['Said Thenleft'])
+  })
+
+  it('is not counted once the money is found, and is a refund owed instead', async () => {
+    state.orders = [...orders(), { ...said(), payment_status: 'received', refund_status: 'owed', received_at: at(2026, 11, 20, 9, 0) }]
+    show()
+    const card = await screen.findByRole('listitem', { name: 'Said Thenleft' })
+    expect(within(card).getByText('Refund owed')).toBeInTheDocument()
+    expect(within(card).queryByText('Said they paid')).toBeNull()
+    expect(within(screen.getByRole('group', { name: 'What wants doing' })).queryByRole('button', { name: /payment to look for/ })).toBeNull()
+  })
+})
+
 describe('taking a press back', () => {
   const lastOffer = () => state.toasts.filter((t) => t.action).at(-1)!
 

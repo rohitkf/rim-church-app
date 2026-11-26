@@ -142,3 +142,25 @@ describe('an event’s registrations as a table', () => {
     expect(within(screen.getByRole('row', { name: 'Dan' })).getByRole('button', { name: 'Mark as paid' })).toBeDisabled()
   })
 })
+
+describe('a cancelled registration that was said to be paid (0336)', () => {
+  it('is told from any other cancellation in the row', () => {
+    render(
+      <OrderTable
+        orders={[
+          order('Said', { status: 'cancelled', payment_status: 'reported', payment_method: 'bank' }),
+          order('Left', { status: 'cancelled' }),
+          order('Found', { status: 'cancelled', payment_status: 'received', payment_method: 'bank', refund_status: 'owed' }),
+        ]}
+        sort={DEFAULT_SORT}
+        onSort={() => {}}
+        actionsFor={() => []}
+        stepsFor={() => []}
+        cardFor={(o) => <li key={o.id}>{o.name}</li>}
+      />,
+    )
+    expect(within(screen.getByRole('row', { name: 'Said' })).getByText('Said they paid')).toBeInTheDocument()
+    expect(within(screen.getByRole('row', { name: 'Left' })).queryByText('Said they paid')).toBeNull()
+    expect(within(screen.getByRole('row', { name: 'Found' })).queryByText('Said they paid')).toBeNull()
+  })
+})

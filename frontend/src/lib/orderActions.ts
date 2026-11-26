@@ -3,7 +3,7 @@ import { emailWantsDoing } from './emailDelivery'
 import { pounds } from './money'
 import { canTakePromo, carriesPromo, promoHeldBy } from './promoLater'
 import type { RegistrationRights } from './registrationRights'
-import { canBeVerified, type OrderAction, type OrderRow } from './registrations'
+import { canBeVerified, saidPaidUnconfirmed, type OrderAction, type OrderRow } from './registrations'
 
 /*
  * A registration's menu: what can be done to it, and what each thing is
@@ -81,7 +81,7 @@ export function orderActions(
    * refund is owed on a say-so. If the money did arrive, saying so here is
    * what owes it back; the office looks in the account, not at the screen.
    */
-  const saidPaidOnly = o.payment_status === 'reported' && o.total_pence > 0 && !o.refund_status && !o.payment_verified_at
+  const saidPaidOnly = saidPaidUnconfirmed(o)
   const confirmLate: MenuAction[] =
     saidPaidOnly && r.takePayment
       ? [{ label: 'The payment did arrive', tone: 'accent', onSelect: () => act('received'), hint: 'They said they had paid. If it is in the account, this owes them a refund' }]

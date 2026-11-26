@@ -57,6 +57,7 @@ import {
   receiverName,
   verifierName,
   verifyOrderPayment,
+  saidPaidUnconfirmed,
   wantsVerifying,
   isPaid,
   checkedInWords,
@@ -374,6 +375,8 @@ export function RegistrationEventPage() {
   const onlineName = onlineLinkName([...event.payment_links, ...(event.payment_use_church_giving ? (giving.data?.links ?? []) : [])].map((l) => l.label))
   const reported = confirmed.filter((o) => o.payment_status === 'reported').length
   const awaitingOnly = confirmed.filter((o) => o.payment_status === 'awaiting').length
+  // Cancelled after "I have paid" (0336): no refund is owed until somebody finds the money, so the page says they are there.
+  const toFind = rows.filter((o) => o.status === 'cancelled' && saidPaidUnconfirmed(o)).length
   // Only whoever may verify is told what waits on them.
   const toVerify = rights.verify ? rows.filter(wantsVerifying).length : 0
   // Emails that did not arrive (0283): everybody on the page sees which; whoever may correct them is told to.
@@ -611,7 +614,7 @@ export function RegistrationEventPage() {
         </Tile>
       </div>
 
-      {(reported > 0 || awaitingOnly > 0 || owed.length > 0 || toVerify > 0 || undelivered > 0 || (sharing > 0 && !cancelled)) && (
+      {(reported > 0 || toFind > 0 || awaitingOnly > 0 || owed.length > 0 || toVerify > 0 || undelivered > 0 || (sharing > 0 && !cancelled)) && (
         <div aria-label="What wants doing" role="group" className="mt-3 flex flex-wrap items-center gap-2">
           {reported > 0 && (
             <ActionButton size="sm" tone="quiet" onClick={() => showOrders({ payment: 'reported' })}>
@@ -619,6 +622,14 @@ export function RegistrationEventPage() {
                 {reported}
               </Pill>
               {reported === 1 ? 'receipt to check' : 'receipts to check'}
+            </ActionButton>
+          )}
+          {toFind > 0 && (
+            <ActionButton size="sm" tone="quiet" onClick={() => showOrders({ only: 'to_find' })}>
+              <Pill tone="orange" dot className="-ml-1">
+                {toFind}
+              </Pill>
+              {toFind === 1 ? 'payment to look for' : 'payments to look for'}
             </ActionButton>
           )}
           {toVerify > 0 && !cancelled && (
@@ -971,10 +982,15 @@ function nextSteps(
     ]
   }
   const steps: NextStep[] = []
+  // Cancelled after "I have paid" (0336): their refund waits on somebody finding the money. Saying it arrived is what owes it.
+  if (o.status === 'cancelled' && saidPaidUnconfirmed(o) && r.takePayment) {
+    return [{ label: 'The payment did arrive', onClick: () => act('received'), tone: 'accent-quiet' }]
+  }
   // Whoever can see the accounts goes first (0267): the office goes by their tag.
   if (verify && r.verify && wantsVerifying(o)) steps.push({ label: 'Verify payment', onClick: verify, tone: 'primary' })
   if (o.status === 'confirmed' && o.payment_status === 'reported' && r.takePayment) {
-    steps.push({ label: 'Mark as paid', onClick: () => act('received'), tone: 'accent-quiet' })
+    // At a cancelled event nobody is being let in: the same button says what pressing it means there (0336).
+    steps.push({ label: eventCancelled ? 'The payment did arrive' : 'Mark as paid', onClick: () => act('received'), tone: 'accent-quiet' })
     if (r.approve) steps.push({ label: 'Not received', onClick: notReceived, tone: 'quiet' })
   }
   // Not paid, and no receipt either: somebody who pays the office in person, or whose money simply turned up.
@@ -1061,6 +1077,8 @@ function OrderLine({
   const refunder = [order.refunder?.first_name, order.refunder?.last_name].filter(Boolean).join(' ')
   const [viewing, setViewing] = useState(false)
   const live = order.status === 'confirmed'
+  // Cancelled after "I have paid", and nothing found yet (0336): the card says so, or it reads as any other cancellation.
+  const toFind = !live && saidPaidUnconfirmed(order)
   const names = order.tickets.map((t) => t.attendee_name).filter(Boolean)
   // What became of their email (0283). A tag only when it wants something; the rest is a word at the foot.
   const delivery = deliveryOf(order)
@@ -1101,7 +1119,14 @@ function OrderLine({
           {/* Where it stands. */}
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
             {order.status === 'cancelled' ? (
-              <Pill tone="red">Cancelled</Pill>
+              <>
+                <Pill tone="red">Cancelled</Pill>
+                {toFind && (
+                  <Pill tone="orange" dot>
+                    Said they paid
+                  </Pill>
+                )}
+              </>
             ) : order.total_pence > 0 ? (
               <>
                 <Pill tone={PAYMENT_TONE[order.payment_status]}>{paymentWordsOf(order)}</Pill>
@@ -1162,7 +1187,7 @@ function OrderLine({
           )}
 
           {/* How it got there: the receipt, who took the money, the refund. */}
-          {(order.proof_path || order.proof_reference) && live && (
+          {(order.proof_path || order.proof_reference) && (live || toFind) && (
             <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-label-md text-on-surface-variant">
               {order.proof_path && (
                 <button type="button" onClick={() => setViewing(true)} className="tap font-medium text-accent-blue-soft hover:underline">
@@ -1173,6 +1198,7 @@ function OrderLine({
               {order.proof_at && <span className="text-on-surface-faint">sent {stamp(order.proof_at)}</span>}
             </p>
           )}
+          {toFind && <p className="mt-1 text-label-md text-on-surface-faint">No refund is owed until the payment is found in the account.</p>}
           {order.received_at && (order.payment_status === 'received' || order.payment_status === 'waived') && (
             <p className="mt-1 text-label-md text-on-surface-faint">
               {order.payment_status === 'waived' ? 'Waived' : 'Received'} {stamp(order.received_at)}
