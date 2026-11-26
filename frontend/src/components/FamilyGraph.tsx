@@ -220,9 +220,13 @@ export function FamilyGraph({
         <div
           ref={box}
           data-graph-box
+          // A box that scrolls has to be reachable without a mouse: focused, the arrow keys move the picture.
+          tabIndex={0}
+          role="group"
+          aria-label={`${label}: scroll to see all of it`}
           // Its own scrolling, both ways; and it does not hand the scroll on to the page at its edge sideways.
           // `touch-action`: one finger scrolls it; two are ours to make it bigger and smaller, not the browser's to zoom the page.
-          className="max-h-[70dvh] touch-pan-x touch-pan-y overflow-auto overscroll-x-contain rounded-b-[var(--radius-card)]"
+          className="max-h-[70dvh] touch-pan-x touch-pan-y overflow-auto overscroll-x-contain rounded-b-[var(--radius-card)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary"
         >
           {/* As big as the picture is at this size, so the box scrolls by exactly that much. */}
           <div className="relative mx-auto" style={{ width: layout.width * scale, height: layout.height * scale }}>

@@ -105,4 +105,44 @@ describe('Overlay', () => {
     await user.click(screen.getByText('the dialog'))
     expect(onDismiss).not.toHaveBeenCalled()
   })
+
+  it('closes on Escape', async () => {
+    const onDismiss = vi.fn()
+    show(onDismiss)
+    await userEvent.setup().keyboard('{Escape}')
+    expect(onDismiss).toHaveBeenCalledTimes(1)
+  })
+
+  it('gives Escape to the overlay on top, and to no other', async () => {
+    // The calendar of a date field opens over the dialog it is in. One
+    // press closed both, and what had been chosen underneath went too.
+    const under = vi.fn()
+    const over = vi.fn()
+    const { rerender } = render(
+      <>
+        <Overlay label="Underneath" onDismiss={under}>
+          <div>the picker</div>
+        </Overlay>
+        <Overlay label="On top" onDismiss={over}>
+          <div>the calendar</div>
+        </Overlay>
+      </>,
+    )
+    const user = userEvent.setup()
+    await user.keyboard('{Escape}')
+    expect(over).toHaveBeenCalledTimes(1)
+    expect(under).not.toHaveBeenCalled()
+
+    // With the top one gone, the key is the next one's.
+    rerender(
+      <>
+        <Overlay label="Underneath" onDismiss={under}>
+          <div>the picker</div>
+        </Overlay>
+      </>,
+    )
+    await user.keyboard('{Escape}')
+    expect(under).toHaveBeenCalledTimes(1)
+    expect(over).toHaveBeenCalledTimes(1)
+  })
 })

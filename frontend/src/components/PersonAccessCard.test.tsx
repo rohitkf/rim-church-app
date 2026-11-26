@@ -347,6 +347,23 @@ describe('choosing several rights at once (the picker)', () => {
     for (const box of within(picker).getAllByRole('checkbox')) expect(box).not.toBeChecked()
   })
 
+  it('takes the keyboard when it opens, and keeps its ticks when the calendar over it is shut with Escape', async () => {
+    const { user } = show()
+    await chooseAsha(user)
+    await user.click(await screen.findByRole('button', { name: 'Give them more…' }))
+    const picker = screen.getByRole('dialog', { name: /^Give .+ more$/ })
+    // Focus is inside the popup, not on the button behind it.
+    expect(picker.contains(document.activeElement)).toBe(true)
+    await user.click(within(picker).getByRole('button', { name: /^Team rota/ }))
+    await user.click(within(picker).getByRole('checkbox', { name: /Assign somebody to a role/ }))
+    await user.click(screen.getByRole('button', { name: 'Until' }))
+    expect(screen.getAllByRole('dialog')).toHaveLength(2)
+    await user.keyboard('{Escape}')
+    // The calendar went; the picker and what was ticked did not.
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(within(screen.getByRole('dialog', { name: /^Give .+ more$/ })).getByRole('status')).toHaveTextContent('1 ticked')
+  })
+
   it('throws the ticks away on Cancel', async () => {
     const { user } = show()
     await chooseAsha(user)

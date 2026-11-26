@@ -944,6 +944,9 @@ function unlockPageScroll() {
   if (lockedScrollY > 0) window.scrollTo(0, lockedScrollY)
 }
 
+/** The overlays that are open, the newest last: Escape is the last one's (see Overlay). */
+const overlayStack: symbol[] = []
+
 export function Overlay({
   children,
   onDismiss,
@@ -958,13 +961,30 @@ export function Overlay({
   /** Off for a dialog that must be answered rather than waved away. */
   closable?: boolean
 }) {
+  /*
+   * Escape closes the overlay on top, and only that one.
+   *
+   * A dialog can open another over itself: the calendar of a date field
+   * inside the permission picker. Every overlay listened for Escape, so
+   * one press closed them all, and what had been chosen in the one
+   * underneath went with it. Each takes its place in a stack as it opens;
+   * the key is the top one's.
+   */
+  const [me] = useState(() => Symbol('overlay'))
+  useEffect(() => {
+    overlayStack.push(me)
+    return () => {
+      const at = overlayStack.lastIndexOf(me)
+      if (at >= 0) overlayStack.splice(at, 1)
+    }
+  }, [me])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onDismiss()
+      if (e.key === 'Escape' && overlayStack[overlayStack.length - 1] === me) onDismiss()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onDismiss])
+  }, [onDismiss, me])
 
   /*
    * Hold the page still underneath.
