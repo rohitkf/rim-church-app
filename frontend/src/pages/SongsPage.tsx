@@ -1,5 +1,7 @@
 import { type FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
+import { fold, searchList, tokensOf } from '../lib/searchMatch'
 import { ActionButton, Field, PageHeader, inputClasses } from '../components/Surface'
 import { QueryState } from '../components/QueryState'
 import { Select } from '../components/Select'
@@ -33,8 +35,6 @@ import {
 
 const EMPTY: LibraryFields = { title: '', song_key: null, link: null, lyrics: null }
 
-const plain = (t: string) => t.trim().replace(/\s+/g, ' ').toLowerCase()
-
 function sungLine(song: LibrarySong): string | null {
   if (song.times_sung === 0) return 'Not sung yet'
   const when = song.last_sung_on
@@ -50,7 +50,9 @@ export function SongsPage() {
   const { teamIds } = useMyTeams()
   const { ledDepartmentIds } = useAuth()
   const { ask, dialog } = useConfirmAction()
-  const [filter, setFilter] = useState('')
+  // The search over everything opens this page on the song that was chosen (`?q=`).
+  const [params] = useSearchParams()
+  const [filter, setFilter] = useState(() => params.get('q') ?? '')
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -92,8 +94,15 @@ export function SongsPage() {
   })
 
   const shown = useMemo(() => {
-    const q = plain(filter)
-    return (library.data ?? []).filter((s) => !q || plain(s.title).includes(q) || plain(s.lyrics ?? '').includes(q))
+    const all = library.data ?? []
+    const words = tokensOf(filter)
+    if (words.length === 0) return all
+    // By its title first, best match first and a slip forgiven (lib/searchMatch);
+    // then any song whose words hold every word typed, as written.
+    const byTitle = searchList(filter, all, (s) => [{ text: s.title, weight: 3 }])
+    const titled = new Set(byTitle)
+    const byLine = all.filter((s) => !titled.has(s) && words.every((w) => fold(s.lyrics ?? '').includes(w)))
+    return [...byTitle, ...byLine]
   }, [library.data, filter])
 
   return (

@@ -50,7 +50,7 @@ export const LIVE_TABLES: LiveTable[] = [
       'dashboard-service-starts',
       'planner-index-sessions',
       'finished-service-sessions',
-      'global-search',
+      'search-index',
     ],
   },
   {
@@ -115,7 +115,7 @@ export const LIVE_TABLES: LiveTable[] = [
       'rota-progress',
       'service-flow-assignment',
       'team-coordinator',
-      'global-search',
+      'search-index',
       'person-access',
     ],
   },
@@ -150,7 +150,7 @@ export const LIVE_TABLES: LiveTable[] = [
       'person-access',
     ],
   },
-  { table: 'departments', keys: ['departments', 'department', 'own-memberships', 'global-search', 'my-requests'] },
+  { table: 'departments', keys: ['departments', 'department', 'own-memberships', 'search-index', 'my-requests'] },
   { table: 'department_roles', keys: ['department-roles', 'team-coordinator'] },
   // Who is permanent on a role (0282); the rota follows by its own table.
   { table: 'department_role_permanents', keys: ['role-permanents'] },
@@ -177,7 +177,7 @@ export const LIVE_TABLES: LiveTable[] = [
       'celebration-people',
       'diary-people',
       'rota-members',
-      'global-search',
+      'search-index',
     ],
   },
   { table: 'invitations', keys: ['invitations'] },
@@ -238,7 +238,7 @@ export const LIVE_TABLES: LiveTable[] = [
   /* ---- guests on a team, and what they answered (0166, 0167) ------ */
   {
     table: 'department_guests',
-    keys: ['department-guests', 'rota-team-guests', 'availability-team-guests', 'rota', 'availability', 'global-search'],
+    keys: ['department-guests', 'rota-team-guests', 'availability-team-guests', 'rota', 'availability', 'search-index'],
   },
   { table: 'guest_availability', keys: ['availability', 'rota', 'dashboard-rosters'] },
   { table: 'guest_availability_history', keys: ['availability'] },
@@ -266,7 +266,7 @@ export const LIVE_TABLES: LiveTable[] = [
   /* ---- the message board and debriefs ------------------------------ */
   // Both were in the publication all along; nothing on screen was
   // listening, so a post or a debrief item showed up only on a reload.
-  { table: 'messages', keys: ['messages', 'global-search'] },
+  { table: 'messages', keys: ['messages', 'search-written'] },
   { table: 'service_debriefs', keys: ['service-debriefs'] },
   { table: 'service_debrief_items', keys: ['service-debriefs'] },
 

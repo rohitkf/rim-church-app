@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { isTeamPreview } from '../lib/viewAs'
 import { fetchMyProfileGaps } from '../lib/gettingSetUp'
 import { noteSession } from '../lib/clientErrors'
+import { forgetRecent } from '../lib/searchRecent'
 
 /**
  * Who an Admin is previewing the app as. The pages, the dock and the
@@ -173,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // (lib/idleSignOut): signed out here, before anything is read.
         if (session && stoodIdle) {
           noteIdleSignOut()
+          forgetRecent()
           await supabase.auth.signOut({ scope: SIGN_OUT_SCOPE }).catch(() => undefined)
           stoodIdle = false
           setSession(null)
@@ -311,6 +313,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * locked door (November 2026).
    */
   async function signOut() {
+    // What was last chosen from the search is this person's, not the next
+    // one's to sign in on this phone (lib/globalSearch).
+    forgetRecent()
     await supabase.auth.signOut({ scope: SIGN_OUT_SCOPE })
   }
 

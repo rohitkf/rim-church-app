@@ -1,355 +1,54 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useAuth } from '../auth/AuthContext'
 import { usePageAccess } from '../lib/usePageAccess'
-import { z } from 'zod'
-import { supabase } from '../lib/supabaseClient'
+import { usePermissions } from '../lib/usePermissions'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
 import { SearchIcon } from './icons'
-import { formatServiceDay } from '../lib/sunday'
 import { Overlay } from './Surface'
 import { shortcutLabel, shortcutSpoken, thisPlatform } from '../lib/shortcutKey'
 import { useNavNames } from '../lib/navNames'
+import { maySee } from '../lib/settingsSections'
+import { markedPieces, tokensOf } from '../lib/searchMatch'
+import {
+  MIN_TEXT_QUERY,
+  SEARCH_INDEX_KEY,
+  arrange,
+  fetchSearchIndex,
+  matchThings,
+  placeThings,
+  recentThings,
+  rememberThing,
+  searchWritten,
+  type Thing,
+} from '../lib/globalSearch'
+import { forgetRecent } from '../lib/searchRecent'
 
-interface Hit {
-  id: string
-  kind:
-    | 'Page'
-    | 'Team'
-    | 'Person'
-    | 'Equipment'
-    | 'Service'
-    | 'Role'
-    | 'Message'
-    | 'Event'
-    | 'Song'
-    | 'Session'
-    | 'Team chat'
-    | 'Alert'
-    | 'Template'
-  label: string
-  detail: string
-  to: string
-}
-
-/** The places in the app itself, so the box also works as a way to move. */
-const PAGES: { label: string; detail: string; to: string; keywords: string }[] = [
-  { label: 'Dashboard', detail: 'Readiness, availability and celebrations', to: '/', keywords: 'home overview readiness' },
-  { label: 'Service Planner', detail: 'Services and their running orders, on the Calendar', to: '/service-planner', keywords: 'plan running order sessions templates' },
-  { label: 'Countdown', detail: 'The service clock, large', to: '/countdown', keywords: 'timer clock time overrun running over stage' },
-  { label: 'Checklists', detail: 'Pre-service checks and sign-off', to: '/checklists', keywords: 'checks verify sign off' },
-  { label: 'Availability Tracker', detail: 'Who can serve, and who turned up', to: '/availability', keywords: 'available attendance rota answers' },
-  { label: 'Team Rota', detail: 'Who is doing what', to: '/rota', keywords: 'assign roles duty' },
-  { label: 'Teams', detail: 'Departments, roles and handbooks', to: '/departments', keywords: 'departments handbook roles' },
-  { label: 'Volunteers', detail: 'Everyone, their teams and permissions', to: '/volunteers', keywords: 'people members admin permissions' },
-  { label: 'Families', detail: 'Who is linked to whom, as a tree', to: '/families', keywords: 'family families husband wife spouse child children parents link tree household' },
-  { label: 'DBS Checks', detail: 'Everybody’s DBS, and marking one verified', to: '/dbs', keywords: 'dbs safeguarding certificate check verify verified compliance' },
-  { label: 'Inventory', detail: 'Equipment registers and value', to: '/inventory', keywords: 'equipment kit assets stock' },
-  { label: 'Messages', detail: 'The message board', to: '/messages', keywords: 'announcements board post' },
-  { label: 'Feedback', detail: 'Report a bug or suggest an improvement', to: '/feedback', keywords: 'feedback bug report suggestion idea improvement problem broken' },
-  { label: 'Settings', detail: 'Your account, and how the church’s app behaves', to: '/settings', keywords: 'settings preferences account' },
-  { label: 'Profile', detail: 'Your name, contact details and dates', to: '/settings/profile', keywords: 'profile account name phone birthday password' },
-  { label: 'Appearance', detail: 'Theme and team style', to: '/settings/appearance', keywords: 'theme dark light mode appearance' },
-  { label: 'Notifications', detail: 'What buzzes your phone', to: '/settings/notifications', keywords: 'notifications push phone alerts bell' },
-  { label: 'Your account', detail: 'A copy of your data, and removing your account', to: '/settings/account', keywords: 'account download my data copy delete remove privacy' },
-  { label: 'Page by Page', detail: 'Each page’s clocks, what it keeps, and its rules, team by team', to: '/settings/pages', keywords: 'page settings access team rules head timings clocks window clear deadline retention delete keep dashboard display' },
-  { label: 'Access & Privileges', detail: 'Who can do what', to: '/settings/access', keywords: 'permissions roles admin access privileges' },
-  { label: 'By person', detail: 'Everything one person can open and do, and why', to: '/settings/access?tab=person', keywords: 'person permissions what can they do access grant' },
-  { label: 'By team', detail: 'What a team’s people may do, and what the team has been given', to: '/settings/access?tab=team', keywords: 'team permissions rules grant access' },
-  { label: 'Permissions history', detail: 'Who changed which rule, and when', to: '/settings/access?tab=history', keywords: 'history log audit changed rule who when' },
-]
-
-const MIN_QUERY = 2
-
-/** A line of somebody's writing, short enough to sit in a result row. */
-function snippet(body: string): string {
-  return body.length > 60 ? `${body.slice(0, 60)}…` : body
-}
-
-/**
- * One box over everything a person might be looking for: a team, someone's
- * name, a piece of kit by tag or model, a service by date.
- *
- * Each source is queried with the same term and RLS decides what comes
- * back, so nobody is shown the existence of something they could not open.
+/*
+ * What is searched, and how a match is judged, is lib/globalSearch and
+ * lib/searchMatch. This file is the box: the button in the header, the
+ * window that opens over the page, and the list in it.
  */
-async function search(term: string, names: Record<string, string> = {}): Promise<Hit[]> {
-  const like = `%${term}%`
 
-  const [
-    teams,
-    people,
-    equipment,
-    services,
-    roles,
-    messages,
-    events,
-    songs,
-    sessions,
-    teamChat,
-    alerts,
-    templates,
-  ] = await Promise.all([
-    supabase.from('departments').select('id, name').ilike('name', like).limit(4),
-    supabase
-      .from('profiles')
-      // By name only — email addresses are the Owner's (0127).
-      .select('id, first_name, last_name')
-      .or(`first_name.ilike.${like},last_name.ilike.${like}`)
-      .limit(4),
-    supabase
-      .from('inventory_items')
-      .select('id, name, asset_tag, model, department_id')
-      .or(`name.ilike.${like},asset_tag.ilike.${like},model.ilike.${like},serial_number.ilike.${like}`)
-      .limit(5),
-    supabase
-      .from('services')
-      .select('id, date, service_type')
-      .ilike('service_type', like)
-      .order('date', { ascending: false })
-      .limit(3),
-    supabase
-      .from('department_roles')
-      .select('id, name, department_id, departments(name)')
-      .ilike('name', like)
-      .limit(4),
-    supabase
-      .from('messages')
-      .select('id, body, created_at')
-      .ilike('body', like)
-      .order('created_at', { ascending: false })
-      .limit(3),
-    supabase
-      .from('church_events')
-      .select('id, title, event_date, location')
-      .or(`title.ilike.${like},details.ilike.${like},location.ilike.${like}`)
-      .order('event_date', { ascending: false })
-      .limit(4),
-    supabase
-      .from('set_list_items')
-      .select('id, title, led_by, service_id')
-      .or(`title.ilike.${like},led_by.ilike.${like}`)
-      .limit(4),
-    supabase
-      .from('service_sessions')
-      .select('id, session_name, role_label, service_id')
-      .or(`session_name.ilike.${like},role_label.ilike.${like}`)
-      .limit(4),
-    supabase
-      .from('team_messages')
-      .select('id, body, department_id, created_at')
-      .ilike('body', like)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(3),
-    supabase
-      .from('announcements')
-      .select('id, body, created_at')
-      .ilike('body', like)
-      .order('created_at', { ascending: false })
-      .limit(3),
-    supabase.from('service_templates').select('id, name').ilike('name', like).limit(3),
-  ])
+/** How long the names of things are kept before they are read again. */
+const INDEX_FRESH_MS = 5 * 60_000
 
-  const hits: Hit[] = []
-
-  const needle = term.toLowerCase()
-  for (const page of PAGES) {
-    // A page the church has renamed is found, and shown, by its new name —
-    // and still by its old one, which is what people will type for a while.
-    const label = names[page.to] ?? page.label
-    if (`${label} ${page.label} ${page.keywords}`.toLowerCase().includes(needle)) {
-      hits.push({ id: `page-${page.to}`, kind: 'Page', label, detail: page.detail, to: page.to })
-    }
-  }
-
-  for (const row of z
-    .array(z.object({ id: z.string(), name: z.string() }))
-    .catch([])
-    .parse(teams.data ?? [])) {
-    hits.push({ id: `team-${row.id}`, kind: 'Team', label: row.name, detail: 'Team', to: `/departments/${row.id}` })
-  }
-
-  for (const row of z
-    .array(z.object({ id: z.string(), first_name: z.string(), last_name: z.string() }))
-    .catch([])
-    .parse(people.data ?? [])) {
-    hits.push({
-      id: `person-${row.id}`,
-      kind: 'Person',
-      label: `${row.first_name} ${row.last_name}`.trim() || 'Unnamed person',
-      detail: 'Person',
-      to: '/volunteers',
-    })
-  }
-
-  for (const row of z
-    .array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        asset_tag: z.string().nullable().optional(),
-        model: z.string().nullable().optional(),
-        department_id: z.string(),
-      }),
-    )
-    .catch([])
-    .parse(equipment.data ?? [])) {
-    hits.push({
-      id: `kit-${row.id}`,
-      kind: 'Equipment',
-      label: row.name,
-      detail: [row.asset_tag, row.model].filter(Boolean).join(' · ') || 'Equipment',
-      to: `/inventory/${row.department_id}`,
-    })
-  }
-
-  for (const row of z
-    .array(z.object({ id: z.string(), date: z.string(), service_type: z.string() }))
-    .catch([])
-    .parse(services.data ?? [])) {
-    hits.push({
-      id: `service-${row.id}`,
-      kind: 'Service',
-      label: row.service_type,
-      detail: formatServiceDay(row.date),
-      to: `/service-planner/${row.id}`,
-    })
-  }
-
-  for (const row of z
-    .array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        department_id: z.string(),
-        departments: z.object({ name: z.string() }).nullable().optional(),
-      }),
-    )
-    .catch([])
-    .parse(roles.data ?? [])) {
-    hits.push({
-      id: `role-${row.id}`,
-      kind: 'Role',
-      label: row.name,
-      detail: row.departments?.name ?? 'Team role',
-      to: `/departments/${row.department_id}`,
-    })
-  }
-
-  for (const row of z
-    .array(z.object({ id: z.string(), body: z.string(), created_at: z.string() }))
-    .catch([])
-    .parse(messages.data ?? [])) {
-    hits.push({
-      id: `message-${row.id}`,
-      kind: 'Message',
-      label: snippet(row.body),
-      detail: 'Message board',
-      to: '/messages',
-    })
-  }
-
-  for (const row of z
-    .array(
-      z.object({
-        id: z.string(),
-        title: z.string(),
-        event_date: z.string(),
-        location: z.string().nullable().optional(),
-      }),
-    )
-    .catch([])
-    .parse(events.data ?? [])) {
-    hits.push({
-      id: `event-${row.id}`,
-      kind: 'Event',
-      label: row.title,
-      detail: [formatServiceDay(row.event_date), row.location].filter(Boolean).join(' · '),
-      to: '/events',
-    })
-  }
-
-  for (const row of z
-    .array(
-      z.object({
-        id: z.string(),
-        title: z.string(),
-        led_by: z.string().nullable().optional(),
-        service_id: z.string(),
-      }),
-    )
-    .catch([])
-    .parse(songs.data ?? [])) {
-    hits.push({
-      id: `song-${row.id}`,
-      kind: 'Song',
-      label: row.title,
-      detail: row.led_by ? `Led by ${row.led_by}` : 'Set list',
-      to: '/set-lists',
-    })
-  }
-
-  for (const row of z
-    .array(
-      z.object({
-        id: z.string(),
-        session_name: z.string(),
-        role_label: z.string().nullable().optional(),
-        service_id: z.string(),
-      }),
-    )
-    .catch([])
-    .parse(sessions.data ?? [])) {
-    hits.push({
-      id: `session-${row.id}`,
-      kind: 'Session',
-      label: row.session_name,
-      detail: row.role_label ?? 'Running order',
-      to: `/service-planner/${row.service_id}`,
-    })
-  }
-
-  for (const row of z
-    .array(z.object({ id: z.string(), body: z.string(), department_id: z.string() }))
-    .catch([])
-    .parse(teamChat.data ?? [])) {
-    hits.push({
-      id: `chat-${row.id}`,
-      kind: 'Team chat',
-      label: snippet(row.body),
-      detail: 'Team chat',
-      to: '/team-chat',
-    })
-  }
-
-  for (const row of z
-    .array(z.object({ id: z.string(), body: z.string() }))
-    .catch([])
-    .parse(alerts.data ?? [])) {
-    hits.push({
-      id: `alert-${row.id}`,
-      kind: 'Alert',
-      label: snippet(row.body),
-      detail: 'Alert that went out',
-      to: '/messages',
-    })
-  }
-
-  for (const row of z
-    .array(z.object({ id: z.string(), name: z.string() }))
-    .catch([])
-    .parse(templates.data ?? [])) {
-    hits.push({
-      id: `template-${row.id}`,
-      kind: 'Template',
-      label: row.name,
-      detail: 'Service template',
-      to: '/service-planner/templates',
-    })
-  }
-
-  return hits
+/** A name with the letters that were typed drawn heavier, so a row shows why it is one. */
+function Marked({ query, text }: { query: string; text: string }) {
+  return (
+    <>
+      {markedPieces(query, text).map((piece, i) =>
+        piece.found ? (
+          <mark key={i} className="bg-transparent font-semibold text-on-surface underline decoration-primary/60 decoration-2 underline-offset-2">
+            {piece.text}
+          </mark>
+        ) : (
+          <Fragment key={i}>{piece.text}</Fragment>
+        ),
+      )}
+    </>
+  )
 }
 
 /**
@@ -417,33 +116,105 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const [term, setTerm] = useState('')
   const [active, setActive] = useState(0)
+  const [recent, setRecent] = useState<Thing[]>(() => recentThings())
   const input = useRef<HTMLInputElement>(null)
+  const list = useRef<HTMLDivElement>(null)
+  const listId = useId()
 
-  const debounced = useDebouncedValue(term.trim(), 200)
-  const enabled = debounced.length >= MIN_QUERY
-
-  const names = useNavNames()
-  const results = useQuery({
-    queryKey: ['global-search', debounced, names],
-    queryFn: () => search(debounced, names),
-    enabled,
-  })
-
-  // A page somebody cannot open is not offered as a way to move. (What the
-  // database refuses never comes back to be offered in the first place.)
+  const { session, isAdmin, isSuperAdmin } = useAuth()
+  const { can } = usePermissions()
   const { canOpen } = usePageAccess()
-  const hits = useMemo(
-    () => (results.data ?? []).filter((hit) => hit.kind !== 'Page' || canOpen(hit.to)),
-    [results.data, canOpen],
+  const names = useNavNames()
+  const typed = term.trim()
+  const hasWords = tokensOf(typed).length > 0
+
+  // Places: every page and room this person can go to. Known already, so found as they type.
+  const places = useMemo(
+    () => placeThings(names, canOpen, (room) => maySee(room, { isAdmin, isSuperAdmin, can })),
+    [names, canOpen, isAdmin, isSuperAdmin, can],
   )
 
-  useEffect(() => setActive(0), [debounced])
-  useEffect(() => input.current?.focus(), [])
+  // Things with a name: read once when the search opens, then found as they type.
+  const contacts = can('people.contacts')
+  const volunteersOpen = canOpen('/volunteers')
+  const index = useQuery({
+    queryKey: [...SEARCH_INDEX_KEY, session?.user.id ?? null, contacts, volunteersOpen],
+    queryFn: () => fetchSearchIndex({ contacts, volunteersOpen }),
+    staleTime: INDEX_FRESH_MS,
+  })
 
-  function go(hit: Hit) {
+  // Things somebody wrote: asked of the database, a moment after the typing stops.
+  const debounced = useDebouncedValue(typed, 220)
+  const asksWritten = debounced.length >= MIN_TEXT_QUERY
+  const written = useQuery({
+    queryKey: ['search-written', debounced],
+    queryFn: () => searchWritten(debounced),
+    enabled: asksWritten,
+    placeholderData: keepPreviousData,
+  })
+
+  const groups = useMemo(() => {
+    if (!hasWords) return []
+    // A page somebody cannot open is not offered as a way to move. (What
+    // the database refuses never comes back to be offered in the first place.)
+    const named = matchThings(typed, index.data ?? []).filter((hit) => canOpen(hit.page))
+    const texts = asksWritten && typed.length >= MIN_TEXT_QUERY ? (written.data ?? []).filter((hit) => canOpen(hit.page)) : []
+    return arrange([...matchThings(typed, places), ...named, ...texts])
+  }, [hasWords, typed, places, index.data, written.data, asksWritten, canOpen])
+
+  // With nothing typed: what was chosen lately, less whatever this person can no longer open.
+  const lately = useMemo(
+    () => recent.filter((thing) => (thing.kind === 'Setting' || thing.kind === 'Page' ? places.some((p) => p.id === thing.id) : canOpen(thing.page))),
+    [recent, places, canOpen],
+  )
+
+  const rows = hasWords ? groups.flatMap((g) => g.hits) : lately
+  const current = Math.min(active, Math.max(0, rows.length - 1))
+  const optionId = (i: number) => `${listId}-option-${i}`
+
+  useEffect(() => input.current?.focus(), [])
+  // The row the arrow keys are on stays in view.
+  useEffect(() => {
+    list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: 'nearest' })
+  }, [current, rows.length])
+
+  function go(thing: Thing) {
+    rememberThing(thing)
     onClose()
-    navigate(hit.to)
+    navigate(thing.to)
   }
+
+  const looking = (hasWords && index.isLoading) || (asksWritten && written.isFetching)
+  // Where each group's rows begin in the one list the arrow keys walk.
+  const starts = groups.map((_, g) => groups.slice(0, g).reduce((sum, earlier) => sum + earlier.hits.length, 0))
+
+  const row = (thing: Thing, i: number, chip: boolean) => (
+    <button
+      key={thing.id}
+      type="button"
+      role="option"
+      id={optionId(i)}
+      aria-selected={i === current}
+      tabIndex={-1}
+      onMouseMove={() => setActive(i)}
+      onClick={() => go(thing)}
+      className={`flex w-full items-center justify-between gap-3 px-5 py-2.5 text-left transition-colors duration-150 ${
+        i === current ? 'bg-surface-low' : ''
+      }`}
+    >
+      <span className="min-w-0">
+        <span className="block break-words text-body-md text-on-surface">
+          <Marked query={typed} text={thing.label} />
+        </span>
+        {thing.detail && <span className="block break-words text-label-sm text-on-surface-faint">{thing.detail}</span>}
+      </span>
+      {chip && (
+        <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 font-mono text-[0.75rem] font-medium text-on-surface-variant">
+          {thing.kind}
+        </span>
+      )}
+    </button>
+  )
 
   return (
     <Overlay onDismiss={onClose} label="Search" closable={false}>
@@ -458,70 +229,115 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
           <input
             ref={input}
             value={term}
-            onChange={(e) => setTerm(e.target.value)}
+            onChange={(e) => {
+              setTerm(e.target.value)
+              // New letters, a new list: back to its first row.
+              setActive(0)
+            }}
             onKeyDown={(e) => {
-              if (!hits.length) return
-              if (e.key === 'ArrowDown') {
+              if (!rows.length) return
+              const move = (to: number) => {
                 e.preventDefault()
-                setActive((i) => (i + 1) % hits.length)
+                setActive((to + rows.length) % rows.length)
               }
-              if (e.key === 'ArrowUp') {
+              if (e.key === 'ArrowDown') move(current + 1)
+              else if (e.key === 'ArrowUp') move(current - 1)
+              else if (e.key === 'Home' && !typed) move(0)
+              else if (e.key === 'End' && !typed) move(rows.length - 1)
+              else if (e.key === 'Enter') {
                 e.preventDefault()
-                setActive((i) => (i - 1 + hits.length) % hits.length)
-              }
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                go(hits[active])
+                go(rows[current])
               }
             }}
             placeholder="Search"
             aria-label="Search"
+            role="combobox"
+            aria-expanded={rows.length > 0}
+            aria-controls={listId}
+            aria-activedescendant={rows.length ? optionId(current) : undefined}
+            aria-autocomplete="list"
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="go"
             className="w-full bg-transparent text-body-lg text-on-surface outline-none placeholder:text-on-surface-faint"
           />
+          {term && (
+            <button
+              type="button"
+              onClick={() => {
+                setTerm('')
+                setActive(0)
+                input.current?.focus()
+              }}
+              className="tap shrink-0 rounded-full px-2 py-1 text-label-md font-medium text-on-surface-variant hover:text-on-surface"
+            >
+              Clear
+            </button>
+          )}
           <kbd className="hidden shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[0.6875rem] text-on-surface-faint ring-1 ring-inset ring-black/8 sm:block dark:ring-white/10">
             esc
           </kbd>
         </label>
 
-        {!term.trim() ? (
-          <p className="px-5 py-4 text-body-sm text-on-surface-variant">
-            People, teams, services, kit, songs, messages — anything you can open.
-          </p>
-        ) : !enabled ? (
-          <p className="px-5 py-4 text-body-sm text-on-surface-variant">
-            Keep typing — {MIN_QUERY} letters or more.
-          </p>
-        ) : results.isLoading ? (
-          <p className="px-5 py-4 text-body-sm text-on-surface-variant">Searching…</p>
-        ) : hits.length === 0 ? (
-          <p className="px-5 py-4 text-body-sm text-on-surface-variant">
-            Nothing matches &ldquo;{debounced}&rdquo;.
-          </p>
-        ) : (
-          <ul className="max-h-[min(60vh,28rem)] overflow-y-auto py-1.5">
-            {hits.map((hit, i) => (
-              <li key={hit.id}>
-                <button
-                  type="button"
-                  onMouseEnter={() => setActive(i)}
-                  onClick={() => go(hit)}
-                  className={`flex w-full items-center justify-between gap-3 px-5 py-3 text-left transition-colors duration-200 ${
-                    i === active ? 'bg-surface-low' : ''
-                  }`}
-                >
-                  <span className="min-w-0">
-                    <span className="block break-words text-body-md text-on-surface">{hit.label}</span>
-                    <span className="block break-words text-label-sm text-on-surface-variant">
-                      {hit.detail}
-                    </span>
-                  </span>
-                  <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 font-mono text-[0.75rem] font-medium text-on-surface-variant">
-                    {hit.kind}
-                  </span>
-                </button>
-              </li>
+        {/* The list holds results and nothing else, so a screen reader hears
+            "option 3 of 12" and not the furniture round them. */}
+        <div ref={list} id={listId} role="listbox" aria-label={hasWords ? 'Results' : 'Chosen lately'} className="max-h-[min(62vh,30rem)] overflow-y-auto">
+          {!hasWords && lately.length > 0 && (
+            <div role="group" aria-label="Chosen lately" className="py-1.5">
+              <div role="presentation" className="px-5 pb-1 pt-2 font-mono text-eyebrow text-on-surface-faint">
+                Chosen lately
+              </div>
+              {lately.map((thing, i) => row(thing, i, true))}
+            </div>
+          )}
+          {hasWords &&
+            groups.map((group, g) => (
+              <div key={group.kind} role="group" aria-label={group.heading} className={g === 0 ? 'pt-1.5' : ''}>
+                <div role="presentation" className="px-5 pb-1 pt-2.5 font-mono text-eyebrow text-on-surface-faint">
+                  {group.heading}
+                </div>
+                {group.hits.map((hit, i) => row(hit, starts[g] + i, false))}
+              </div>
             ))}
-          </ul>
+        </div>
+
+        {!hasWords && lately.length === 0 && (
+          <p className="px-5 py-4 text-body-sm text-on-surface-variant">
+            People, teams, services, kit, songs, messages — anything you can open. A few letters will do, in any order.
+          </p>
+        )}
+        {hasWords && rows.length === 0 && (
+          <p role="status" className="px-5 py-4 text-body-sm text-on-surface-variant">
+            {looking ? 'Searching…' : <>Nothing matches &ldquo;{typed}&rdquo;. Try fewer letters, or another word for it.</>}
+          </p>
+        )}
+        {hasWords && rows.length > 0 && looking && (
+          <p role="status" className="px-5 pb-2.5 pt-1 text-label-sm text-on-surface-faint">
+            Still looking in what people have written…
+          </p>
+        )}
+
+        {rows.length > 0 && (
+          <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-5 py-2">
+            <span aria-hidden="true" className="hidden font-mono text-[0.6875rem] text-on-surface-faint sm:block">
+              ↑ ↓ to move · ↵ to open · esc to close
+            </span>
+            {!hasWords && (
+              <button
+                type="button"
+                onClick={() => {
+                  forgetRecent()
+                  setRecent([])
+                  input.current?.focus()
+                }}
+                className="tap ml-auto rounded-full px-2 py-0.5 text-label-sm text-on-surface-variant hover:text-on-surface"
+              >
+                Forget these
+              </button>
+            )}
+          </div>
         )}
       </div>
     </Overlay>

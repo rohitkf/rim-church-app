@@ -125,11 +125,11 @@ vi.mock('../components/InvitationHistory', () => ({ InvitationHistory: () => nul
 vi.mock('../components/ExportVolunteersDialog', () => ({ ExportVolunteersDialog: () => null }))
 vi.mock('../lib/useTeamStyle', () => ({ useTeamStyle: () => ({ teamStyle: 'dot' }) }))
 
-function show() {
+function show(at = '/volunteers') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[at]}>
         <VolunteersPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -422,3 +422,89 @@ describe('ages on the volunteers page', () => {
   })
 })
 
+
+/*
+ * Finding somebody. Everybody is filed under their teams, shut, so one
+ * person was found by opening team after team until they turned up.
+ */
+describe('finding somebody on the volunteers page', () => {
+  const box = () => screen.getByRole('searchbox', { name: 'Find somebody' })
+  const found = () => within(screen.getByTestId('volunteers-found')).getAllByRole('listitem').filter((li) => li.parentElement === screen.getByTestId('volunteers-found'))
+
+  it('has a box for it above the teams', async () => {
+    show()
+    expect(await screen.findByRole('searchbox', { name: 'Find somebody' })).toBeInTheDocument()
+    expect(screen.queryByTestId('volunteers-found')).toBeNull()
+  })
+
+  it('finds a person by part of a name, shows their card once and puts the teams aside', async () => {
+    const user = show()
+    await screen.findByRole('button', { name: /Media/ })
+    await user.type(box(), 'skar')
+    expect(found()).toHaveLength(1)
+    expect(found()[0]).toHaveTextContent('Joel Skaria')
+    expect(screen.getByRole('status')).toHaveTextContent('1 person found')
+    // The folded teams are not drawn while somebody is being looked for.
+    expect(screen.queryByRole('button', { name: /^Media/ })).toBeNull()
+  })
+
+  it('finds by both names in either order, and through a slip', async () => {
+    const user = show()
+    await screen.findByRole('button', { name: /Media/ })
+    await user.type(box(), 'mathew rose')
+    expect(found()[0]).toHaveTextContent('Rose Mathew')
+    await user.clear(box())
+    await user.type(box(), 'skaira')
+    expect(found()[0]).toHaveTextContent('Joel Skaria')
+  })
+
+  it('finds everybody on a team by the team’s name, and whoever is on none', async () => {
+    const user = show()
+    await screen.findByRole('button', { name: /Media/ })
+    await user.type(box(), 'audio')
+    expect(found().map((li) => li.textContent)).toEqual([expect.stringContaining('Rose Mathew')])
+    await user.clear(box())
+    await user.type(box(), 'no team')
+    expect(found()[0]).toHaveTextContent('Nimmy Thomas')
+  })
+
+  it('says so when nobody matches, and comes back to the teams when the box is emptied', async () => {
+    const user = show()
+    await screen.findByRole('button', { name: /Media/ })
+    await user.type(box(), 'zzzz')
+    expect(screen.getByRole('status')).toHaveTextContent('Nobody matches “zzzz”. Try fewer letters.')
+    expect(screen.queryByTestId('volunteers-found')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Clear the search' }))
+    expect(box()).toHaveValue('')
+    expect(await screen.findByRole('button', { name: /Media/ })).toBeInTheDocument()
+  })
+
+  it('finds by email address or telephone number for whoever holds those, and for nobody else', async () => {
+    who.owner = true
+    const user = show()
+    await screen.findByRole('button', { name: /Media/ })
+    expect(box()).toHaveAttribute('placeholder', expect.stringContaining('email, phone'))
+    await user.type(box(), 'rose@example.com')
+    await waitFor(() => expect(found()[0]).toHaveTextContent('Rose Mathew'))
+    await user.clear(box())
+    await user.type(box(), '07000000000')
+    await waitFor(() => expect(found()).toHaveLength(3))
+    who.owner = false
+  })
+
+  it('does not find by an address the reader was never sent', async () => {
+    who.owner = false
+    const user = show()
+    await screen.findByRole('button', { name: /Media/ })
+    expect(box()).toHaveAttribute('placeholder', 'Find somebody: name or team')
+    await user.type(box(), 'rose@example.com')
+    expect(screen.getByRole('status')).toHaveTextContent(/Nobody matches/)
+  })
+
+  it('opens on a person named in the address, which is how the search over everything lands here', async () => {
+    show('/volunteers?q=Rose%20Mathew')
+    await waitFor(() => expect(found()).toHaveLength(1))
+    expect(found()[0]).toHaveTextContent('Rose Mathew')
+    expect(box()).toHaveValue('Rose Mathew')
+  })
+})
