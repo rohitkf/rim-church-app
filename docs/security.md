@@ -151,12 +151,25 @@ the Owner, who must hand the app on first.
 
 A full pass was run on 25 November 2026 and closed as *incomplete*: four
 areas and fourteen tables were not reviewed. It left three questions for
-the Owner. One is answered and done: a DBS mark is tied to the details
-that were checked (0335; `verify_dbs()` is handed the fingerprint the
-checker was shown and marks nothing if what is stored has changed). Two
-are with the Owner: whether a payment an attendee reports counts as money
-in when a refund is asked for, and whether "get my tickets" may say that
-it sent.
+the Owner, and all three are answered and done (26 November 2026):
+
+- **A DBS mark is tied to the details that were checked** (0335):
+  `verify_dbs()` is handed the fingerprint the checker was shown and marks
+  nothing if what is stored has changed.
+- **A refund is owed for money that arrived, not for money somebody said
+  they sent** (0336). "I have paid" on a ticket page is a say-so. A
+  cancellation owes a refund only where the church took the payment
+  itself or has verified the say-so (`registration_money_confirmed()`).
+  A say-so that turns out to be true is not lost: marking it paid, or
+  verifying it, on the cancelled registration is what owes the refund
+  then. Replayed on a local database: say-so then cancel owes nothing and
+  bank details are refused; confirmed afterwards, it is owed and can be
+  refunded.
+- **"Get my tickets" says one thing** (`registration-email`, the `resend`
+  kind): `{ ok: true }` whether the address had a ticket, was held by the
+  quiet ten minutes, or failed to send. Who is coming to an event can no
+  longer be read out of it. The page already said "if that address has a
+  registration"; now the answer behind it says no more than that.
 
 ## 5. Launch checklist
 

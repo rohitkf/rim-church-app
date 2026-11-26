@@ -205,6 +205,8 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
   const eventOff = !!event.cancelled_at
   const needsPayment = !eventOff && order.status === 'confirmed' && (order.payment_status === 'awaiting' || order.payment_status === 'reported')
   const cancelled = order.status === 'cancelled'
+  // Said to be paid, not yet matched against the account: a refund is owed once it is (0336).
+  const saidPaidOnly = order.payment_status === 'reported' && order.total_pence > 0 && !order.refund_status
   /** A link or a bank account to pay by: the reference and the screenshot matter. */
   const payOnline = paysOnline(order)
   // Where it stands, as steps (lib/registrationSteps); the pay box below
@@ -242,8 +244,20 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
         <section aria-label="Event cancelled" className="mt-4 rounded-[var(--radius-card)] bg-error-container px-4 py-3 text-on-error-container">
           <p className="text-body-md font-semibold">This event has been cancelled</p>
           {event.cancel_note && <p className="mt-1 whitespace-pre-line text-body-sm">{event.cancel_note}</p>}
-          {!order.refund_status && <p className="mt-1 text-body-sm">There is nothing for you to do.</p>}
+          {!order.refund_status &&
+            (saidPaidOnly ? (
+              <p className="mt-1 text-body-sm">
+                You told us you had paid. Once the church has found your payment, your refund is arranged from this page.
+              </p>
+            ) : (
+              <p className="mt-1 text-body-sm">There is nothing for you to do.</p>
+            ))}
         </section>
+      )}
+      {cancelled && !eventOff && saidPaidOnly && (
+        <p role="status" className="mt-4 rounded-[var(--radius-card)] bg-surface-lowest p-4 text-body-md text-on-surface hairline">
+          You told us you had paid. Once the church has found your payment, your refund is arranged from this page.
+        </p>
       )}
       {order.email_state === 'bounced' && !cancelled && (
         <TicketEmailFix
@@ -617,7 +631,7 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
             onClick={() =>
               ask({
                 title: 'Cancel your registration?',
-                body: 'Your tickets go back on sale. If you have paid, your refund is arranged from this page: it will say how the money comes back.',
+                body: 'Your tickets go back on sale. If you have paid, your refund is arranged from this page once the church has found your payment: it will say how the money comes back.',
                 confirmLabel: 'Cancel it',
                 cancelLabel: 'Keep it',
                 onConfirm: () => cancel.mutate(),

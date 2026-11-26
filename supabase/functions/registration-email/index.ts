@@ -26,8 +26,14 @@
  * not more than once every ten minutes, which `email_sent_at` keeps (a
  * ticket that has never been emailed is not held back by another that
  * has: quiet.ts). The
- * answer is the same whether or not an address has a registration, so the
- * list of who is coming cannot be read out of it. The church's kinds
+ * answer to a resend is the same whether or not an address has a
+ * registration, so the list of who is coming cannot be read out of it.
+ * That was written here before it was true: a resend answered
+ * `sent: false` for an address with no ticket and `sent: true, count: 2`
+ * for one with two, and a security review read the list out of it
+ * (November 2026, N4). The Owner chose the same answer always, so a resend
+ * now says `{ ok: true }` and nothing else, whether it found tickets, sent
+ * them, held them for the quiet period, or could not send. The church's kinds
  * are not held to the quiet period: a confirmation a minute after a
  * registration is the point of them.
  *
@@ -442,15 +448,21 @@ Deno.serve(async (req) => {
     return json({ error: 'Unknown kind.' }, 400)
   }
 
+  // A resend is asked about an address by anybody at all, so what happened
+  // is not theirs to be told: one answer, whatever was found or sent.
+  // Every other kind is asked by somebody who holds the order's code or
+  // the church's rights, and is told how it went.
+  const said = (body: Record<string, unknown>) => (kind === 'resend' ? json({ ok: true }) : json(body))
+
   // Nothing to send (no live order, or no address to send to), or — for
   // the attendee's own kinds — sent a moment ago: the same quiet answer.
   orders = orders.filter((o) => o.status === 'confirmed' && o.event && o.email)
   let claimed: string[] = []
-  if (orders.length === 0) return json({ ok: true, sent: false })
+  if (orders.length === 0) return said({ ok: true, sent: false })
   if (kind === 'confirm' || kind === 'resend') {
     // Held only when every ticket here was emailed in the last ten minutes:
     // one that never has been is sent, whatever went to the address before (quiet.ts).
-    if (heldByQuiet(orders, Date.now())) return json({ ok: true, sent: false })
+    if (heldByQuiet(orders, Date.now())) return said({ ok: true, sent: false })
     // Take the quiet period before the send, in one statement, so two asks
     // that arrive together cannot both pass the check above (0331): whoever
     // stamps the tickets first sends, and the other finds them stamped.
@@ -461,8 +473,8 @@ Deno.serve(async (req) => {
       .in('id', orders.map((o) => o.id))
       .or(`email_sent_at.is.null,email_sent_at.lte.${quietFrom}`)
       .select('id')
-    if (tookError) return json({ ok: false, reason: 'not sent' })
-    if (!took || took.length === 0) return json({ ok: true, sent: false })
+    if (tookError) return said({ ok: false, reason: 'not sent' })
+    if (!took || took.length === 0) return said({ ok: true, sent: false })
     claimed = took.map((r) => (r as { id: string }).id)
   }
 
@@ -474,7 +486,7 @@ Deno.serve(async (req) => {
     for (const o of orders.filter((o) => claimed.includes(o.id))) {
       await admin.from('registration_orders').update({ email_sent_at: o.email_sent_at }).eq('id', o.id)
     }
-    return json({ ok: false, reason: 'not sent' })
+    return said({ ok: false, reason: 'not sent' })
   }
-  return json({ ok: true, sent: true, count: orders.length })
+  return said({ ok: true, sent: true, count: orders.length })
 })

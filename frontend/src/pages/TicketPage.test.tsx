@@ -678,6 +678,22 @@ describe('the ticket page', () => {
     await waitFor(() => expect(state.refundRequests[1]).toEqual(['ABCDEFGHJKMN', { account_name: 'Ama Owusu', iban: 'DE89370400440532013000' }]))
   })
 
+  it('owes nothing on a say-so: a cancelled ticket that was only said to be paid waits for the church to find the payment', async () => {
+    // 0336: "I have paid", then cancel, used to list a refund as owed with no money having arrived.
+    state.order = order({ status: 'cancelled', payment_status: 'reported', payment_method: 'bank', refund_status: null })
+    show()
+    expect(await screen.findByText(/You told us you had paid\. Once the church has found your payment, your refund is arranged from this page\./)).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Your refund' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Send my bank details' })).toBeNull()
+  })
+
+  it('says nothing of the kind where nothing was ever paid, or once the refund is owed', async () => {
+    state.order = order({ status: 'cancelled', payment_status: 'awaiting', refund_status: null })
+    show()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByText(/You told us you had paid/)).toBeNull()
+  })
+
   it('says when the refund has been sent', async () => {
     state.order = order({ status: 'cancelled', payment_status: 'received', refund_status: 'refunded', refund_at: '2026-11-05T10:00:00Z' })
     show()

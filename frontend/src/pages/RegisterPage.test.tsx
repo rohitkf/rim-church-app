@@ -970,7 +970,9 @@ describe('the register page opened from an invitation link', () => {
     await registerByEmail(user)
 
     const done = await screen.findByRole('status', { name: 'You’re registered' })
-    await waitFor(() => expect(done).toHaveTextContent('Your ticket has been sent to ama@example.org.'))
+    // "On its way", not "has been sent": the function no longer says whether an
+    // address had a ticket to send (0336's release), so the page cannot know more.
+    await waitFor(() => expect(done).toHaveTextContent('Your ticket is on its way to ama@example.org.'))
     expect(done).toHaveTextContent('Open that email and press Open ticket: that page is your ticket.')
     expect(done).toHaveTextContent('This invitation is for one person, so the ticket goes to their email address rather than onto this screen.')
     // Asked for through the kind that only ever writes to the address an order is under.
@@ -992,7 +994,7 @@ describe('the register page opened from an invitation link', () => {
   })
 
   it.each([
-    ['was not sent', { ok: true, sent: false }],
+    ['was refused', { ok: false, reason: 'not configured' }],
     ['could not be asked for', new Error('no answer')],
   ])('says so when the email %s, with the way to get it', async (_how, answer) => {
     state.invite = free({ email_locked: true })
