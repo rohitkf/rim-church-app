@@ -76,8 +76,22 @@ export function orderActions(
     actions.push({ label: 'Where to send the refund', onSelect: refundDetails, hint: refundWhere(o) })
     actions.push({ label: 'Mark as refunded', tone: 'accent', onSelect: () => act('refunded'), hint: refundHow(o) })
   }
+  /*
+   * Said to be paid, never confirmed, and now not going ahead (0336): no
+   * refund is owed on a say-so. If the money did arrive, saying so here is
+   * what owes it back; the office looks in the account, not at the screen.
+   */
+  const saidPaidOnly = o.payment_status === 'reported' && o.total_pence > 0 && !o.refund_status && !o.payment_verified_at
+  const confirmLate: MenuAction[] =
+    saidPaidOnly && r.takePayment
+      ? [{ label: 'The payment did arrive', tone: 'accent', onSelect: () => act('received'), hint: 'They said they had paid. If it is in the account, this owes them a refund' }]
+      : []
   if (eventCancelled) {
-    actions.push(...emailAction, ...noteAction)
+    // Whoever verifies payments can say the same thing their way (0267).
+    if (saidPaidOnly && r.verify && o.status === 'confirmed') {
+      actions.push({ label: 'Verify payment', tone: 'accent', onSelect: () => verify(true), hint: 'You have seen it in the bank account or PayPal: this owes them a refund' })
+    }
+    actions.push(...(o.status === 'confirmed' ? confirmLate : []), ...emailAction, ...noteAction)
     return actions
   }
   if (o.status === 'confirmed') {
@@ -127,8 +141,9 @@ export function orderActions(
           : { label: 'Remove promo code', onSelect: removePromo, hint: o.discount_pence > 0 ? `It goes back to ${pounds(o.subtotal_pence)}, not paid yet` : 'It took nothing off: the code just has its use back' },
       )
     }
-  } else if (o.refund_status !== 'refunded' && r.cancelOrder) {
-    actions.push({ label: 'Put back', onSelect: () => act('restore'), hint: 'If its tickets still fit' })
+  } else {
+    actions.push(...confirmLate)
+    if (o.refund_status !== 'refunded' && r.cancelOrder) actions.push({ label: 'Put back', onSelect: () => act('restore'), hint: 'If its tickets still fit' })
   }
   actions.push(...emailAction, ...noteAction)
   if (o.status === 'confirmed' && r.cancelOrder) actions.push({ label: 'Cancel registration', onSelect: cancel, tone: 'danger' })

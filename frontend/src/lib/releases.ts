@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'a-refund-for-money-that-arrived',
+    date: '2026-11-26',
+    title: 'A refund is owed once the money is found',
+    lead: 'Somebody who pressed “I have paid” and then cancelled used to be listed as owed a refund, whether or not anything had reached the account.',
+    points: [
+      'A cancelled registration is owed a refund only where the church took the payment or verified it.',
+      'If they said they had paid and it is in the account: open the registration and choose “The payment did arrive” (or Verify payment). The refund is owed from then.',
+      'Their ticket page tells them the church is looking for the payment, and asks for bank details only once it is found.',
+    ],
+    link: { to: '/registrations', label: 'Open Registrations' },
+    page: '/registrations',
+  },
+  {
     key: 'a-search-box-on-every-list',
     date: '2026-11-26',
     title: 'A search box on every list',

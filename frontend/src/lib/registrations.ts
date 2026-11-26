@@ -1843,7 +1843,11 @@ export function registrationExportFileName(slug: string, now: Date = new Date())
 /** What the registration-email function answers. */
 export interface TicketMailResult {
   ok: boolean
-  /** False when nothing went: sent a moment ago, nothing to send, or not set up. */
+  /**
+   * False when nothing went: sent a moment ago, nothing to send, or not set
+   * up. Never said of a resend: that is asked about an address by anybody
+   * at all, and answers `{ ok: true }` whatever it found (November 2026).
+   */
   sent?: boolean
   reason?: string
 }
@@ -1860,6 +1864,8 @@ export function sendTicketEmail(code: string): Promise<TicketMailResult> {
 /**
  * "I have lost my ticket": every live ticket that address holds for the
  * event, to that address — or nothing, with the same answer either way.
+ * `ok` means the ask was taken, not that anything was found or sent, so a
+ * page must not say "sent": it says "if there is one, it is on its way".
  */
 export async function resendTickets(slug: string, email: string): Promise<TicketMailResult> {
   return invokeEdgeFunction<TicketMailResult>('registration-email', { kind: 'resend', slug, email: email.trim().toLowerCase() })

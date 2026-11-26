@@ -54,6 +54,11 @@ export async function applyPromoToTicket(ticketCode: string, promo: string): Pro
  * no right at all and only ever writes to the address an order is under —
  * so the attendee is told whoever pressed. Nothing waits on either: the
  * registration's own page already shows the new price.
+ *
+ * That second way says only that the ask was taken, never whether anything
+ * went (it is the public's question, and answers everybody alike), so
+ * whoever pressed is warned of an email that did not go only when the
+ * first way was theirs to use.
  */
 export async function sendTicketAfterPromo(order: Pick<OrderRow, 'code' | 'email'>, slug: string): Promise<TicketMailResult> {
   if (!order.email) return { ok: true, sent: false }

@@ -264,7 +264,9 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
         setConfirming(false)
         setEmailed({ to, total: totals.total, sent: null })
         resendTickets(event.slug, to)
-          .then((result) => setEmailed((was) => was && { ...was, sent: result.ok && result.sent === true }))
+          // The function says only that it took the ask (lib/registrations, resendTickets):
+          // whether an address holds tickets is not something it tells whoever asks.
+          .then((result) => setEmailed((was) => was && { ...was, sent: result.ok }))
           .catch(() => setEmailed((was) => was && { ...was, sent: false }))
       } else if (code) {
         // The ticket by email, for keeping; nothing waits on it (0247).
@@ -469,7 +471,7 @@ function EventPage({ event, onRegistered }: { event: PublicEvent; onRegistered: 
               </p>
             ) : (
               <p className="text-body-md text-on-surface">
-                {emailed.sent === null ? 'Your ticket is being sent to ' : 'Your ticket has been sent to '}
+                {emailed.sent === null ? 'Your ticket is being sent to ' : 'Your ticket is on its way to '}
                 <span className="font-semibold [overflow-wrap:anywhere]">{emailed.to}</span>. Open that email and press <span className="font-semibold">Open ticket</span>
                 {emailed.total > 0 ? `: that page shows how to pay ${pounds(emailed.total)}, and is your ticket once it is paid.` : ': that page is your ticket.'}
               </p>

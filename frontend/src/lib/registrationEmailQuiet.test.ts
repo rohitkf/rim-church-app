@@ -52,11 +52,35 @@ describe('the quiet ten minutes', () => {
 
   it('is what the function asks, for the attendee’s own two kinds and no others', () => {
     expect(senderSource).toContain("import { heldByQuiet, QUIET_MINUTES } from './quiet.ts'")
-    expect(senderSource).toMatch(/if \(kind === 'confirm' \|\| kind === 'resend'\) \{[\s\S]{0,400}if \(heldByQuiet\(orders, Date\.now\(\)\)\) return json\(\{ ok: true, sent: false \}\)/)
+    expect(senderSource).toMatch(/if \(kind === 'confirm' \|\| kind === 'resend'\) \{[\s\S]{0,400}if \(heldByQuiet\(orders, Date\.now\(\)\)\) return said\(\{ ok: true, sent: false \}\)/)
     // The quiet period is taken in one statement before the send (0331), so two
     // asks that arrive together cannot both send.
     expect(senderSource).toMatch(/if \(heldByQuiet\(orders, Date\.now\(\)\)\)[\s\S]{0,900}\.or\(`email_sent_at\.is\.null,email_sent_at\.lte\./)
     // The old rule, which held everything back when any one ticket had been sent.
     expect(senderSource).not.toContain('orders.some((o) => o.email_sent_at')
+  })
+})
+
+/*
+ * "Get my tickets" is asked about an address by anybody at all. It used to
+ * answer `sent: false` for an address with no ticket and `sent: true,
+ * count: 2` for one with two, so who was coming to an event could be read
+ * out of it (a security review, November 2026). The Owner chose: the same
+ * answer always.
+ */
+describe('what a resend says back', () => {
+  const afterLookup = senderSource.slice(senderSource.indexOf('const said = (body: Record<string, unknown>)'))
+
+  it('says one thing, whatever it found or did', () => {
+    expect(senderSource).toContain("const said = (body: Record<string, unknown>) => (kind === 'resend' ? json({ ok: true }) : json(body))")
+    // Every answer after the orders are known goes through it: none says how it went directly.
+    expect(afterLookup.match(/return said\(/g)).toHaveLength(6)
+    expect(afterLookup.replace(/\? json\(\{ ok: true \}\) : json\(body\)/, '')).not.toMatch(/return json\(/)
+  })
+
+  it('still tells the church, and the holder of a ticket’s code, how theirs went', () => {
+    // The other kinds are asked by somebody who is entitled to the answer.
+    expect(afterLookup).toContain("return said({ ok: true, sent: true, count: orders.length })")
+    expect(afterLookup).toContain("return said({ ok: false, reason: 'not sent' })")
   })
 })
