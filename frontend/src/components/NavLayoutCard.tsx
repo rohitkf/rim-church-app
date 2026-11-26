@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePermissions } from '../lib/usePermissions'
-import { NAV_ITEMS } from '../lib/navItems'
+import { NAV_ITEMS, entryNameKey } from '../lib/navItems'
 import {
   NAV_LAYOUT_KEY,
   applyNavLayout,
@@ -40,13 +40,24 @@ import { CloseIcon, UndoIcon } from './icons'
  * page's own heading all say the new name, and the reset puts the app's
  * name back.
  *
+ * A page that holds others as tabs (Volunteers, with Families and DBS
+ * Checks) has a second name: what the menu calls the entry for all of
+ * them, "People". That can be renamed too, on the same row, and is kept
+ * apart from the page's name, which is what its tab and heading say.
+ *
  * Nothing is written until Save. Who may open each page is unchanged: this
  * only says where a page sits, and what it is called, for somebody who can
  * already open it.
  */
 
 // An item's `label` is the church's own name for it; blank is the app's.
-type Row = { kind: 'item'; id: string; to: string; label: string } | { kind: 'group'; id: string; name: string }
+// `entry` is its name for the menu entry, on a page that holds tabs.
+type Row = { kind: 'item'; id: string; to: string; label: string; entry: string } | { kind: 'group'; id: string; name: string }
+
+/** The pages that hold others as tabs: the ones whose menu entry has a name of its own. */
+const HOSTS = new Set(NAV_ITEMS.flatMap((i) => (i.tab && i.within ? [i.within] : [])))
+/** What the app calls a host's entry, where it calls it anything but the page's own name. */
+const familyName = (to: string) => NAV_ITEMS.find((i) => i.to === to)?.family
 
 // A heading's id is its place in the saved layout, so re-reading the same
 // layout gives the same ids and nothing being typed in is swapped out from
@@ -60,7 +71,7 @@ function rowsFrom(layout: NavLayout): Row[] {
   // put it, not missing.
   const placed = applyNavLayout(NAV_ITEMS, layout)
   const labels = navLabels(layout)
-  const item = (to: string): Row => ({ kind: 'item', id: `item:${to}`, to, label: labels[to] ?? '' })
+  const item = (to: string): Row => ({ kind: 'item', id: `item:${to}`, to, label: labels[to] ?? '', entry: labels[entryNameKey(to)] ?? '' })
   const rows: Row[] = placed.filter((i) => !i.group).map((i) => item(i.to))
   for (const [n, g] of layout.groups.entries()) {
     rows.push(groupRow(g.name, `group:${n}`))
@@ -81,6 +92,10 @@ function layoutFrom(rows: Row[]): NavLayout {
     // original is the same as resetting it.
     const name = row.label.trim()
     if (name && name !== defaultLabel(row.to)) labels[row.to] = name
+    // The entry's name the same way: kept only where it differs from what
+    // the menu would have said anyway.
+    const entry = row.entry.trim()
+    if (HOSTS.has(row.to) && entry && entry !== (familyName(row.to) ?? (name || defaultLabel(row.to)))) labels[entryNameKey(row.to)] = entry
     if (layout.groups.length === 0) layout.top.push(row.to)
     else layout.groups[layout.groups.length - 1].items.push(row.to)
   }
@@ -157,6 +172,17 @@ export function NavLayoutCard() {
   // Two pages called the same thing could not be told apart in the dock.
   const pageNames = rows.filter((r) => r.kind === 'item').map((r) => nameOf(r).trim().toLowerCase())
   const samePageName = pageNames.some((n, i) => pageNames.indexOf(n) !== i)
+  // What the menu calls an entry that holds tabs: the church's name for
+  // it, or the app's, or failing both the page's own.
+  const entryDefault = (row: Row) => (row.kind === 'item' ? (familyName(row.to) ?? nameOf(row) ?? '') : '')
+  const entryOf = (row: Row) => (row.kind === 'item' && row.entry.trim()) || entryDefault(row)
+  // And two entries called the same thing could not be told apart either:
+  // the menu as somebody who may open everything sees it, a tab not being
+  // an entry and a page with tabs going by its entry's name.
+  const entryNames = rows
+    .filter((r) => r.kind === 'item' && !NAV_ITEMS.find((i) => i.to === r.to)?.tab)
+    .map((r) => (r.kind === 'item' && HOSTS.has(r.to) ? entryOf(r) : nameOf(r)).trim().toLowerCase())
+  const sameEntryName = !samePageName && entryNames.some((n, i) => entryNames.indexOf(n) !== i)
 
   const moveGroup = (index: number, direction: -1 | 1) => {
     const [start, end] = blockOf(ordered.map((id) => byId.get(id)!), index)
@@ -186,6 +212,9 @@ export function NavLayoutCard() {
   const renamePage = (id: string, label: string) =>
     change(rows.map((r) => (r.id === id && r.kind === 'item' ? { ...r, label } : r)))
 
+  const renameEntry = (id: string, entry: string) =>
+    change(rows.map((r) => (r.id === id && r.kind === 'item' ? { ...r, entry } : r)))
+
   return (
     <section id="menu" className="w-full scroll-mt-24 rounded-[var(--radius-card)] bg-surface-lowest p-6 hairline">
       {/* Past a heading puts a page in that group; above the first
@@ -193,7 +222,8 @@ export function NavLayoutCard() {
           group moves with its arrows, taking its pages along. */}
       <p className="text-body-sm text-on-surface-variant">
         Drag a page by its grip to move it, or rename it — the new name shows in the menu, the search box and
-        on the page itself. Who can open each page does not change.
+        on the page itself. A page that holds others as tabs has a second name, for its entry in the menu. Who can
+        open each page does not change.
       </p>
 
       <QueryState isLoading={query.isLoading} error={query.error}>
@@ -254,6 +284,7 @@ export function NavLayoutCard() {
             const original = defaultLabel(row.to)
             const host = item?.within ? rows.find((r) => r.kind === 'item' && r.to === item.within) : undefined
             const renamed = !!row.label.trim() && row.label.trim() !== original
+            const entryRenamed = HOSTS.has(row.to) && !!row.entry.trim() && row.entry.trim() !== entryDefault(row)
             const level = item ? levelOf(item.to, access, settings.issues_raise_scope) : 'everyone'
             return (
               <li
@@ -293,8 +324,56 @@ export function NavLayoutCard() {
                           : `Opens from ${nameOf(host)}. In the menu only for somebody ${nameOf(host)} is closed to.`}
                       </span>
                     )}
-                    {/* And the page that holds tabs says what the menu calls the two together. */}
-                    {item?.family && <span className="break-words text-label-sm text-on-surface-faint">In the menu as {item.family}, with its tabs.</span>}
+                    {/* And the page that holds tabs says what the menu calls
+                        them together, which is a name of its own to change. */}
+                    {HOSTS.has(row.to) &&
+                      (naming === `${row.id}#entry` ? (
+                        <input
+                          autoFocus
+                          value={typed}
+                          placeholder={entryDefault(row)}
+                          onChange={(e) => {
+                            const next = e.target.value.slice(0, NAV_LABEL_MAX)
+                            setTyped(next)
+                            renameEntry(row.id, next)
+                          }}
+                          onBlur={() => setNaming(null)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === 'Escape') setNaming(null)
+                          }}
+                          aria-label={`Menu name for ${nameOf(row)} and its tabs`}
+                          className={`${inputClasses} mt-1 min-w-0 px-3 py-1.5`}
+                        />
+                      ) : (
+                        <span className="flex flex-wrap items-center gap-x-2 text-label-sm text-on-surface-faint">
+                          <span className="break-words">
+                            In the menu as {entryOf(row)}, with its tabs.
+                            {entryRenamed && ` Was ${entryDefault(row)}.`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTyped(entryOf(row))
+                              setNaming(`${row.id}#entry`)
+                            }}
+                            aria-label={`Rename the menu entry ${entryOf(row)}`}
+                            className="tap rounded-full text-label-sm text-accent-blue-soft hover:text-on-surface"
+                          >
+                            Rename entry
+                          </button>
+                          {entryRenamed && (
+                            <button
+                              type="button"
+                              onClick={() => renameEntry(row.id, '')}
+                              aria-label={`Call the entry ${entryDefault(row)} again`}
+                              title={`Call the entry ${entryDefault(row)} again`}
+                              className="tap-square inline-flex items-center justify-center rounded-full px-1.5 text-on-surface-faint hover:text-on-surface"
+                            >
+                              <UndoIcon aria-hidden="true" width={16} height={16} />
+                            </button>
+                          )}
+                        </span>
+                      ))}
                     {/* On a phone the row has no room for the name and who-may-open side by side. */}
                     {level !== 'everyone' && (
                       <span className="font-mono text-label-sm text-on-surface-faint sm:hidden">{levelShort(level)}</span>
@@ -347,6 +426,9 @@ export function NavLayoutCard() {
         {samePageName && (
           <p className="mt-3 text-body-sm text-error">Two pages have the same name — give each its own.</p>
         )}
+        {sameEntryName && (
+          <p className="mt-3 text-body-sm text-error">Two entries in the menu have the same name — give each its own.</p>
+        )}
         {error && (
           <p className="mt-3 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">
             {error}
@@ -354,7 +436,7 @@ export function NavLayoutCard() {
         )}
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <ActionButton disabled={!dirty || duplicate || samePageName || save.isPending} onClick={() => save.mutate(layoutFrom(rows))}>
+          <ActionButton disabled={!dirty || duplicate || samePageName || sameEntryName || save.isPending} onClick={() => save.mutate(layoutFrom(rows))}>
             {save.isPending ? 'Saving…' : 'Save menu'}
           </ActionButton>
           {dirty && (

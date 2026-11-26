@@ -54,6 +54,7 @@ export const RELEASES: Release[] = [
       'After the Service: Debriefs and Issues. Set Lists: with Songs on a tab. Chat: the Message Board and Team Chat.',
       'People: Volunteers, Families and DBS Checks. Registrations: with Reception on a tab.',
       'You only see the tabs that are open to you. With one, there are no tabs and the page is in the menu under its own name.',
+      'An Admin can rename People, Chat and the rest in Settings › Menu with “Rename entry”. Each tab keeps its page’s own name.',
       'A service’s running order now links to that service’s rota, set list, checklists, stage layout, debriefs and issues, each opening on that service.',
       'The menu has five groups: Serving, Services, Communications, Church Life, and People & Teams.',
     ],

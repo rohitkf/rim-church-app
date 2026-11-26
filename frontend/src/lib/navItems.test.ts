@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NAV_ITEMS, menuItems, pageTabs } from './navItems'
+import { NAV_ITEMS, entryNameKey, menuItems, pageTabs } from './navItems'
 import { PAGE_RULES } from './pageAccess'
 
 /*
@@ -138,6 +138,45 @@ describe('pages that are one entry in the menu', () => {
   it('keep the name the church gave a page where the family has none of its own', () => {
     const renamed = NAV_ITEMS.map((i) => (i.to === '/set-lists' ? { ...i, label: 'Worship Sets' } : i))
     expect(menuItems(renamed, everything).find((i) => i.to === '/set-lists')?.label).toBe('Worship Sets')
+  })
+})
+
+/*
+ * The entry's own name (the Owner, November 2026: "make those renamable").
+ * People, Chat and After the Service were the app's words; the church can
+ * now give its own in Settings › Menu, kept beside its names for pages.
+ */
+describe('the church’s own name for an entry that holds tabs', () => {
+  const names = { [entryNameKey('/volunteers')]: 'Members', [entryNameKey('/set-lists')]: 'Worship', '/volunteers': 'Roles' }
+  const entry = (to: string) => menuItems(NAV_ITEMS, everything, names).find((i) => i.to === to)
+
+  it('is what the menu says, in place of the app’s', () => {
+    expect(entry('/volunteers')?.label).toBe('Members')
+    // An entry the app gave no name of its own can be given one too.
+    expect(entry('/set-lists')?.label).toBe('Worship')
+    // One the church has not named keeps the app's.
+    expect(entry('/messages')?.label).toBe('Chat')
+  })
+
+  it('is what the strip of tabs is called, and leaves each tab its page’s name', () => {
+    const found = pageTabs('/families', everything, names)
+    expect(found?.name).toBe('Members')
+    expect(found?.tabs.map((t) => t.label)).toEqual(['Roles', 'Families', 'DBS Checks'])
+  })
+
+  it('goes with the entry whichever page leads it', () => {
+    const pastor = (path: string) => path !== '/volunteers'
+    expect(menuItems(NAV_ITEMS, pastor, names).find((i) => i.to === '/families')?.label).toBe('Members')
+  })
+
+  it('is not used for somebody who may open only one of the pages', () => {
+    const admin = (path: string) => path !== '/families' && path !== '/dbs'
+    expect(menuItems(NAV_ITEMS, admin, names).find((i) => i.to === '/volunteers')?.label).toBe('Volunteers')
+  })
+
+  it('is kept under a key no address can be', () => {
+    expect(entryNameKey('/volunteers')).toBe('family:/volunteers')
+    expect(NAV_ITEMS.some((i) => i.to.startsWith('family:'))).toBe(false)
   })
 })
 

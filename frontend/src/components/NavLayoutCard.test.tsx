@@ -156,6 +156,95 @@ describe('arranging the menu', () => {
     expect(lastWrite().labels).toBeUndefined()
   })
 
+  /*
+   * A page that holds others as tabs has a second name: what the menu
+   * calls the entry for all of them. People, Chat and After the Service
+   * were the app's words until the Owner asked for them to be the church's.
+   */
+  describe('the name of an entry that holds tabs', () => {
+    it('says what the menu calls it, on the row of the page that holds the tabs', async () => {
+      show()
+      const list = await screen.findByRole('list', { name: 'Menu arrangement' })
+      expect(within(list).getByText('In the menu as People, with its tabs.')).toBeInTheDocument()
+      expect(within(list).getByText('In the menu as Chat, with its tabs.')).toBeInTheDocument()
+      expect(within(list).getByText('In the menu as After the Service, with its tabs.')).toBeInTheDocument()
+      // Where the app gave the entry no name of its own, it goes by the page's.
+      expect(within(list).getByText('In the menu as Set Lists, with its tabs.')).toBeInTheDocument()
+      // A page with no tabs has no second name to change.
+      expect(screen.queryByRole('button', { name: /Rename the menu entry Polls/ })).toBeNull()
+    })
+
+    it('renames the entry and leaves the page’s own name alone', async () => {
+      const user = show()
+      await screen.findByRole('list', { name: 'Menu arrangement' })
+      await user.click(screen.getByRole('button', { name: 'Rename the menu entry People' }))
+      const field = screen.getByRole('textbox', { name: 'Menu name for Volunteers and its tabs' })
+      await user.clear(field)
+      await user.type(field, '  Members  {Enter}')
+      expect(screen.getByText('In the menu as Members, with its tabs. Was People.')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Save menu' }))
+      await waitFor(() => expect(db.writes).toHaveLength(1))
+      expect(lastWrite().labels).toEqual({ 'family:/volunteers': 'Members' })
+    })
+
+    it('names an entry the app left under its page’s name, and follows the page’s name until then', async () => {
+      const user = show()
+      await screen.findByRole('list', { name: 'Menu arrangement' })
+      await user.click(screen.getByRole('button', { name: 'Rename Set Lists' }))
+      await user.type(screen.getByRole('textbox', { name: 'Name for Set Lists' }), '{Control>}a{/Control}Worship Sets{Enter}')
+      expect(screen.getByText('In the menu as Worship Sets, with its tabs.')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Rename the menu entry Worship Sets' }))
+      await user.type(screen.getByRole('textbox', { name: 'Menu name for Worship Sets and its tabs' }), '{Control>}a{/Control}Music{Enter}')
+      await user.click(screen.getByRole('button', { name: 'Save menu' }))
+      await waitFor(() => expect(db.writes).toHaveLength(1))
+      expect(lastWrite().labels).toEqual({ '/set-lists': 'Worship Sets', 'family:/set-lists': 'Music' })
+    })
+
+    it('reads a saved name, and the reset puts the app’s back', async () => {
+      db.saved = { top: ['/'], groups: [], labels: { 'family:/messages': 'Talk' } }
+      const user = show()
+      await screen.findByRole('list', { name: 'Menu arrangement' })
+      expect(screen.getByText('In the menu as Talk, with its tabs. Was Chat.')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Call the entry Chat again' }))
+      expect(screen.getByText('In the menu as Chat, with its tabs.')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Save menu' }))
+      await waitFor(() => expect(db.writes).toHaveLength(1))
+      expect(lastWrite().labels).toBeUndefined()
+    })
+
+    it('keeps nothing when the name typed is the one the menu had anyway', async () => {
+      const user = show()
+      await screen.findByRole('list', { name: 'Menu arrangement' })
+      await user.click(screen.getByRole('button', { name: 'Rename the menu entry People' }))
+      await user.type(screen.getByRole('textbox', { name: 'Menu name for Volunteers and its tabs' }), '{Control>}a{/Control}People{Enter}')
+      // Something else has to change for there to be anything to save.
+      await user.click(screen.getByRole('button', { name: 'Rename Polls' }))
+      await user.type(screen.getByRole('textbox', { name: 'Name for Polls' }), '{Control>}a{/Control}Votes{Enter}')
+      await user.click(screen.getByRole('button', { name: 'Save menu' }))
+      await waitFor(() => expect(db.writes).toHaveLength(1))
+      expect(lastWrite().labels).toEqual({ '/polls': 'Votes' })
+    })
+
+    it('will not save an entry under the name of another entry', async () => {
+      const user = show()
+      await screen.findByRole('list', { name: 'Menu arrangement' })
+      await user.click(screen.getByRole('button', { name: 'Rename the menu entry People' }))
+      await user.type(screen.getByRole('textbox', { name: 'Menu name for Volunteers and its tabs' }), '{Control>}a{/Control}polls{Enter}')
+      expect(screen.getByText(/Two entries in the menu have the same name/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Save menu' })).toBeDisabled()
+    })
+
+    it('lets an entry share a name with one of its own tabs, which is never beside it in the menu', async () => {
+      const user = show()
+      await screen.findByRole('list', { name: 'Menu arrangement' })
+      await user.click(screen.getByRole('button', { name: 'Rename the menu entry People' }))
+      await user.type(screen.getByRole('textbox', { name: 'Menu name for Volunteers and its tabs' }), '{Control>}a{/Control}Families{Enter}')
+      expect(screen.queryByText(/have the same name/)).toBeNull()
+      expect(screen.getByRole('button', { name: 'Save menu' })).toBeEnabled()
+    })
+  })
+
   it('will not save two pages under one name', async () => {
     const user = show()
     await screen.findByRole('list', { name: 'Menu arrangement' })

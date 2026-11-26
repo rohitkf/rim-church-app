@@ -56,6 +56,15 @@ export type NavItem = DockItem & {
   family?: string
 }
 
+/**
+ * Where the church's own name for a menu entry that holds tabs is kept:
+ * beside its names for pages, in the saved menu's `labels` (lib/navLayout),
+ * under a key no address can be. A page's name is what its tab and its
+ * heading say; the entry's name is what the menu says for the two or three
+ * together, so they are two names and the church can change either.
+ */
+export const entryNameKey = (host: string) => `family:${host}`
+
 /** A page and the pages reached from inside it, the page itself first, in the app's own order. */
 function familyOf<T extends NavItem>(items: readonly T[], host: string): T[] {
   return [...items.filter((i) => i.to === host), ...items.filter((i) => i.within === host)]
@@ -65,11 +74,12 @@ function familyOf<T extends NavItem>(items: readonly T[], host: string): T[] {
  * What goes in one person's menu: the pages they may open, with a page
  * and the pages reached from inside it as one entry. The entry is the
  * first of them this person may open, it covers the rest (so the menu
- * still shows where they are), and it takes the family's name when it
- * has one. Somebody who may open only one of them sees that page as
- * itself.
+ * still shows where they are), and it takes the entry's name: the
+ * church's (`names`, Settings › Menu) where it has given one, otherwise
+ * the family's, otherwise the page's own. Somebody who may open only one
+ * of them sees that page as itself.
  */
-export function menuItems<T extends NavItem>(items: T[], canOpen: (path: string) => boolean): T[] {
+export function menuItems<T extends NavItem>(items: T[], canOpen: (path: string) => boolean, names: Record<string, string> = {}): T[] {
   const hosts = [...new Set(items.flatMap((i) => (i.within ? [i.within] : [])))]
   const dropped = new Set<string>()
   const leads = new Map<string, { covers: string[]; label?: string }>()
@@ -78,7 +88,7 @@ export function menuItems<T extends NavItem>(items: T[], canOpen: (path: string)
     if (open.length < 2) continue
     const [lead, ...rest] = open
     for (const r of rest) dropped.add(r.to)
-    leads.set(lead.to, { covers: rest.map((r) => r.to), label: items.find((i) => i.to === host)?.family })
+    leads.set(lead.to, { covers: rest.map((r) => r.to), label: names[entryNameKey(host)] ?? items.find((i) => i.to === host)?.family })
   }
   return items
     .filter((i) => canOpen(i.to) && !dropped.has(i.to))
@@ -110,7 +120,7 @@ export function pageTabs(
   if (open.length < 2) return null
   const hostItem = family[0]
   return {
-    name: hostItem.family ?? names[hostItem.to] ?? hostItem.label,
+    name: names[entryNameKey(hostItem.to)] ?? hostItem.family ?? names[hostItem.to] ?? hostItem.label,
     tabs: open.map((i) => ({ to: i.to, label: names[i.to] ?? i.label })),
   }
 }
