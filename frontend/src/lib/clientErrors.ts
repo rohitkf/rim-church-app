@@ -3,6 +3,7 @@ import { isStandalone, ownBuildId } from './pwa'
 import { isChunkLoadError, isNoSuchRow } from './pageErrors'
 import { isAccountRemoved } from './accountRemoved'
 import { isTurnedAway } from './standing'
+import { isSecondStepNeeded } from './secondStep'
 import { isNetworkFailure, nameOf, saidBy } from './networkFailure'
 
 export { isNetworkFailure }
@@ -202,7 +203,7 @@ export function isLapsedSessionRefusal(source: ErrorSource, error: unknown): boo
 export function worthReporting(source: ErrorSource, error: unknown, filename?: string | null): boolean {
   if (error === null || error === undefined || error === '') return false
   if (isNetworkFailure(error) || isChunkLoadError(error)) return false
-  if (isAccountRemoved(error) || isTurnedAway(error) || isNoSuchRow(error)) return false
+  if (isAccountRemoved(error) || isTurnedAway(error) || isSecondStepNeeded(error) || isNoSuchRow(error)) return false
   if (isNotOurs(error, filename)) return false
   if (isLapsedSessionRefusal(source, error)) return false
   if (source === 'query') return isDatabaseFault(error) || isUnreadAnswer(error) || isProgrammingError(error) || codeOf(error) === '42501'

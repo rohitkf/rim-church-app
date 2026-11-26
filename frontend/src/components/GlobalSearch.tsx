@@ -51,6 +51,7 @@ const PAGES: { label: string; detail: string; to: string; keywords: string }[] =
   { label: 'Profile', detail: 'Your name, contact details and dates', to: '/settings/profile', keywords: 'profile account name phone birthday password' },
   { label: 'Appearance', detail: 'Theme and team style', to: '/settings/appearance', keywords: 'theme dark light mode appearance' },
   { label: 'Notifications', detail: 'What buzzes your phone', to: '/settings/notifications', keywords: 'notifications push phone alerts bell' },
+  { label: 'Your account', detail: 'A second step at sign-in, a copy of your data, removing your account', to: '/settings/account', keywords: 'account security two step 2fa authenticator code download my data copy delete remove privacy' },
   { label: 'Page by Page', detail: 'Each page’s clocks, what it keeps, and its rules, team by team', to: '/settings/pages', keywords: 'page settings access team rules head timings clocks window clear deadline retention delete keep dashboard display' },
   { label: 'Access & Privileges', detail: 'Who can do what', to: '/settings/access', keywords: 'permissions roles admin access privileges' },
   { label: 'By person', detail: 'Everything one person can open and do, and why', to: '/settings/access?tab=person', keywords: 'person permissions what can they do access grant' },

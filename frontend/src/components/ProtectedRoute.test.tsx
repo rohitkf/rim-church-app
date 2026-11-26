@@ -12,6 +12,18 @@ const standing = vi.hoisted(() =>
   vi.fn(() => ({ standing: null as unknown, deciding: false, checking: false, recheck: () => {} })),
 )
 vi.mock('../lib/useStanding', () => ({ useStanding: () => standing() }))
+// Whether the code from an authenticator app is owed (lib/useSecondStep): not, unless a test says so.
+const secondStep = vi.hoisted(() =>
+  vi.fn(() => ({ step: null as { needed: boolean; factorId: string | null } | null, deciding: false })),
+)
+vi.mock('../lib/useSecondStep', () => ({ useSecondStep: () => secondStep() }))
+vi.mock('../pages/SecondStepPage', () => ({
+  SecondStepPage: ({ factorId, email }: { factorId: string; email: string | null }) => (
+    <p>
+      the code page for {factorId}, {email}
+    </p>
+  ),
+}))
 // Starting the app again is a page reload, which a test can only watch being asked for.
 const reloadApp = vi.hoisted(() => vi.fn())
 vi.mock('../lib/reloadApp', () => ({ reloadApp }))
@@ -24,6 +36,7 @@ vi.mock('../pages/JoiningPage', () => ({
 
 beforeEach(() => {
   standing.mockReturnValue({ standing: null, deciding: false, checking: false, recheck: () => {} })
+  secondStep.mockReturnValue({ step: null, deciding: false })
   reloadApp.mockClear()
 })
 
@@ -299,6 +312,85 @@ describe('when the app is closed for maintenance', () => {
  * out. They are sent to sign in, and the sign-in page is told where they
  * were going, so the link still leads there afterwards. It used to forget.
  */
+/*
+ * The second step (0334): an account with an authenticator set up is half
+ * signed in on its password, and the database refuses it everything.
+ */
+describe('when the code from an authenticator app is owed', () => {
+  function renderSignedIn(session: unknown = { user: { id: 'u1', email: 'grace@example.com' } }) {
+    const value = {
+      session,
+      profile: null,
+      profileGaps: null,
+      roles: [],
+      loading: false,
+      authError: null,
+      isAdmin: false,
+      isSuperAdmin: false,
+      ownerId: null,
+      hasRole: () => false,
+      isDepartmentHead: () => false,
+      ledDepartmentIds: [],
+      refreshProfile: async () => {},
+      signOut: async () => {},
+      isOverwatch: false,
+      seesAllTeams: false,
+      canPreview: false,
+      previewCoordinates: null,
+      viewAs: null,
+      setViewAs: () => {},
+    }
+    return render(
+      <MemoryRouter>
+        <AuthContext.Provider value={value as never}>
+          <Routes>
+            <Route element={<ProtectedRoute />}>
+              <Route path="*" element={<p>the app</p>} />
+            </Route>
+            <Route path="/login" element={<p>the sign-in page</p>} />
+          </Routes>
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    )
+  }
+
+  it('shows the page that asks for it in place of the app', () => {
+    secondStep.mockReturnValue({ step: { needed: true, factorId: 'f1' }, deciding: false })
+    renderSignedIn()
+    expect(screen.getByText('the code page for f1, grace@example.com')).toBeInTheDocument()
+    expect(screen.queryByText('the app')).toBeNull()
+  })
+
+  it('comes before a block or a closure: those are about somebody who is in', () => {
+    secondStep.mockReturnValue({ step: { needed: true, factorId: 'f1' }, deciding: false })
+    standing.mockReturnValue({ standing: { closed: null, may_enter: true, blocked: { at: '2026-11-01T10:00:00Z' } }, deciding: false, checking: false, recheck: () => {} })
+    renderSignedIn()
+    expect(screen.getByText(/the code page/)).toBeInTheDocument()
+    expect(screen.queryByText(/blocked by an administrator/i)).toBeNull()
+  })
+
+  it('lets in an account with nothing owed, and one whose answer never came', () => {
+    secondStep.mockReturnValue({ step: { needed: false, factorId: null }, deciding: false })
+    renderSignedIn().unmount()
+    secondStep.mockReturnValue({ step: null, deciding: false })
+    renderSignedIn()
+    expect(screen.getByText('the app')).toBeInTheDocument()
+  })
+
+  it('waits for the first answer rather than drawing an app the database is refusing', () => {
+    secondStep.mockReturnValue({ step: null, deciding: true })
+    renderSignedIn()
+    expect(screen.getByText(/Loading/)).toBeInTheDocument()
+    expect(screen.queryByText('the app')).toBeNull()
+  })
+
+  it('is never shown to somebody signed out', () => {
+    secondStep.mockReturnValue({ step: { needed: true, factorId: 'f1' }, deciding: false })
+    renderSignedIn(null)
+    expect(screen.getByText('the sign-in page')).toBeInTheDocument()
+  })
+})
+
 describe('somebody signed out who was headed somewhere', () => {
   function Where() {
     const { state } = useLocation()

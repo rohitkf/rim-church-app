@@ -16,6 +16,10 @@ import { AppNoticesCard } from '../components/AppNoticesCard'
 import { AppHealthCard } from '../components/AppHealthCard'
 import { AppearanceCard } from '../components/AppearanceCard'
 import { NotificationsCard } from '../components/NotificationsCard'
+import { SecondStepCard } from '../components/SecondStepCard'
+import { SecondStepPeopleCard } from '../components/SecondStepPeopleCard'
+import { CloseAccountCard, MyDataCard } from '../components/MyDataCard'
+import { PrivacyDetailsCard } from '../components/PrivacyDetailsCard'
 import { SettingsRoomCard } from '../components/SettingsRoomCard'
 import { FEEDBACK_ROOM, GENERAL_ROOM } from '../lib/settingsCatalog'
 import { PageAccessCard } from '../components/PageAccessCard'
@@ -117,7 +121,7 @@ export function SettingsPage() {
           >
             Settings
           </Link>
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4">
             {groups.map((group) => (
               <div key={group.heading}>
                 <Eyebrow className="px-3">{group.heading}</Eyebrow>
@@ -428,7 +432,29 @@ export function GivingSettingsPane() {
 /** The More menu's arrangement, for everybody. */
 /** Set once for the whole church: its time zone, and the bell. */
 export function GeneralSettingsPane() {
-  return <SettingsRoomCard room={GENERAL_ROOM} footnote="These are the whole church’s, not a page’s — every page reads them." />
+  return (
+    <div className="flex flex-col gap-4">
+      <SettingsRoomCard room={GENERAL_ROOM} footnote="These are the whole church’s, not a page’s — every page reads them." />
+      {/* What the church says about itself on /privacy (0334). */}
+      <PrivacyDetailsCard />
+    </div>
+  )
+}
+
+/**
+ * Your own sign-in and your own data (0334): a second step, a copy of
+ * what is kept, and removing the account. Everybody's; the Owner also
+ * sees who has a second step, to clear one for a lost phone.
+ */
+export function YourAccountPane() {
+  return (
+    <div className="flex flex-col gap-4">
+      <SecondStepCard />
+      <SecondStepPeopleCard />
+      <MyDataCard />
+      <CloseAccountCard />
+    </div>
+  )
 }
 
 /** The Owner's own mailbox: how long settled feedback is kept. */

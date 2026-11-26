@@ -90,7 +90,7 @@ function show(at = '/') {
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[at]}>
         <Routes>
-          {['/', '/service-planner', '/events', '/updates', '/polls', '/giving', '/prayer', '/feedback', '/stage', '/settings/profile', '/departments', '/availability', '/rota', '/checklists', '/messages', '/team-chat', '/set-lists', '/inventory', '/debriefs', '/issues', '/registrations', '/door'].map(
+          {['/', '/service-planner', '/events', '/updates', '/polls', '/giving', '/prayer', '/feedback', '/stage', '/settings/profile', '/settings/account', '/departments', '/availability', '/rota', '/checklists', '/messages', '/team-chat', '/set-lists', '/inventory', '/debriefs', '/issues', '/registrations', '/door'].map(
             (p) => (
               <Route key={p} path={p} element={<Page name={p} />} />
             ),
@@ -198,8 +198,8 @@ describe('walking it', () => {
     expect(await within(dialog()).findByText('Calendar')).toBeInTheDocument()
     expect(screen.getByTestId('where')).toHaveTextContent(/^\/events$/)
 
-    // Through to the end: ten steps for somebody on no team (Prayer Requests joined it).
-    for (let i = 0; i < 10; i += 1) await user.click(await screen.findByRole('button', { name: /Next/ }))
+    // Through to the end: eleven steps for somebody on no team (Prayer Requests joined it, then Your account).
+    for (let i = 0; i < 11; i += 1) await user.click(await screen.findByRole('button', { name: /Next/ }))
     expect(await screen.findByText('That’s the tour.')).toBeInTheDocument()
     expect(db.marked).toEqual([['church']])
 

@@ -82,6 +82,7 @@ describe('the Settings hall', () => {
       '/settings/profile',
       '/settings/appearance',
       '/settings/notifications',
+      '/settings/account',
     ])
     // And no heading over a group they have nothing in.
     expect(screen.queryByRole('heading', { name: 'Pages' })).toBeNull()
@@ -117,7 +118,7 @@ describe('the Settings hall', () => {
     given = ['settings.logo', 'settings.general']
     show('/settings')
     const hrefs = roomLinks().map((a) => a.getAttribute('href'))
-    expect(hrefs).toEqual(['/settings/profile', '/settings/appearance', '/settings/notifications', '/settings/general', '/settings/logo'])
+    expect(hrefs).toEqual(['/settings/profile', '/settings/appearance', '/settings/notifications', '/settings/account', '/settings/general', '/settings/logo'])
     expect(screen.getByRole('heading', { name: 'The app itself' })).toBeInTheDocument()
     given = []
   })

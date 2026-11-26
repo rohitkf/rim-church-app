@@ -1,4 +1,5 @@
 import { IDLE_SIGN_OUT_DAYS, takeIdleNotice } from '../lib/idleSignOut'
+import { closedJustNow } from '../lib/myData'
 import { TRIES_BEFORE_A_WAIT, forgetTries, noteWrongPassword, waitFor, waitWords } from '../lib/signInTries'
 import { type FormEvent, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
@@ -49,6 +50,8 @@ export function LoginPage() {
   const [linkSaid] = useState(() => linkProblem(window.location.hash, window.location.search))
   // Signed out for standing unused (lib/idleSignOut): said once, as the page opens.
   const [idle] = useState(() => takeIdleNotice())
+  // Somebody who has just removed their own account (Settings › Your account).
+  const [closed] = useState(() => closedJustNow())
 
   if (session) {
     return <Navigate to={whereTheyWereHeaded(location.state)} replace />
@@ -152,13 +155,19 @@ export function LoginPage() {
       {/* Somebody whose account was removed while they had the app open is
           sent here by the query cache. Without a word they would assume
           they had been signed out by accident and try again, and again. */}
-      {removed && (
+      {closed && (
+        <div role="status" className="mb-4 rounded-[var(--radius-chip)] bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
+          <p>Your account has been removed, and everything that was yours went with it.</p>
+        </div>
+      )}
+
+      {removed && !closed && (
         <div className="mb-4 rounded-[var(--radius-chip)] bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
           <p>Your account is no longer active. Speak to a church Admin if you think that is wrong.</p>
         </div>
       )}
 
-      {idle && !removed && (
+      {idle && !removed && !closed && (
         <div role="status" className="mb-4 rounded-[var(--radius-chip)] bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
           <p>
             This device had not been used for {IDLE_SIGN_OUT_DAYS} days, so it was signed out. Sign in again to carry on.
@@ -166,7 +175,7 @@ export function LoginPage() {
         </div>
       )}
 
-      {linkSaid && !removed && (
+      {linkSaid && !removed && !closed && (
         <div role="status" className="mb-4 rounded-[var(--radius-chip)] bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
           <p>{linkSaid}</p>
         </div>
