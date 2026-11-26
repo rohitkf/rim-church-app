@@ -46,6 +46,30 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'easier-to-read-reach-and-press',
+    date: '2026-11-26',
+    title: 'Easier to read, reach and press',
+    lead: 'A pass over every page for the small things: what a tab is called, what a thumb can hit, and what you see while a page loads.',
+    points: [
+      'Each page names itself in the browser’s tab and in your history, so two tabs of the app can be told apart.',
+      'On a phone, every box you type into and every tick box with its words is big enough for a thumb.',
+      'While a page loads you see the shape of what is coming, not a line of grey text.',
+      'With a keyboard, the first press of Tab offers “Skip to the page”, past the search box and the bell.',
+      'On a computer, the pointer turns to a hand over anything that can be pressed.',
+    ],
+  },
+  {
+    key: 'what-the-app-keeps-about-you',
+    date: '2026-11-26',
+    title: 'A page that says what the app keeps about you',
+    lead: 'What is held, who can see it, how long it is kept and how to have it removed, in plain words.',
+    points: [
+      'Open to anybody, signed in or not: it is linked from signing up and signing in.',
+      'It is at /privacy, and at the foot of the sign-in page.',
+      'It says what the app does. Anything it does not answer, ask the church.',
+    ],
+  },
+  {
     key: 'pages-that-go-together-are-one-entry',
     date: '2026-11-26',
     title: 'Pages that go together are one entry, with tabs',

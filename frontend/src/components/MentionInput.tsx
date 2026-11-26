@@ -25,11 +25,14 @@ export function MentionInput({
   className = '',
   onSubmit,
   disabled,
+  'aria-label': ariaLabel,
 }: {
   value: string
   onChange: (next: string) => void
   people: MentionablePerson[]
   placeholder?: string
+  /** The box's name for a screen reader: a placeholder is a hint, and it goes when typing starts. */
+  'aria-label'?: string
   rows?: number
   className?: string
   /** Called on Enter when the mention list isn't open. */
@@ -109,6 +112,7 @@ export function MentionInput({
         value={value}
         disabled={disabled}
         rows={rows}
+        aria-label={ariaLabel}
         placeholder={placeholder}
         onChange={handleChange}
         onKeyDown={handleKeyDown}

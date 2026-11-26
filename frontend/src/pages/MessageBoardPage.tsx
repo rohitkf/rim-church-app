@@ -226,6 +226,7 @@ export function MessageBoardPage() {
             value={body}
             onChange={setBody}
             people={people}
+            aria-label="Post an announcement"
             placeholder="Post an announcement…  @ to mention someone"
             rows={3}
             className={`${inputClasses} w-full resize-y`}

@@ -51,9 +51,7 @@ export function QueryState({
   children,
 }: QueryStateProps) {
   const errorText = useErrorText()
-  if (isLoading) {
-    return <p className="text-body-sm text-on-surface-variant">Loading…</p>
-  }
+  if (isLoading) return <Waiting />
 
   if (error) {
     // A page about one thing, asked for by an id the database cannot even
@@ -69,6 +67,25 @@ export function QueryState({
   }
 
   return <>{children}</>
+}
+
+/**
+ * A page that is still reading: the shape of what is coming, not a line of
+ * grey text on an empty screen. Three bars the height of a row hold the
+ * place, so less of the page moves when the answer lands. The words are
+ * still there for a screen reader to read, as they were; it is not a live
+ * region, because a page with five panels reading would say it five times
+ * and `status` is the role the pages keep for what they have to tell you.
+ */
+function Waiting() {
+  return (
+    <div className="flex flex-col gap-3" data-waiting>
+      <span className="sr-only">Loading…</span>
+      <div aria-hidden="true" className="skeleton-bar h-16 w-full" />
+      <div aria-hidden="true" className="skeleton-bar h-16 w-full opacity-70" />
+      <div aria-hidden="true" className="skeleton-bar h-16 w-2/3 opacity-40" />
+    </div>
+  )
 }
 
 const strip = 'font-semibold underline decoration-current/40 underline-offset-2 hover:decoration-current disabled:opacity-60'

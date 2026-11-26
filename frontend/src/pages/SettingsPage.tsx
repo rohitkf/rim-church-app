@@ -1,3 +1,4 @@
+import { usePageTitle } from '../lib/pageTitle'
 import { Link, NavLink, Navigate, Outlet, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
@@ -56,6 +57,12 @@ import {
  * What a person sees is only what they may use. An ordinary member finds
  * their own two rooms and nothing else.
  */
+/** The browser's tab names the room: "Menu · Settings · …". Its own component, so it can be drawn where the room is known. */
+function RoomTitle({ name }: { name: string }) {
+  usePageTitle(`${name} · Settings`)
+  return null
+}
+
 export function SettingsPage() {
   const { isAdmin, isSuperAdmin } = useAuth()
   const { can, query } = usePermissions()
@@ -127,6 +134,7 @@ export function SettingsPage() {
         </nav>
 
         <div className="w-full min-w-0 max-w-4xl flex-1">
+          <RoomTitle name={current.label} />
           <header data-tour="page-title" className="mb-6 flex items-start gap-4">
             <IconBadge icon={current.icon} tone={current.tone} size="lg" className="mt-1" />
             <div className="min-w-0">
