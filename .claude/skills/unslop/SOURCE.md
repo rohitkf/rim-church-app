@@ -6,3 +6,5 @@ Copied from https://github.com/heydamir/unslop at commit 620163eedb35 on 2026-11
 
 Nothing here is fetched at run time by Claude Code: this folder is the whole install, and it
 changes only when somebody copies a newer commit in and reads the difference.
+
+**Checked 2026-11-26:** 620163eedb35 is still upstream's newest commit, so there is nothing to take.

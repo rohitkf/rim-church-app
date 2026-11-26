@@ -33,3 +33,5 @@ and the types are this repository's own and did not change. Four files moved:
   Sonnet 4.5 to 4.6.
 - `validate.py`: a check that compression changed no number (values, versions, signs), with spelled-out
   numbers allowed to become digits. It is pure text, with no network.
+
+**Checked 2026-11-26 against e74a11ccdb38** (25 November): nothing copied here changed upstream since 47c61be2d10a.

@@ -11,3 +11,5 @@ changes only when somebody copies a newer commit in and reads the difference.
 line was read. Three hooks now decode stdin as UTF-8 (a character split across two chunks was
 garbled). The band's import skips one unreadable subagent log instead of losing the rest. There is
 no new behaviour, file or network use.
+
+**Checked 2026-11-26:** ebd8654c2c62 is still upstream's newest commit, so there is nothing to take.

@@ -31,3 +31,5 @@ already here taken, and the left-out music still left out:
 - `uv.lock` moves msgpack 1.2.1 → 1.2.4, a security fix.
 - The manifest here is still hand-written; its version and description follow upstream's. The new
   test for the cue script is not copied (no tests were).
+
+**Checked 2026-11-26:** 06379432a924 is still upstream's newest commit, so there is nothing to take.
