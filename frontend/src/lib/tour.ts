@@ -220,6 +220,12 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         body: 'Your name, birthday and anniversary, your DBS and visa, your address and family, and who to ring for you in an emergency. Everybody is asked for these, and changes save on their own. If you have one name only, tick the box under your name and no last name is asked for. If you have a DBS check, its card asks for the certificate’s details and your permission to check it, has its own Save, and says once it has been verified.',
       },
       {
+        path: '/settings/account',
+        target: 'page-title',
+        title: 'Your account',
+        body: 'Your sign-in and your own data. Add a second step to signing in: after your password, a six-digit code from an authenticator app on your phone, so a learned password is not enough. Download a copy of everything the app holds about you, as one file. And remove your own account, with everything that is yours, by typing its email address. If you lose the phone your authenticator is on, the church’s Owner can clear it for you.',
+      },
+      {
         path: '/departments',
         target: 'join-team',
         title: 'Find your team',
@@ -436,7 +442,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/settings',
         target: 'settings:/settings/general',
         title: 'General',
-        body: 'The church’s time zone, and the bell: the settings that belong to no one page.',
+        body: 'The church’s time zone, and the bell: the settings that belong to no one page. And what the church says about itself on the page that tells people what is kept about them: who to ask, where to write, and anything in its own words.',
       },
       {
         path: '/settings',

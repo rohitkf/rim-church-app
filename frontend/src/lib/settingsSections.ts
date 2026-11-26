@@ -55,7 +55,7 @@ export interface SettingsSection {
   /**
    * The room's own row in the church's grid (0277): it opens to whoever
    * holds it — a role's cell, or a team or a person given it by name —
-   * Admin or not. Only your own three rooms have none. `needs` is who that
+   * Admin or not. Only your own four rooms have none. `needs` is who that
    * is out of the box, and what is asked while the grid is not known.
    */
   capability?: CapabilityKey
@@ -104,6 +104,15 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: BellIcon,
         tone: 'blue',
         keywords: 'notifications push phone alerts buzz bell device mute',
+      },
+      {
+        to: '/settings/account',
+        label: 'Your account',
+        blurb: 'A second step at sign-in, a copy of what is kept about you, and removing your account.',
+        icon: LockIcon,
+        tone: 'indigo',
+        keywords:
+          'account security two step factor 2fa mfa authenticator code sign in password download my data copy export privacy delete remove close leave gdpr',
       },
     ],
   },

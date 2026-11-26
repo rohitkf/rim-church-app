@@ -6,8 +6,10 @@ import { resetApp } from '../lib/resetApp'
 import { JoiningPage } from '../pages/JoiningPage'
 import { BlockedPage } from '../pages/BlockedPage'
 import { ClosedPage } from '../pages/ClosedPage'
+import { SecondStepPage } from '../pages/SecondStepPage'
 import { isShutOut } from '../lib/standing'
 import { useStanding } from '../lib/useStanding'
+import { useSecondStep } from '../lib/useSecondStep'
 
 /** How long "Loading…" may stand on its own before it owes an explanation. */
 const PATIENCE_MS = 5_000
@@ -34,6 +36,8 @@ export function ProtectedRoute() {
   const location = useLocation()
   // Whether the app is open to this person right now (0278, 0279, lib/standing).
   const { standing, deciding, checking, recheck } = useStanding(session?.user.id ?? null)
+  // Whether the code from an authenticator app is still owed (0334, lib/secondStep).
+  const { step, deciding: decidingStep } = useSecondStep(session?.user.id ?? null)
 
   /*
    * Shut out a moment ago, let in now: the block was taken back, or the
@@ -101,7 +105,16 @@ export function ProtectedRoute() {
    * short and has an end (useStanding): not being able to ask is never a
    * reason to keep somebody out.
    */
-  if (deciding || reopening) return <LoadingScreen />
+  if (deciding || decidingStep || reopening) return <LoadingScreen />
+  /*
+   * Half signed in: the password was right and the account has an
+   * authenticator set up, so the code is owed (0334). Before the block and
+   * the closure, which are about what happens once somebody is in; this
+   * is about whether they are.
+   */
+  if (step?.needed && step.factorId) {
+    return <SecondStepPage factorId={step.factorId} email={session.user.email ?? null} />
+  }
   // Blocked by name (0279) comes first: it is about this person, and it
   // will still be true when the maintenance is over.
   if (standing?.blocked) {

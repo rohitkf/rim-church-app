@@ -8,7 +8,17 @@ import signup from './SignupPage.tsx?raw'
 import login from './LoginPage.tsx?raw'
 import vercel from '../../vercel.json'
 
-vi.mock('../lib/supabaseClient', () => ({ supabase: { storage: { from: () => ({ createSignedUrl: () => Promise.resolve({ data: null, error: null }) }) } } }))
+// What the church has said about itself (0334): nothing, unless a test says so.
+const said = vi.hoisted(() => ({ details: {} as Record<string, string>, fails: false }))
+vi.mock('../lib/supabaseClient', () => ({
+  supabase: {
+    storage: { from: () => ({ createSignedUrl: () => Promise.resolve({ data: null, error: null }) }) },
+    rpc: (name: string) =>
+      Promise.resolve(
+        name === 'privacy_details' && !said.fails ? { data: said.details, error: null } : { data: null, error: { message: 'no' } },
+      ),
+  },
+}))
 
 /*
  * What the app keeps about you. Until November 2026 nothing in the app
@@ -34,7 +44,39 @@ describe('the page that says what is kept', () => {
     // The three things somebody most wants to know.
     expect(screen.getByText(/never sees or stores a card number/)).toBeInTheDocument()
     expect(screen.getByText(/read once, when you press Clock in, and never in the background/)).toBeInTheDocument()
-    expect(screen.getByText(/Ask for your account to be removed/)).toBeInTheDocument()
+    // Both done by the person themselves now (0334), from one room of Settings.
+    expect(screen.getByText(/Download a copy of everything held about you/)).toBeInTheDocument()
+    expect(screen.getByText(/Remove your account yourself/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Settings, Your account' })).toHaveAttribute('href', '/settings/account')
+  })
+
+  it('shows who to ask and what the church says in its own words, once the church has said them', async () => {
+    said.details = { contact_name: 'The church office', contact_email: 'office@church.test', postal_address: '1 High Street\nTown', note: 'We keep this to run our teams.\n\nCharity number 123.' }
+    show()
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Who to ask' })
+    const part = heading.closest('section')!
+    expect(part).toHaveTextContent('For anything about your information, ask The church office at office@church.test. By post: 1 High Street, Town.')
+    expect(screen.getByRole('link', { name: 'office@church.test' })).toHaveAttribute('href', 'mailto:office@church.test')
+    expect(screen.getByText(/We keep this to run our teams/)).toHaveTextContent('Charity number 123.')
+    said.details = {}
+  })
+
+  it('reads as it always did when the church has said nothing, or could not be asked', async () => {
+    show()
+    await screen.findByRole('heading', { level: 2, name: 'If something is not right' })
+    expect(screen.queryByRole('heading', { name: 'Who to ask' })).toBeNull()
+    said.fails = true
+    show()
+    expect(screen.queryByRole('heading', { name: 'Who to ask' })).toBeNull()
+    said.fails = false
+  })
+
+  it('treats what the church typed as words and nothing else', async () => {
+    said.details = { note: '<img src=x onerror=alert(1)><b>bold</b>' }
+    const { container } = show()
+    expect(await screen.findByText('<img src=x onerror=alert(1)><b>bold</b>')).toBeInTheDocument()
+    expect(container.querySelector('article img, article b')).toBeNull()
+    said.details = {}
   })
 
   it('is open without signing in, and linked from where an account is made and used', () => {

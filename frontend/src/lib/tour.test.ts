@@ -99,7 +99,7 @@ describe('the tour keeps up with the app', () => {
 
   /*
    * Rooms the tour walks past, and why: your own two are found from Your
-   * account's step and need no telling; the rest set one page's rules, and
+   * profile's step and need no telling (Your account has a step of its own); the rest set one page's rules, and
    * that page's own step or Page by Page's covers them. A new room is not
    * in this list, so it needs a step or a line here.
    */

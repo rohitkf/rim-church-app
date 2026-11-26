@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { PublicShell } from '../components/PublicShell'
 import { CHURCH_NAME } from '../lib/churchName'
+import { PRIVACY_DETAILS_KEY, fetchPrivacyDetails, tidyPrivacyDetails } from '../lib/privacyDetails'
 
 /*
  * What the app keeps about you.
@@ -15,8 +17,10 @@ import { CHURCH_NAME } from '../lib/churchName'
  * Every line is something the app does, checked against the database when
  * it was written (the tables, who may read them, what is deleted and
  * when). It is a plain account, not a legal notice: the church's reasons
- * in law for keeping each thing, and its postal address, are the church's
- * to add. Change the app and this page changes with it — a page that says
+ * in law for keeping each thing, who to ask and where to write are the
+ * church's to say, and it says them in Settings › General (0334,
+ * lib/privacyDetails); whatever it has filled in is shown here, as plain
+ * words. Change the app and this page changes with it — a page that says
  * what used to be true is worse than no page.
  */
 
@@ -32,6 +36,11 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
 const list = 'flex list-disc flex-col gap-1.5 pl-5'
 
 export function PrivacyPage() {
+  // What the church has said about itself. Nothing said, or the question
+  // not answered: the page reads as it did before there was anything to say.
+  const church = useQuery({ queryKey: PRIVACY_DETAILS_KEY, queryFn: fetchPrivacyDetails, retry: 0, staleTime: 5 * 60_000 })
+  const said = tidyPrivacyDetails(church.data ?? {})
+  const who = said.contact_name ?? (said.contact_email ? 'the church' : null)
   return (
     <PublicShell title="What the app keeps about you" logoPath={null}>
       <article className="mx-auto w-full max-w-2xl pb-16">
@@ -106,13 +115,50 @@ export function PrivacyPage() {
               See and correct what you gave in <Link to="/settings/profile" className="font-medium text-accent-blue-soft">Settings, About you</Link>.
             </li>
             <li>Turn notifications and location off in your phone’s or browser’s own settings at any time.</li>
-            <li>Ask the Owner of the app, or an Admin, for a copy of what is held about you.</li>
             <li>
-              Ask for your account to be removed. It goes at once, and takes your details, answers, messages, clock-ins
-              and prayer requests with it. A line you wrote for a team, such as a debrief note, stays without your name.
+              Download a copy of everything held about you, as one file, from{' '}
+              <Link to="/settings/account" className="font-medium text-accent-blue-soft">Settings, Your account</Link>.
+            </li>
+            <li>
+              Remove your account yourself, in the same place, or ask the Owner of the app to. It goes at once, and
+              takes your details, answers, messages, clock-ins and prayer requests with it. A line you wrote for a
+              team, such as a debrief note, stays without your name.
+            </li>
+            <li>
+              Add a second step to signing in: a code from an authenticator app on your phone, asked for after your
+              password.
             </li>
           </ul>
         </Part>
+
+        {(who || said.postal_address) && (
+          <Part title="Who to ask">
+            <p>
+              {who && (
+                <>
+                  For anything about your information, ask {who}
+                  {said.contact_email && (
+                    <>
+                      {' '}
+                      at{' '}
+                      <a href={`mailto:${said.contact_email}`} className="font-medium text-accent-blue-soft [overflow-wrap:anywhere]">
+                        {said.contact_email}
+                      </a>
+                    </>
+                  )}
+                  .{' '}
+                </>
+              )}
+              {said.postal_address && <>By post: {said.postal_address.replace(/\s*\n\s*/g, ', ')}.</>}
+            </p>
+          </Part>
+        )}
+
+        {said.note && (
+          <Part title={`From ${CHURCH_NAME}`}>
+            <p className="whitespace-pre-line">{said.note}</p>
+          </Part>
+        )}
 
         <Part title="If something is not right">
           <p>

@@ -19,7 +19,7 @@ only the Owner can make.
 | Nothing typed in is ever run as code | React escapes every value it draws. The app never writes raw HTML: no `dangerouslySetInnerHTML`, no `innerHTML` | `grep -r dangerouslySetInnerHTML frontend/src` finds nothing |
 | Secrets stay out of the code | The only key in the built app is Supabase's publishable key, which is meant to be public and can do nothing the row rules do not allow. The service key lives in the edge functions' environment and nowhere else. `.env` files are ignored by git | `.gitignore`, `supabase/functions/*/index.ts` (`Deno.env.get`) |
 | Every table has row rules | 122 of 122 public tables have row level security on. Fifteen have it on with no policy at all: those are closed to the app and reached only through functions that check who is asking | Supabase's security advisor; `select count(*) from pg_class … where not relrowsecurity` |
-| Functions that run with the database's own rights are pinned | Every `security definer` function sets its own `search_path` (0333 put back the one that had lost it) | `select count(*) from pg_proc where prosecdef and proconfig is null` is 0 |
+| Functions that run with the database's own rights are pinned | Every `security definer` function sets its own `search_path` (0333 put back the one that had lost it; 0334 restates it on each function it replaces) | `select count(*) from pg_proc where prosecdef and proconfig is null` is 0 |
 | Passwords | Eight characters at least, in the form and on the server (the server accepted six until 26 November 2026). Stored hashed by Supabase Auth | `GET /v1/projects/<ref>/config/auth` → `password_min_length` |
 | Guessing a password | Supabase limits sign-in attempts per address it comes from. The sign-in form counts for itself too: five wrong passwords for one email in a quarter of an hour and it waits a minute before asking again, then five, then fifteen (`lib/signInTries`). A new password is checked against Have I Been Pwned's list of breached ones before it is sent to be stored; five characters of its fingerprint leave the device, never the password (`lib/breachedPassword`). **Open:** both of those are the form's, so somebody calling Supabase directly is held only by Supabase's own limit. A lock on the account itself needs Supabase's Team plan; a CAPTCHA (Cloudflare Turnstile, free) would hold on this plan and needs keys from the Owner's Cloudflare account. **Owner** | `frontend/src/lib/signInProtections.test.ts`; Supabase › Authentication › Attack protection |
 | Everything is encrypted | In transit: HTTPS only, with HSTS for two years (`strict-transport-security`, set by Vercel). At rest: Supabase encrypts the database and its storage | `curl -sI https://rim-church-app.vercel.app` |
@@ -41,6 +41,7 @@ a link sent to the address. What an account may do comes from its roles:
 | Team member | Serves on a team: answers, sees the rota, ticks checklists |
 | Church member | An account on no team: the Calendar, updates, giving, prayer |
 | Nobody signed in | The public event pages only (`/register/…`, `/ticket/…`) and `/privacy` |
+| Half signed in | An account with a second step set up that has given only its password: the code page, and nothing else |
 
 **What each can see.** Nobody sees more than their standing needs, and the
 database decides, not the page: every read goes through a row rule or a
@@ -58,9 +59,22 @@ the device's own memory, so it covers a phone that is lost or handed on;
 a token copied off a device is not touched by it. **Open:** Supabase's own
 time limit on a session, which would cover that, needs the Pro plan.
 
-**Also open:** no second step at sign-in (a code from an authenticator
-app). Supabase supports it; the app has no screen for it. Worth having for
-the Owner, Admins and Pastors, who can read contact, DBS and visa details.
+**A second step.** Anybody can add one in Settings › Your account: after
+the password, a six-digit code from an authenticator app (0334,
+`lib/secondStep`). It is not only a screen. Every request the app makes
+passes through `reject_removed_user()` before anything else runs, and an
+account with an authenticator set up is refused there until its session
+says the code was given (the token's `aal` claim), so calling the API
+directly with the password's token gets nothing. Setting one up signs the
+account's other devices out. Somebody who loses the phone asks the Owner,
+who can clear it (Settings › Your account, the Owner only); the Owner's
+own is cleared from Supabase's dashboard. **Not covered:** file storage
+and realtime do not pass through that function; files stay behind their
+own row rules and expiring links. **Owner:** it is each person's choice.
+Whether the Owner, Admins and Pastors, who can read contact, DBS and visa
+details, should be required to have one is the Owner's to decide; the app
+does not force it, because forcing it on somebody without their phone to
+hand locks them out of a Sunday.
 
 ## 3. Data rules
 
@@ -89,35 +103,47 @@ scheduled jobs. A service and everything about it goes a fortnight after
 its date; chat, polls, clock-ins, closed prayer requests, feedback and
 church events each on their own count of days, set in Settings and said on
 each page; an account never confirmed after seven days; a registration's
-name and contact details ninety days after its event. An account removed
-by the Owner goes at once and takes its rows in fifty tables with it; what
-the person wrote for a team stays without their name.
+name and contact details ninety days after its event. An account removed,
+by the Owner or by the person themselves, goes at once and takes its rows
+in forty-three tables with it; what the person wrote for a team stays
+without their name.
 
 **What people are told.** `/privacy`, "What the app keeps about you", open
 without signing in and linked from signing up and signing in (added 26
 November 2026; before that nothing said). It is a plain account of what
-the app does. **Open, Owner:** the church's reasons in law for keeping
-each thing, its postal address, and who to complain to are the church's to
-add, and somebody qualified should read it.
+the app does, and names the Information Commissioner's Office as where a
+complaint goes. Who to ask, the church's postal address and anything it
+wants said in its own words are four boxes in Settings › General (0334,
+`lib/privacyDetails`); the page shows whichever are filled in, as plain
+words. **Open, Owner:** nothing is in those boxes until the church types
+it, the church's reasons in law for keeping each thing are its own to
+state there, and somebody qualified should read the page.
 
 **Rules by country.** The church and its people are in the United
 Kingdom, so UK GDPR and the Data Protection Act 2018 apply, and the data
-is held in the EU, which the UK treats as adequate. **Open:** a person
-cannot yet download what is held about them or remove their own account
-from inside the app; both are done for them by the Owner on request.
+is held in the EU, which the UK treats as adequate. A person can download
+what is held about them and remove their own account, both from Settings ›
+Your account (0334, `lib/myData`). The copy is every table whose rows are
+deleted with the account, found from the database's own foreign keys and
+not from a list, so a table added later is in it the day it is made; the
+keys a browser was given for notifications and four tables of the
+database's own bookkeeping are left out. Removing asks for the account's
+email address to be typed, and the database checks it again and refuses
+the Owner, who must hand the app on first.
 
 ## 4. Threat map
 
 | Where somebody could get in | What they would try | What stands in the way | Tested |
 | --- | --- | --- | --- |
-| The sign-in page | Guessing passwords; signing up as somebody else | Email must be confirmed; eight-character minimum; per-address limits. No lockout, no CAPTCHA (section 1) | Audit, November 2026 |
+| The sign-in page | Guessing passwords; signing up as somebody else | Email must be confirmed; eight-character minimum; per-address limits; a second step for whoever has set one up, enforced in the database. No lockout, no CAPTCHA (section 1) | Audit, November 2026; `lib/secondStep.test.ts` |
 | The public event pages | Flooding registrations; reading other people's tickets; injecting text | No account needed by design. Tickets are reached by an unguessable code; every public function checks its own inputs; text is escaped | Audit, November 2026: 7 confirmed issues fixed (0330), 18 of 21 leads fixed (0331) |
 | Any form, signed in | Sending what the page would not: a row already approved, another team's id | The database re-checks: row rules, triggers, `may()` | Each fix replayed against its attack on a local database before release |
 | File uploads | A huge file, a script dressed as a picture | Size and type limits on the bucket; private buckets; proofs capped at five | Audit, November 2026 |
 | The admin pages | A member opening Settings or People | Pages are gated in the app and, where it matters, in the database; an Admin's rights are rows the Owner can see | View as, each standing |
-| The API itself (Supabase's REST and functions) | Calling a function directly with the public key | 312 functions are callable signed in and 18 signed out; each asks who is calling. The 18 are the public registration functions, two version checks and the error report | Supabase's advisor, reviewed 26 November 2026 |
+| The API itself (Supabase's REST and functions) | Calling a function directly with the public key | 318 functions that run with the database's rights are callable signed in and 19 signed out; each asks who is calling. The 19 are the public registration functions, two version checks, the error report, the request guard itself and what the church says on `/privacy` | Supabase's advisor, reviewed 26 November 2026; counted again after 0334 |
 | The edge functions | Calling them without rights; making them send mail or pushes | Each checks its caller. Three need a signed-in person or the server's own key; the two the public event pages use do only what one registration allows. Push endpoints must be a real push service; mail is throttled | Smoke tests after each deploy |
 | A lost or shared phone | Opening the app already signed in | Signed out after thirty days without use (section 2). Before that, the Owner can remove or block the account | Unit tests |
+| Somebody's own account | Removing it, or copying its data, from a phone left unlocked | The copy holds only that account's rows. Removal needs the account's email address typed, is refused for the Owner, and cannot be done from inside a preview | `lib/myData.test.ts`, replayed on a local database |
 | The people who build it | A poisoned package; a secret committed by mistake | Updates wait a week before they are proposed; `npm audit` weekly and in CI; `.env` ignored; a test reads every file the app is built from for the shape of a key and fails if it finds one (`contentPolicy.test.ts`) | CI, every run |
 
 A full pass was run on 25 November 2026 and closed as *incomplete*: four
@@ -148,7 +174,7 @@ Where the app stood against the five on 26 November 2026:
 | Document | Standing |
 | --- | --- |
 | Security rules | Kept. Open: a lock on the account itself, which needs a paid plan or the Owner's CAPTCHA keys |
-| Sign-in rules | Kept: thirty days without use signs a device out |
-| Data rules | Kept, and now said to people. Open: the church's own wording, and self-service copy and removal |
+| Sign-in rules | Kept: thirty days without use signs a device out, and a second step for whoever sets one up. Owner: whether to require it of anybody |
+| Data rules | Kept, said to people, and in their own hands: a copy and removal from Settings. Open: the church's own wording in the four boxes, and a qualified reading |
 | Threat map | This table, with no row open |
 | Launch checklist | The seven lines above |

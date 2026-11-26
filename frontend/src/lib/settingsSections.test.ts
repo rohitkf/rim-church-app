@@ -41,10 +41,11 @@ describe('Settings rooms that are one permission in the grid', () => {
 })
 
 describe('every room of Settings is a row in the grid (0277)', () => {
-  const mine = ['/settings/profile', '/settings/appearance', '/settings/notifications']
+  // Your account (0334) is the fourth: your own sign-in and your own data.
+  const mine = ['/settings/profile', '/settings/appearance', '/settings/notifications', '/settings/account']
   const rooms = (s: ReturnType<typeof standing>) => visibleGroups(s).flatMap((g) => g.sections.map((x) => x.to))
 
-  it('gives every room but your own three a permission', () => {
+  it('gives every room but your own four a permission', () => {
     for (const section of SETTINGS_SECTIONS) {
       if (mine.includes(section.to)) expect(section.capability, section.to).toBeUndefined()
       else expect(section.capability, section.to).toBeDefined()

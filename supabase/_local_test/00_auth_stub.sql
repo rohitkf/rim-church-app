@@ -28,6 +28,20 @@ alter table auth.users add column if not exists invited_at timestamptz;
 alter table auth.users add column if not exists is_sso_user boolean not null default false;
 alter table auth.users add column if not exists is_anonymous boolean not null default false;
 
+-- What real Supabase keeps about the authenticator apps people have set up
+-- as a second step at sign-in. The request guard reads it (0334): an
+-- account with a verified one is refused until its code has been given.
+create table if not exists auth.mfa_factors (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  friendly_name text,
+  factor_type text not null default 'totp',
+  status text not null default 'unverified',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists mfa_factors_user_id_idx on auth.mfa_factors (user_id);
+
 create or replace function auth.uid() returns uuid
 language sql stable
 as $$ select null::uuid; $$;

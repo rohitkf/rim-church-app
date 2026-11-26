@@ -16,6 +16,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { isSupabaseConfigured } from './lib/supabaseClient'
 import { handleAccountRemoved, isAccountRemoved } from './lib/accountRemoved'
 import { STANDING_KEY, isTurnedAway } from './lib/standing'
+import { SECOND_STEP_KEY, isSecondStepNeeded, noteSecondStepRefusal } from './lib/secondStep'
 import { isDatabaseFault, reportError } from './lib/clientErrors'
 import { DATABASE_VERSION_KEY } from './lib/databaseVersion'
 import { DatabaseGate } from './components/DatabaseGate'
@@ -54,6 +55,16 @@ function askStandingAgain() {
 }
 
 /**
+ * The database wants the code from an authenticator app before it will
+ * answer (0334). Read the account again from the server, and the page
+ * that asks for the code takes over (lib/secondStep, ProtectedRoute).
+ */
+function askSecondStepAgain() {
+  noteSecondStepRefusal()
+  void queryClient.invalidateQueries({ queryKey: SECOND_STEP_KEY })
+}
+
+/**
  * The database said something the app asked for does not exist. That is
  * what a release half out looks like, so ask which migration the database
  * has reached (lib/databaseVersion, 0285): if it is behind this build,
@@ -75,6 +86,9 @@ const queryClient: QueryClient = new QueryClient({
       // account was blocked (0279): ask where this person stands, and the
       // page that says so takes over from there.
       if (isTurnedAway(error)) askStandingAgain()
+      // Refused for want of the code from an authenticator app (0334):
+      // one was set up on another device since this one signed in.
+      if (isSecondStepNeeded(error)) askSecondStepAgain()
       // A read that failed because the app asked for something the
       // database has not got, or could not read the answer, is told to
       // the church (0284). No signal and "not found" are not: the page
@@ -88,6 +102,7 @@ const queryClient: QueryClient = new QueryClient({
   mutationCache: new MutationCache({
     onError: (error) => {
       if (isTurnedAway(error)) askStandingAgain()
+      if (isSecondStepNeeded(error)) askSecondStepAgain()
       // A save the database rightly refused is its job done; one that
       // failed because the two disagree about what exists is reported.
       void reportError('save', error)
@@ -156,6 +171,7 @@ const router = createBrowserRouter(
             <Route path="pages" lazy={page(() => import('./pages/SettingsPage'), 'PagesPane')} />
             <Route path="appearance" lazy={page(() => import('./pages/SettingsPage'), 'AppearanceSettingsPane')} />
             <Route path="notifications" lazy={page(() => import('./pages/SettingsPage'), 'NotificationsSettingsPane')} />
+            <Route path="account" lazy={page(() => import('./pages/SettingsPage'), 'YourAccountPane')} />
             {/* Timings, Data & Retention and Dashboard & Lists were rooms
                 of their own, each a second way to rows Page by Page holds
                 under their pages. Their addresses still land there. */}
