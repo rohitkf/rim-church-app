@@ -1,3 +1,4 @@
+import { usePageTitle } from '../lib/pageTitle'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -164,6 +165,8 @@ export function ServicePlannerPage() {
     queryFn: () => fetchService(serviceId!),
     enabled: !!serviceId,
   })
+  // The browser's tab is named for the service (lib/pageTitle).
+  usePageTitle(serviceQuery.data?.service_type)
   const sessionsQuery = useQuery({
     queryKey: ['service-sessions', serviceId],
     queryFn: () => fetchSessions(serviceId!),
@@ -1008,6 +1011,10 @@ export function ServicePlannerPage() {
           <div className="min-w-0">
             {canEdit ? (
               <>
+                {/* The name is a field here, and a field is not a heading:
+                    the page still has one, for a screen reader and for
+                    anything that lists a page's headings. */}
+                <h1 className="sr-only">{serviceQuery.data?.service_type}</h1>
                 <GrowingField
                   key={serviceQuery.data?.service_type}
                   value={serviceQuery.data?.service_type ?? ''}
@@ -1015,7 +1022,7 @@ export function ServicePlannerPage() {
                   onCommit={(value) => updateService.mutate({ service_type: value })}
                   /* Block, not inline: two inline fields sat on one line and
                      the name ran straight into the date. */
-                  className="max-w-xl rounded-[var(--radius-chip)] border-0 bg-transparent px-2 py-1 -ml-2 text-headline-lg text-on-surface transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none sm:text-headline-xl"
+                  className="max-w-xl rounded-[var(--radius-chip)] border-0 bg-transparent px-2 py-1 -ml-2 text-headline-lg text-on-surface transition-colors duration-200 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)] sm:text-headline-xl"
                 />
                 <div className="mt-1.5">
                   <DateField
@@ -1026,7 +1033,7 @@ export function ServicePlannerPage() {
                       if (!d || d === serviceQuery.data?.date) return
                       updateService.mutate({ date: d })
                     }}
-                    className="inline-flex items-center gap-2 rounded-full border-0 bg-raised-strong px-3 py-1 font-mono text-label-md text-on-surface-variant transition-colors duration-200 ease-[var(--ease-glide)] hover:text-on-surface focus:outline-none"
+                    className="inline-flex items-center gap-2 rounded-full border-0 bg-raised-strong px-3 py-1 font-mono text-label-md text-on-surface-variant transition-colors duration-200 ease-[var(--ease-glide)] hover:text-on-surface focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]"
                   />
                 </div>
               </>
@@ -1748,7 +1755,7 @@ export function ServicePlannerPage() {
                                       patch: { session_name: value },
                                     })
                                   }
-                                  className="rounded-[var(--radius-chip)] bg-transparent px-2 py-1 -ml-2 text-headline-sm text-on-surface transition-shadow duration-200 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none"
+                                  className="rounded-[var(--radius-chip)] bg-transparent px-2 py-1 -ml-2 text-headline-sm text-on-surface transition-shadow duration-200 ease-[var(--ease-glide)] hover:bg-raised focus:bg-raised focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]"
                                 />
                               ) : (
                                 <div className="text-headline-sm">{session.session_name}</div>
@@ -1957,7 +1964,7 @@ export function ServicePlannerPage() {
                                             : `adding a note to ${session.session_name}`,
                                       })
                                     }}
-                                    className="min-w-0 rounded-[var(--radius-chip)] bg-transparent px-2 py-1 -ml-2 text-body-sm text-on-surface transition-shadow sm:flex-1 duration-200 ease-[var(--ease-glide)] placeholder:text-on-surface-faint hover:bg-raised focus:bg-raised focus:outline-none"
+                                    className="min-w-0 rounded-[var(--radius-chip)] bg-transparent px-2 py-1 -ml-2 text-body-sm text-on-surface transition-shadow sm:flex-1 duration-200 ease-[var(--ease-glide)] placeholder:text-on-surface-faint hover:bg-raised focus:bg-raised focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]"
                                   />
                                 ) : (
                                   <p className="min-w-0 text-body-sm text-on-surface [overflow-wrap:anywhere] sm:flex-1 sm:py-1">

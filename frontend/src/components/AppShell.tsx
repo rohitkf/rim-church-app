@@ -122,6 +122,21 @@ export function AppShell() {
       className="flex min-h-[100svh] flex-col bg-background text-on-background"
       style={{ '--wash-hue': washFor(location.pathname) } as React.CSSProperties}
     >
+      {/* The first thing Tab reaches: past the strip and into the page.
+          Somebody on a keyboard or a switch otherwise steps through the
+          search box, the bell and the account menu on every page before
+          anything the page is for. Unseen until it has the focus. */}
+      <a
+        href="#main"
+        onClick={(e) => {
+          // Not a jump to "#main" in the address: the page is the same page.
+          e.preventDefault()
+          document.getElementById('main')?.focus()
+        }}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-[calc(env(safe-area-inset-top)+0.75rem)] focus:z-[200] focus:rounded-full focus:bg-primary focus:px-4 focus:py-2 focus:text-body-sm focus:font-semibold focus:text-on-primary focus:shadow-[var(--shadow-lifted)]"
+      >
+        Skip to the page
+      </a>
       {/*
         The top strip carries only what is true on every page: what you are
         looking for, what wants you, and who you are. Everything that is a
@@ -175,7 +190,9 @@ export function AppShell() {
       </header>
 
       {/* The dock floats over the page, so the page has to end above it. */}
-      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-2 sm:px-6 lg:px-10 lg:pt-4">
+      {/* Focusable only by the skip link above, and drawn with no ring: it
+          is where reading starts, not a control. */}
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-2 outline-none sm:px-6 lg:px-10 lg:pt-4">
         {/* Room for a floating notice ("The app was updated"), so it never sits on the page's title (TopNotice). */}
         <div aria-hidden="true" className="h-[var(--top-notice-h,0px)] transition-[height] duration-300 ease-[var(--ease-glide)]" />
         {/* The church's notices stand above whatever page this is (0278). */}

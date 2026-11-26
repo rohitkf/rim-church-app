@@ -434,6 +434,101 @@ textarea,
 }
 
 /*
+ * And what a finger types into or ticks.
+ *
+ * The square above is for buttons and links. A field is not one of those:
+ * a 36px box to type a debrief line into, a 32px one for the timezone, a
+ * tick box whose label is 20px tall. Both design skills the Owner asked
+ * for this pass (ui-ux-pro-max, taste-skill) hold a field to the same
+ * 44pt as a button, and so does the HIG. On a touch screen a field is at
+ * least that tall, and the label round a tick box or a radio is too, so
+ * the words beside the box are part of what can be pressed. A desktop
+ * keeps the denser rows it had.
+ */
+@layer base {
+  @media (pointer: coarse) {
+    :where(
+        input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='hidden']):not([type='color']),
+        select,
+        textarea
+      ) {
+      min-height: 44px;
+    }
+    :where(label:has(> input[type='checkbox']), label:has(> input[type='radio'])) {
+      min-height: 44px;
+    }
+  }
+}
+
+/*
+ * The pointer says what can be pressed.
+ *
+ * Tailwind 4 leaves a button with the arrow, as the platform's own
+ * controls have it; on the web the hand is how a mouse learns that a row,
+ * a chip or a word is a control before it is clicked. Under :where(), so
+ * a control with a cursor of its own (a drag handle's `grab`) keeps it.
+ */
+@layer base {
+  :where(
+      button:not(:disabled),
+      [role='button']:not([aria-disabled='true']),
+      [role='tab'],
+      [role='switch']:not(:disabled),
+      summary,
+      select:not(:disabled),
+      label:has(input:not(:disabled)),
+      input:is([type='checkbox'], [type='radio'], [type='range'], [type='file']):not(:disabled)
+    ) {
+    cursor: pointer;
+  }
+}
+
+/*
+ * A heading breaks where it balances.
+ *
+ * Paragraphs already avoid a last word alone (`pretty`, above). A title
+ * that runs to two lines on a phone should not be one long line and one
+ * word either. The browser decides; where it cannot, nothing changes.
+ */
+@layer base {
+  :where(h1, h2, h3) {
+    text-wrap: balance;
+  }
+}
+
+/*
+ * Waiting, shown as the shape of what is coming.
+ *
+ * A page that was still reading said "Loading…" in small grey text at the
+ * top of an empty screen, and then everything arrived at once and pushed
+ * it away. Bars the height of a row hold the place instead, so the page
+ * has a shape while it waits and less of it moves when the answer lands
+ * (QueryState). The sweep is slow and faint; with reduced motion asked
+ * for it does not move at all (the rule further down stills every
+ * animation).
+ */
+@keyframes rim-skeleton {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+.skeleton-bar {
+  border-radius: var(--radius-chip);
+  background-color: var(--color-raised);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--color-on-surface) 6%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: rim-skeleton 1.6s linear infinite;
+}
+
+/*
  * Team washes (lib/teamGradient.ts). Each washed element carries its
  * strength for both themes; this picks the one the page is in. The
  * strengths are worked out so the faint text on the row keeps 4.5:1.

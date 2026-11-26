@@ -216,6 +216,7 @@ export function ServiceTemplatesPage() {
                 onChange={(e) =>
                   setDrafts(drafts.map((x, j) => (j === i ? { ...x, session_name: e.target.value } : x)))
                 }
+                aria-label={`Session ${i + 1} name`}
                 placeholder="Worship, Sermon, Announcements…"
                 className="min-w-0 flex-1 rounded-full hairline px-3 py-2 text-body-md text-on-surface focus:border-2 focus:border-secondary focus:outline-none"
               />

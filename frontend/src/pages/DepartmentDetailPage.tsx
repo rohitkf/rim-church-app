@@ -1,3 +1,4 @@
+import { usePageTitle } from '../lib/pageTitle'
 import { type FormEvent, useMemo, useState } from 'react'
 import { DBS_ROWS_KEY, dbsStanding, fetchDbsRows, type DbsRow, type DbsStanding } from '../lib/dbs'
 import { useParams } from 'react-router-dom'
@@ -210,6 +211,8 @@ export function DepartmentDetailPage() {
     queryFn: () => fetchDepartment(id!),
     enabled: !!id,
   })
+  // The browser's tab is named for the team (lib/pageTitle).
+  usePageTitle(deptQuery.data?.name)
 
   const membersQuery = useQuery({
     queryKey: ['department-members', id, seesContacts, seesAges],

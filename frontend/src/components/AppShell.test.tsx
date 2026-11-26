@@ -373,6 +373,20 @@ describe('AppShell dock', () => {
     })
   })
 
+  // Tab's first stop: past the search box, the bell and the account menu,
+  // into what the page is for (both design skills, and WCAG 2.4.1).
+  it('offers a way past the top strip as the first thing Tab reaches', async () => {
+    const user = renderShell()
+    await screen.findByRole('link', { name: 'Dashboard' })
+    await user.tab()
+    const skip = screen.getByRole('link', { name: 'Skip to the page' })
+    expect(skip).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('main')).toHaveFocus()
+    // The same page: nothing was added to the address for it.
+    expect(window.location.hash).toBe('')
+  })
+
   it('asks before signing out, rather than just doing it', async () => {
     const user = renderShell()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

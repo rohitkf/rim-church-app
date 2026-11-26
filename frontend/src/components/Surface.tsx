@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import { defaultNavLabel, useNavNames } from '../lib/navNames'
+import { usePageTitle } from '../lib/pageTitle'
 import { Chevron } from './Collapsible'
 import { createPortal } from 'react-dom'
 import type { ComponentPropsWithoutRef, ComponentType, ElementType, MouseEvent as ReactMouseEvent, ReactNode } from 'react'
@@ -143,6 +144,7 @@ export function PageHeader({
   title,
   description,
   action,
+  tabTitle,
 }: {
   /** The way back to the page this one belongs to: a link, above the title. */
   back?: ReactNode
@@ -159,11 +161,15 @@ export function PageHeader({
   title: string
   description?: ReactNode
   action?: ReactNode
+  /** What the browser's tab says, where the title is not the page's name (the Dashboard's greeting). */
+  tabTitle?: string
 }) {
   // A page the church has renamed (Settings › Menu) wears its new name at
   // its own address — Messages' "Message Board" included. The dashboard
   // keeps its greeting, and a page further in (a team, an item) its own.
   const shown = useChurchPageName(title)
+  // And the browser's tab says the same (lib/pageTitle).
+  usePageTitle(tabTitle ?? shown)
   return (
     // `data-tour`: what the tour points at when a step is about the page itself.
     <header data-tour="page-title" className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 pb-5 sm:pb-7">

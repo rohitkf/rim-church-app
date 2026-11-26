@@ -38,12 +38,17 @@
          point — something that is still on screen if it never does. A blank
          page says nothing; this says what is happening, and after ten
          seconds says that it hasn't. React replaces all of it on mount. -->
+    <!-- The boot line's grey, for each ground it can sit on: one grey
+         cannot clear 4.5:1 on both the light page and the black one. -->
+    <style>
+      #boot { color: #6b7280; }
+      @media (prefers-color-scheme: dark) { #boot { color: #9ca3af; } }
+    </style>
     <div id="root">
       <div id="boot" style="
         display:flex; min-height:100svh; align-items:center; justify-content:center;
         padding:1.5rem; text-align:center;
         font:500 0.875rem/1.5 -apple-system, BlinkMacSystemFont, ui-sans-serif, system-ui, sans-serif;
-        color:#6b7280;
       ">
         <div>
           <div id="boot-msg">Loading&hellip;</div>

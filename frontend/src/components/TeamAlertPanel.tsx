@@ -173,6 +173,7 @@ export function TeamAlertPanel() {
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value.slice(0, MAX))}
+          aria-label="What the alert says"
           placeholder="Sound check moved to 8:30 — please be set up before doors."
           rows={3}
           className={`${inputClasses} min-h-24 resize-y`}

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { usePageTitle } from '../lib/pageTitle'
 
 /**
  * The frame every signed-out screen shares.
@@ -18,6 +19,8 @@ export function AuthCard({
   children: ReactNode
   footer?: ReactNode
 }) {
+  // The tab says which of the signed-out screens this is.
+  usePageTitle(title)
   return (
     <div className="relative flex min-h-[100svh] items-center justify-center overflow-hidden bg-background px-4 py-10">
       {/* Two washes rather than one: the ground has a horizon. */}

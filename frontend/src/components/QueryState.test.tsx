@@ -38,6 +38,12 @@ describe('QueryState', () => {
       </QueryState>,
     )
     expect(screen.getByText('Loading…')).toBeInTheDocument()
+    // The words are for a screen reader; what is seen is the shape of what
+    // is coming, which a screen reader is not read.
+    expect(screen.getByText('Loading…')).toHaveClass('sr-only')
+    const bars = document.querySelectorAll('[data-waiting] .skeleton-bar')
+    expect(bars.length).toBe(3)
+    for (const bar of bars) expect(bar).toHaveAttribute('aria-hidden', 'true')
     expect(screen.queryByText('the list')).toBeNull()
   })
 

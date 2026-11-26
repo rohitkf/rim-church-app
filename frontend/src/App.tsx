@@ -135,6 +135,8 @@ const router = createBrowserRouter(
       {/* The registration pages anybody opens from a link, no account
           needed (0244): the event, and a ticket. Pinned by
           registrationLinks.test.ts — posters and QR codes say these. */}
+      {/* What the app keeps about you: open to anybody, so it can be read before signing up. */}
+      <Route path="/privacy" lazy={page(() => import('./pages/PrivacyPage'), 'PrivacyPage')} />
       <Route path="/register/:slug" lazy={page(() => import('./pages/RegisterPage'), 'RegisterPage')} />
       <Route path="/ticket/:code" lazy={page(() => import('./pages/TicketPage'), 'TicketPage')} />
       <Route element={<ProtectedRoute />}>

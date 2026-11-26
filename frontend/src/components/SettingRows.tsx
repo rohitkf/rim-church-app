@@ -188,7 +188,9 @@ export function Switch({
   label: string
 }) {
   return (
-    <label className="relative inline-flex cursor-pointer items-center">
+    // A switch is 31 tall, as the system's is; the label reaches 44 with
+    // an unseen strip above and below it, so a thumb need not be exact.
+    <label className="relative inline-flex cursor-pointer items-center before:absolute before:inset-x-0 before:-inset-y-[7px] before:content-['']">
       <input
         type="checkbox"
         role="switch"

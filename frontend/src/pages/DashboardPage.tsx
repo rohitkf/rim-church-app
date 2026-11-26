@@ -449,6 +449,7 @@ export function DashboardPage() {
               }`
         }
         title={`${greeting(new Date(clock))}${profile ? `, ${profile.first_name}` : ''}.`}
+        tabTitle="Dashboard"
         description={
           roles.length > 0 ? (
             <span className="flex flex-wrap items-center gap-2">

@@ -114,6 +114,11 @@ export function LoginPage() {
           <Link to="/signup" className="font-medium text-accent-blue-soft">
             Sign up
           </Link>
+          <span className="mt-3 block">
+            <Link to="/privacy" className="font-medium text-accent-blue-soft">
+              What the app keeps about you
+            </Link>
+          </span>
         </>
       }
     >
