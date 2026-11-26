@@ -108,12 +108,13 @@ export function AppShell() {
   // Only what this person may open, under the church's choices (Settings
   // › Access & Privileges) — the same answer PageGate gives at the door.
   const { canOpen } = usePageAccess()
-  // A page reached from inside another (the planner, from the Calendar)
-  // is not a second entry beside it.
-  const items = menuItems(applyNavLayout(navItems, layoutQuery.data ?? null), canOpen)
   // And what the church calls each page, for the page's heading and the
   // search box to say the same as the menu.
   const names = navLabels(layoutQuery.data)
+  // A page reached from inside another (the planner, from the Calendar)
+  // is not a second entry beside it, and pages that are tabs of one
+  // another are one entry, under the name the church has given it.
+  const items = menuItems(applyNavLayout(navItems, layoutQuery.data ?? null), canOpen, names)
 
   return (
     <NavNamesContext.Provider value={names}>
