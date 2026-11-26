@@ -46,6 +46,32 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'a-search-that-finds-things',
+    date: '2026-11-26',
+    title: 'A search that finds things',
+    lead: 'The search box at the top of every page has been rebuilt.',
+    points: [
+      'It finds every page and every room of Settings, from the first letter. Half the menu was missing from it before.',
+      'Type words in any order: “mensah grace” finds Grace Mensah, and “30 nov” finds that Sunday’s service.',
+      'A slip of the thumb still finds it: “calender”, “volnteers”.',
+      'Results are grouped by what they are, best match first, with the letters you typed marked.',
+      'Choosing a person opens that person, a song that song, a piece of kit its entry in the register.',
+      'What you chose last is offered first the next time you open it.',
+    ],
+  },
+  {
+    key: 'find-somebody-on-volunteers',
+    date: '2026-11-26',
+    title: 'Find somebody on the Volunteers page',
+    lead: 'A box at the top of Volunteers, so nobody has to open team after team to find one person.',
+    points: [
+      'Type part of a name, a team, or what they are: “admin”, “pastor”, “no team”.',
+      'Whoever holds contact details can also type an email address or a telephone number.',
+      'Each person is shown once, with everything on their card, best match first.',
+    ],
+    page: '/volunteers',
+  },
+  {
     key: 'your-account-in-your-hands',
     date: '2026-11-26',
     title: 'Your account, in your own hands',

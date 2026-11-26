@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { SongsPage } from './SongsPage'
 
 /*
@@ -53,11 +54,13 @@ const song = (over: Record<string, unknown>) => ({
   ...over,
 })
 
-function show() {
+function show(at = '/songs') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <SongsPage />
+      <MemoryRouter initialEntries={[at]}>
+        <SongsPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
   return userEvent.setup()
@@ -86,6 +89,21 @@ describe('the Songs page', () => {
     await screen.findByRole('listitem', { name: 'Goodness of God' })
     await user.type(screen.getByLabelText('Find a song'), 'love you')
     expect(screen.getByRole('listitem', { name: 'Goodness of God' })).toBeInTheDocument()
+    expect(screen.queryByRole('listitem', { name: 'Raise a Hallelujah' })).toBeNull()
+  })
+
+  it('finds a song through a slip in its title, and by words of it in any order', async () => {
+    const user = show()
+    await screen.findByRole('listitem', { name: 'Goodness of God' })
+    await user.type(screen.getByLabelText('Find a song'), 'halelujah raise')
+    expect(screen.getByRole('listitem', { name: 'Raise a Hallelujah' })).toBeInTheDocument()
+    expect(screen.queryByRole('listitem', { name: 'Goodness of God' })).toBeNull()
+  })
+
+  it('opens on the song named in the address, which is how the search over everything lands here', async () => {
+    show('/songs?q=Goodness%20of%20God')
+    expect(await screen.findByRole('listitem', { name: 'Goodness of God' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Find a song')).toHaveValue('Goodness of God')
     expect(screen.queryByRole('listitem', { name: 'Raise a Hallelujah' })).toBeNull()
   })
 

@@ -125,7 +125,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/',
         target: 'search',
         title: 'Search anything',
-        body: 'A page, a person, a song. On a keyboard, Ctrl K.',
+        body: 'A page, a person, a song, a piece of kit, a line somebody wrote. A few letters will do, in any order, and a slip of the thumb still finds it. Choosing a person opens them; choosing a song opens the song. What you chose last is offered first next time. On a keyboard, Ctrl K.',
       },
       {
         path: '/',
@@ -472,7 +472,7 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         path: '/volunteers',
         target: 'people-invite',
         title: 'Volunteers',
-        body: 'Everybody with an account. Invite people, make somebody a Head or an Admin, and export everything that is known about everybody to a spreadsheet. Block stops an account without removing it, and Unblock puts everything back. Each card says how old the person is, and “Under 18” beside the name where they are. Family on a person’s card links them to their husband or wife, children or parents on the app, with nobody having to confirm, and writes in the ones who are not on the app yet. When a guest joins the app, “Now a member” on the guest list links their account, and where they were also written into a family it offers to link them there in the same step.',
+        body: 'Everybody with an account. The box at the top finds somebody by name, by team, or by what they are (Admin, Pastor, on no team). Invite people, make somebody a Head or an Admin, and export everything that is known about everybody to a spreadsheet. Block stops an account without removing it, and Unblock puts everything back. Each card says how old the person is, and “Under 18” beside the name where they are. Family on a person’s card links them to their husband or wife, children or parents on the app, with nobody having to confirm, and writes in the ones who are not on the app yet. When a guest joins the app, “Now a member” on the guest list links their account, and where they were also written into a family it offers to link them there in the same step.',
       },
       {
         path: '/departments',

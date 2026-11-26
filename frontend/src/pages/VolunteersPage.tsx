@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { supabase } from '../lib/supabaseClient'
@@ -7,6 +7,8 @@ import { fetchBirthDates, fullDate } from '../lib/birthDates'
 import { useAuth } from '../auth/AuthContext'
 import { usePermissions } from '../lib/usePermissions'
 import { QueryState } from '../components/QueryState'
+import { SearchField } from '../components/SearchField'
+import { searchList } from '../lib/searchMatch'
 import { ActionButton, Overlay, PageHeader } from '../components/Surface'
 import { GuestRollCard } from '../components/GuestRollCard'
 import { ExportVolunteersDialog } from '../components/ExportVolunteersDialog'
@@ -259,6 +261,27 @@ export function VolunteersPage() {
   })
 
   // Putting somebody on a team from here, so a Church Member waiting under
+  /*
+   * Finding somebody. The page files everybody under their teams, shut, so
+   * finding one person meant opening team after team until they turned up.
+   * What is typed is kept in the address (`?q=`), so the search over
+   * everything can open this page on a person, and a reload keeps it.
+   */
+  const [params, setParams] = useSearchParams()
+  const typed = params.get('q') ?? ''
+  const setTyped = (next: string) => {
+    const kept = new URLSearchParams(params)
+    if (next) kept.set('q', next)
+    else kept.delete('q')
+    setParams(kept, { replace: true })
+  }
+  // The guest list is at the foot of a long page: a link that names it goes to it.
+  const { hash } = useLocation()
+  const rosterKnown = volunteersQuery.isSuccess
+  useEffect(() => {
+    if (hash === '#guests' && rosterKnown) document.getElementById('guests')?.scrollIntoView?.({ block: 'start' })
+  }, [hash, rosterKnown])
+
   // "Not on a team yet" can be placed without hunting for their email on
   // the team's own page. Once they are on it, Make head appears.
   const [placeIn, setPlaceIn] = useState<Record<string, string>>({})
@@ -394,6 +417,39 @@ export function VolunteersPage() {
   const holdsOverwatch = (v: Volunteer) => grants.some((g) => g.user_id === v.id && g.role_type === 'overwatch')
   const overwatchOnNoTeam = unattached.filter((v) => !holdsAppWideAdmin(v) && holdsOverwatch(v))
   const onNoTeam = unattached.filter((v) => !holdsAppWideAdmin(v) && !holdsOverwatch(v))
+
+  /*
+   * What somebody is found by: their name first; then the teams they are
+   * on and what they are on each; then their standing; and, for whoever
+   * holds contact details (they are only in the data then), an email
+   * address, a telephone number, or who to ring about them.
+   */
+  const searching = typed.trim().length > 0
+  const found = searching
+    ? searchList(typed, volunteers, (v) => {
+        const mine = grants.filter((g) => g.user_id === v.id)
+        const teamIds = new Set([
+          ...memberships.filter((m) => m.user_id === v.id).map((m) => m.department_id),
+          ...mine.map((g) => g.department_id).filter((id): id is string => !!id),
+        ])
+        const teams = [...teamIds].map((id) => `${deptById.get(id)?.name ?? ''} ${designationFor(mine, id)}`).join(' ')
+        const standing = [
+          v.id === ownerId ? 'Owner Admin' : '',
+          mine.some((g) => g.role_type === 'admin') ? 'Admin' : '',
+          mine.some((g) => g.role_type === 'overwatch') ? 'Overwatch' : '',
+          mine.some((g) => g.role_type === 'pastor') ? 'Pastor' : '',
+          blockOf.has(v.id) ? 'Blocked' : '',
+          teamIds.size === 0 ? 'No team' : '',
+        ].join(' ')
+        return [
+          { text: `${v.first_name} ${v.last_name}`, weight: 3 },
+          { text: teams, weight: 1.5 },
+          { text: standing, weight: 1.5 },
+          { text: `${v.email ?? ''} ${v.phone ?? ''}`, weight: 1 },
+          { text: `${v.emergency_contact_name ?? ''} ${v.emergency_contact_phone ?? ''}`, weight: 0.5 },
+        ]
+      })
+    : []
 
   /** One person's card. The signed-in user's own is tinted and pinned at
    *  the top, and appears again under each team they're on. */
@@ -947,6 +1003,30 @@ export function VolunteersPage() {
         isEmpty={volunteersQuery.data?.length === 0}
         emptyMessage="Nobody has signed up yet."
       >
+        <SearchField
+          className="mt-6"
+          value={typed}
+          onChange={setTyped}
+          label="Find somebody"
+          placeholder={seesContacts ? 'Find somebody: name, email, phone or team' : 'Find somebody: name or team'}
+          status={
+            searching
+              ? found.length === 0
+                ? `Nobody matches “${typed.trim()}”. Try fewer letters.`
+                : `${found.length} ${found.length === 1 ? 'person' : 'people'} found`
+              : null
+          }
+        />
+
+        {/* While somebody is being looked for the teams step aside: each
+            person once, best match first, with everything on their card. */}
+        {searching && found.length > 0 && (
+          <ul data-testid="volunteers-found" className="mt-4 flex flex-col gap-4">
+            {found.map((v) => renderCard(v, v.id === me?.id))}
+          </ul>
+        )}
+
+        {!searching && (
         <div className="mt-6 flex flex-col gap-8">
           {me && <ul className="flex flex-col gap-4">{renderCard(me, true)}</ul>}
 
@@ -1067,6 +1147,7 @@ export function VolunteersPage() {
             </section>
           )}
         </div>
+        )}
 
       </QueryState>
 
@@ -1080,7 +1161,7 @@ export function VolunteersPage() {
       {/* The people who help without an account, kept once rather than
           retyped into every service. Here because this is the page about
           who helps — they are simply the ones who have not signed up. */}
-      <div className="mt-8">
+      <div id="guests" className="mt-8 scroll-mt-24">
         <GuestRollCard linksFamilies={linksFamilies} />
       </div>
 
