@@ -6,7 +6,7 @@ import { HEAD_IN_BOX, ON_CARD } from '../lib/stickyHead'
 import { pounds } from '../lib/money'
 import { paymentWordsOf } from '../lib/orderFilters'
 import { wayOf, wayWords } from '../lib/registrationBreakdown'
-import { PAYMENT_TONE, type OrderRow } from '../lib/registrations'
+import { PAYMENT_TONE, saidPaidUnconfirmed, type OrderRow } from '../lib/registrations'
 import type { OrderSort, SortKey } from '../lib/orderSort'
 
 /** The one thing a row is waiting for, as the card would offer it first. */
@@ -144,6 +144,8 @@ export function OrderTable({
                     <td className={`${CELL} whitespace-nowrap`}>
                       <span className="flex items-center gap-1">
                         {!live ? <Pill tone="red">Cancelled</Pill> : <Pill tone={PAYMENT_TONE[order.payment_status]}>{paymentWordsOf(order)}</Pill>}
+                        {/* Cancelled after "I have paid" (0336): no refund is owed until somebody finds the money. */}
+                        {!live && saidPaidUnconfirmed(order) && <Pill tone="orange">Said they paid</Pill>}
                         {/* How many days, where it was more than one (0314): the days themselves are on the card. */}
                         {live && everCheckedIn(order) && <Pill tone="green">{checkInsOf(order).length > 1 ? `Checked in · ${checkInsOf(order).length} days` : 'Checked in'}</Pill>}
                       </span>

@@ -631,7 +631,13 @@ function Ticket({ order, onEmailAsked }: { order: OrderView; onEmailAsked: () =>
             onClick={() =>
               ask({
                 title: 'Cancel your registration?',
-                body: 'Your tickets go back on sale. If you have paid, your refund is arranged from this page once the church has found your payment: it will say how the money comes back.',
+                // By where the money stands (0336): the church has it, was told of it, or was never sent any.
+                body:
+                  order.total_pence > 0 && order.payment_status === 'received'
+                    ? 'Your tickets go back on sale. This page will then say how your money comes back.'
+                    : order.total_pence > 0 && order.payment_status === 'reported'
+                      ? 'Your tickets go back on sale. You told us you had paid: once the church has found your payment, this page will say how the money comes back.'
+                      : 'Your tickets go back on sale.',
                 confirmLabel: 'Cancel it',
                 cancelLabel: 'Keep it',
                 onConfirm: () => cancel.mutate(),

@@ -36,11 +36,11 @@
 import { matchScore, tokensOf } from './searchMatch'
 import { emailWantsDoing } from './emailDelivery'
 import { WAYS, paymentOf, wayOf, wayWords, type PaymentPlace, type Way } from './registrationBreakdown'
-import { sharesAnEmail, wantsVerifying, type OrderRow } from './registrations'
+import { saidPaidUnconfirmed, sharesAnEmail, wantsVerifying, type OrderRow } from './registrations'
 
 export type PaymentFilter = 'all' | PaymentPlace
 export type WayFilter = 'any' | Way
-export type OnlyFilter = 'to_verify' | 'checked_in' | 'cancelled' | 'refunds' | 'email' | 'duplicates'
+export type OnlyFilter = 'to_verify' | 'to_find' | 'checked_in' | 'cancelled' | 'refunds' | 'email' | 'duplicates'
 
 export interface OrderFilters {
   payment: PaymentFilter
@@ -74,6 +74,8 @@ export const paymentWordsOf = (o: Parameters<typeof paymentOf>[0]): string => PA
 /** `kind` is the heading it sits under in the Status list: something to do about it, or whether they came. */
 export const ONLY_FILTERS: { key: OnlyFilter; label: string; kind: 'todo' | 'came' }[] = [
   { key: 'to_verify', label: 'Payment to verify', kind: 'todo' },
+  // Cancelled after "I have paid" (0336): no refund is owed until somebody finds the money.
+  { key: 'to_find', label: 'Payment to look for', kind: 'todo' },
   { key: 'refunds', label: 'Refunds', kind: 'todo' },
   { key: 'email', label: 'Email not delivered', kind: 'todo' },
   { key: 'duplicates', label: 'Same email twice', kind: 'todo' },
@@ -123,6 +125,8 @@ export function orderFits(o: OrderRow, filters: OrderFilters, duplicates: Readon
       return true
     case 'to_verify':
       return wantsVerifying(o)
+    case 'to_find':
+      return o.status === 'cancelled' && saidPaidUnconfirmed(o)
     case 'checked_in':
       return live && !!o.checked_in_at
     case 'cancelled':

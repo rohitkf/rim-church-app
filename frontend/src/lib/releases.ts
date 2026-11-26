@@ -52,7 +52,7 @@ export const RELEASES: Release[] = [
     lead: 'Somebody who pressed “I have paid” and then cancelled used to be listed as owed a refund, whether or not anything had reached the account.',
     points: [
       'A cancelled registration is owed a refund only where the church took the payment or verified it.',
-      'If they said they had paid and it is in the account: open the registration and choose “The payment did arrive” (or Verify payment). The refund is owed from then.',
+      'Somebody who said they had paid and then cancelled is tagged “Said they paid”, and counted under the tiles as a payment to look for. If it is in the account, press “The payment did arrive” on their card: the refund is owed from then.',
       'Their ticket page tells them the church is looking for the payment, and asks for bank details only once it is found.',
     ],
     link: { to: '/registrations', label: 'Open Registrations' },

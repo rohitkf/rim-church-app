@@ -558,6 +558,20 @@ describe('the ticket page', () => {
     await waitFor(() => expect(state.cancelled).toBe(1))
   })
 
+  it.each([
+    ['nothing was sent', { payment_status: 'awaiting' as const }, /^Your tickets go back on sale\.$/],
+    ['they said they had paid', { payment_status: 'reported' as const, payment_method: 'bank' as const }, /You told us you had paid: once the church has found your payment, this page will say how the money comes back\./],
+    ['the church has the money', { payment_status: 'received' as const, payment_method: 'bank' as const }, /^Your tickets go back on sale\. This page will then say how your money comes back\.$/],
+  ])('says what cancelling means for the money when %s (0336)', async (_when, over, words) => {
+    state.order = order(over)
+    const user = show()
+    await user.click(await screen.findByRole('button', { name: 'Cancel my registration' }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Cancel your registration?' })
+    expect(within(dialog).getByText(words)).toBeInTheDocument()
+    // A promise of a refund is made to nobody who has not been found to have paid.
+    if (over.payment_status !== 'received') expect(dialog).not.toHaveTextContent(/your refund/i)
+  })
+
   it('shows a cancelled ticket without its QR code', async () => {
     state.order = order({ status: 'cancelled', can_cancel: false })
     show()

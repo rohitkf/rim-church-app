@@ -1645,6 +1645,17 @@ export function canBeVerified(o: Pick<OrderRow, 'status' | 'total_pence' | 'paym
   return o.status === 'confirmed' && o.total_pence > 0 && o.payment_status !== 'waived' && o.payment_status !== 'not_needed'
 }
 
+/**
+ * Said to be paid by the attendee, and by nobody else: no refund is owed
+ * on it (0336), and nothing has been found in the account. On a
+ * registration that is not going ahead — cancelled, or at a cancelled
+ * event — this is a payment somebody has to go and look for, because the
+ * attendee's refund waits on it.
+ */
+export function saidPaidUnconfirmed(o: Pick<OrderRow, 'total_pence' | 'payment_status' | 'payment_verified_at' | 'refund_status'>): boolean {
+  return o.payment_status === 'reported' && o.total_pence > 0 && !o.refund_status && !o.payment_verified_at
+}
+
 /** Said to be paid — by them or by the office — and not yet verified against the accounts. */
 export function wantsVerifying(o: Pick<OrderRow, 'status' | 'total_pence' | 'payment_status' | 'payment_verified_at'>): boolean {
   return canBeVerified(o) && !o.payment_verified_at && (o.payment_status === 'reported' || o.payment_status === 'received')
