@@ -64,9 +64,9 @@ const dock = () => screen.getByRole('navigation', { name: 'Main' })
 describe('AppShell dock', () => {
   it('offers every destination on one bar', async () => {
     renderShell()
-    // Messages is one of the teams' own pages, so it arrives with the
-    // answer to "is this person on a team" rather than on first paint.
-    expect(await screen.findByRole('link', { name: 'Messages' })).toBeInTheDocument()
+    // Chat holds the teams' own pages, so it arrives with the answer to
+    // "is this person on a team" rather than on first paint.
+    expect(await screen.findByRole('link', { name: 'Chat' })).toBeInTheDocument()
     for (const label of ['Dashboard', 'Calendar', 'Availability', 'Team Rota', 'Checklists', 'Teams']) {
       expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
     }
@@ -81,6 +81,7 @@ describe('AppShell dock', () => {
     await waitFor(() => {
       for (const label of [
         'Inventory',
+        'Chat',
         'Messages',
         'Team Chat',
         'Checklists',
@@ -105,10 +106,10 @@ describe('AppShell dock', () => {
 
   it('moves the label when you navigate', async () => {
     const user = renderShell()
-    await user.click(await screen.findByRole('link', { name: 'Messages' }))
+    await user.click(await screen.findByRole('link', { name: 'Chat' }))
 
     expect(await screen.findByText('messages page')).toBeInTheDocument()
-    expect(dock()).toHaveTextContent('Messages')
+    expect(dock()).toHaveTextContent('Chat')
     expect(dock()).not.toHaveTextContent('Dashboard')
   })
 
@@ -135,7 +136,7 @@ describe('AppShell dock', () => {
 
   it('puts every destination behind More, for the phone bar that cannot hold them', async () => {
     const user = renderShell()
-    await screen.findByRole('link', { name: 'Messages' })
+    await screen.findByRole('link', { name: 'Chat' })
     await user.click(screen.getByRole('button', { name: 'More' }))
 
     const sheet = screen.getByRole('dialog', { name: 'All destinations' })
@@ -146,7 +147,7 @@ describe('AppShell dock', () => {
 
   it('groups the More sheet under headings, each page under the one it belongs to', async () => {
     const user = renderShell()
-    await screen.findByRole('link', { name: 'Messages' })
+    await screen.findByRole('link', { name: 'Chat' })
     await user.click(screen.getByRole('button', { name: 'More' }))
 
     const sheet = screen.getByRole('dialog', { name: 'All destinations' })
@@ -156,20 +157,20 @@ describe('AppShell dock', () => {
         .map((l) => l.textContent)
     expect(within(sheet).getAllByRole('heading').map((h) => h.textContent)).toEqual([
       'Serving',
-      'Service Planning',
-      'After the Service',
+      'Services',
       'Communications',
       'Church Life',
       'People & Teams',
     ])
-    expect(under('After the Service')).toEqual(['Debriefs', 'Issues'])
     expect(under('Serving')).toEqual(['Availability', 'Team Rota', 'Checklists'])
-    expect(under('Service Planning')).toContain('Set Lists')
+    // Songs is a tab of Set Lists, and Debriefs and Issues are one entry.
+    expect(under('Services')).toEqual(['Set Lists', 'Stage Layout', 'Countdown', 'After the Service'])
+    expect(under('Communications')).toEqual(['Church Updates', 'Chat', 'Polls', 'Feedback'])
   })
 
   it('keeps wherever you are on the bar itself, so the dock still says where you are', async () => {
     // The bar shows a fixed number of destinations on a phone and hides
-    // the rest with `hidden`. Messages is well past that cut, so this is
+    // the rest with `hidden`. Chat is well past that cut, so this is
     // the case that would otherwise leave the phone dock unlabelled.
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
     onTestFinished(() => {
@@ -186,7 +187,7 @@ describe('AppShell dock', () => {
       </MemoryRouter>
       </QueryClientProvider>,
     )
-    expect(await screen.findByRole('link', { name: 'Messages' })).not.toHaveClass('hidden')
+    expect(await screen.findByRole('link', { name: 'Chat' })).not.toHaveClass('hidden')
     expect(screen.getByRole('link', { name: 'Availability' })).toHaveClass('hidden')
   })
 
@@ -237,11 +238,12 @@ describe('AppShell dock', () => {
     })
 
     it('keeps a neighbour on each side, wherever you are', async () => {
-      await standOn('/messages', 'Messages')
-      // What the church is saying comes first under Communications, then the teams.
+      await standOn('/messages', 'Chat')
+      // What the church is saying comes first under Communications, then
+      // the teams' chat, then what the church is asking.
       expect(onBar('Church Updates')).toBe(true)
-      expect(onBar('Messages')).toBe(true)
-      expect(onBar('Team Chat')).toBe(true)
+      expect(onBar('Chat')).toBe(true)
+      expect(onBar('Polls')).toBe(true)
     })
 
     it('stops at the beginning rather than wrapping', async () => {
@@ -278,7 +280,7 @@ describe('AppShell dock', () => {
     // Answer, get put on, tick it off, then the songs. The order is the
     // path the dock walks along, so it is worth pinning.
     renderShell()
-    await screen.findByRole('link', { name: 'Messages' })
+    await screen.findByRole('link', { name: 'Chat' })
     const dock = screen.getByRole('navigation', { name: 'Main' })
     const labels = within(dock)
       .getAllByRole('link')
@@ -294,15 +296,15 @@ describe('AppShell dock', () => {
       'Availability',
       'Team Rota',
       'Checklists',
+      // Songs is a tab of Set Lists.
       'Set Lists',
-      'Songs',
       'Stage Layout',
       'Countdown',
-      'Debriefs',
-      'Issues',
+      // Debriefs and Issues.
+      'After the Service',
       'Church Updates',
-      'Messages',
-      'Team Chat',
+      // The Message Board and Team Chat.
+      'Chat',
       'Polls',
       'Feedback',
       'Prayer Requests',
@@ -310,6 +312,65 @@ describe('AppShell dock', () => {
       'Teams',
       'Inventory',
     ])
+  })
+
+  /*
+   * Pages that are one entry in the menu, with tabs between them (the
+   * Owner, November 2026). The strip is the shell's, so no page draws it.
+   */
+  describe('pages that are one entry', () => {
+    const openOn = (path: string) =>
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <MemoryRouter initialEntries={[path]}>
+            <Routes>
+              <Route element={<AppShell />}>
+                <Route path="/" element={<div>dashboard page</div>} />
+                <Route path="/messages" element={<div>messages page</div>} />
+                <Route path="/team-chat" element={<div>team chat page</div>} />
+                <Route path="/rota" element={<div>rota page</div>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+
+    it('have a strip of tabs across the top, the one you are on marked', async () => {
+      openOn('/team-chat')
+      const tabs = await screen.findByRole('navigation', { name: 'Chat' })
+      expect(within(tabs).getAllByRole('link').map((l) => l.textContent)).toEqual(['Messages', 'Team Chat'])
+      expect(within(tabs).getByRole('link', { name: 'Team Chat' })).toHaveAttribute('aria-current', 'page')
+      expect(within(tabs).getByRole('link', { name: 'Messages' })).not.toHaveAttribute('aria-current')
+    })
+
+    it('move between them with the tabs, the menu staying on the one entry', async () => {
+      const user = userEvent.setup()
+      openOn('/messages')
+      await user.click(within(await screen.findByRole('navigation', { name: 'Chat' })).getByRole('link', { name: 'Team Chat' }))
+      expect(await screen.findByText('team chat page')).toBeInTheDocument()
+      const lit = dock().querySelectorAll('[data-dock-active="true"]')
+      expect(lit).toHaveLength(1)
+      expect(lit[0]).toHaveAttribute('href', '/messages')
+      expect(dock()).toHaveTextContent('Chat')
+    })
+
+    it('have no strip where there is nothing to switch between', async () => {
+      openOn('/rota')
+      expect(await screen.findByText('rota page')).toBeInTheDocument()
+      await screen.findByRole('link', { name: 'Chat' })
+      expect(screen.queryByRole('navigation', { name: 'Chat' })).toBeNull()
+    })
+
+    it('have no strip for somebody who may open only one of them', async () => {
+      // On no team: the teams' chat is closed, so nothing here is a pair.
+      myTeams.mockReturnValue([])
+      onTestFinished(() => {
+        myTeams.mockReturnValue(['media'])
+      })
+      openOn('/')
+      expect(await screen.findByRole('link', { name: 'Church Updates' })).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'Chat' })).toBeNull()
+    })
   })
 
   it('asks before signing out, rather than just doing it', async () => {

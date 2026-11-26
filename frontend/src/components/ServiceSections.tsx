@@ -1,9 +1,11 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { FinishedServices } from './FinishedServices'
 import type { SectionedServices } from '../lib/serviceSections'
 import { useAppSettings, useDisplay } from '../lib/appSettings'
 import { serviceGoneAt, untilText } from '../lib/expiry'
 import { useNow } from '../lib/useNow'
+import { SERVICE_PARAM, serviceAnchor } from '../lib/serviceLinks'
 
 /**
  * The four sections, drawn the same way on every page that lists
@@ -17,6 +19,13 @@ import { useNow } from '../lib/useNow'
  * nothing can be written about a service that has not happened. An empty
  * section is left out rather than shown with nothing under it, except
  * that a page with nothing current says so once (`empty`).
+ *
+ * A page asked for one service by its address (`?service=<id>`, a link
+ * from that service's running order) arrives with whichever folded
+ * section holds it open, and scrolled to its card where the page has
+ * given the card an anchor (lib/serviceLinks). A service the page does
+ * not list is said, not left as a page that seems to have ignored the
+ * link.
  */
 export function ServiceSections<T>({
   sections,
@@ -44,8 +53,29 @@ export function ServiceSections<T>({
   const { lists } = useDisplay()
   const keepDays = useAppSettings().service_retention_days
   const now = useNow(60_000)
-  const startOpen = finishedOpen || lists.finishedOpen
-  const upcomingStartsOpen = upcomingOpen || lists.upcomingOpen
+  const [params] = useSearchParams()
+  const focusId = params.get(SERVICE_PARAM)
+  const holds = (list: T[]) => !!focusId && list.some((s) => (s as { id?: unknown }).id === focusId)
+  const focusListed = [sections.today, sections.next, sections.upcoming, sections.finished].some(holds)
+  const startOpen = finishedOpen || lists.finishedOpen || holds(sections.finished)
+  const upcomingStartsOpen = upcomingOpen || lists.upcomingOpen || holds(sections.upcoming)
+
+  // Scroll to the service asked for, once, a beat after the page has
+  // drawn: the smaller reads land just after and nudge the card. A page
+  // that was also asked for a team inside it (Availability) scrolls there
+  // itself.
+  const scrolled = useRef(false)
+  const alsoATeam = params.has('team')
+  useEffect(() => {
+    if (scrolled.current || !focusId || !focusListed || alsoATeam) return
+    scrolled.current = true
+    const timer = window.setTimeout(() => {
+      const card = document.getElementById(serviceAnchor(focusId))
+      // Guarded: jsdom has no scrollIntoView.
+      if (card && typeof card.scrollIntoView === 'function') card.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [focusId, focusListed, alsoATeam])
   // Every finished service is deleted on the church's clock (0128); say
   // when the oldest one here goes, so the countdown is on every page that
   // lists them.
@@ -62,6 +92,11 @@ export function ServiceSections<T>({
 
   return (
     <div className="mt-6 flex flex-col gap-8">
+      {focusId && !focusListed && (
+        <p role="status" className="rounded-[var(--radius-chip)] bg-raised px-4 py-3 text-body-sm text-on-surface-variant hairline">
+          The service you came from is not on this page: it is further ahead, or longer ago, than this page lists.
+        </p>
+      )}
       {sections.today.length > 0 && (
         <Section label="Today’s services">{render(sections.today, false)}</Section>
       )}

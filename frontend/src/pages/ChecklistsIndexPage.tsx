@@ -34,6 +34,7 @@ import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
 import { sectionServices } from '../lib/serviceSections'
 import { ServiceSections } from '../components/ServiceSections'
 import { Chevron, useExpanded } from '../components/Collapsible'
+import { serviceAnchor, useServiceFocus } from '../lib/serviceLinks'
 import { PHASES, byPhase } from '../lib/checklistPhase'
 import { carriesPhase, countsTowardReadiness } from '../lib/readiness'
 import { teamWashSoft } from '../lib/teamGradient'
@@ -338,6 +339,8 @@ export function ChecklistsIndexPage() {
   // Nothing in a finished service can be ticked or chased, so it folds
   // away and opens on a touch when somebody wants the record.
   const { isExpanded, toggle: toggleService } = useExpanded()
+  // The service a link from its running order asked for (lib/serviceLinks): it arrives open.
+  const focusId = useServiceFocus()
   // And each role's checklist inside a service.
   const { isExpanded: isRoleToggled, toggle: toggleRole } = useExpanded()
   // In the order they happen — by date, then by start time — which is the
@@ -412,7 +415,7 @@ export function ChecklistsIndexPage() {
                   // before anything starts, so it cannot wait for the start.
                   // Another day's, or a finished one, arrives folded, and a
                   // touch opens it.
-                  const open = (!finished && service.date === today) !== isExpanded(service.id)
+                  const open = ((!finished && service.date === today) || service.id === focusId) !== isExpanded(service.id)
                   const heading = (
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       {/* The date is the day's heading above. */}
@@ -430,7 +433,7 @@ export function ChecklistsIndexPage() {
                   )
 
                   return (
-                    <section key={service.id}>
+                    <section key={service.id} id={serviceAnchor(service.id)}>
                       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
                         <button
                           type="button"

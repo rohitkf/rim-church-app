@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { SetListsPage } from './SetListsPage'
 import { chooseOption } from '../test/select'
 
@@ -102,11 +103,15 @@ const leaderOnRota = {
   department: null,
 }
 
-function show() {
+// The page reads its address: a link from a service's running order
+// (`?service=<id>`) opens on that service.
+function show(at = '/set-lists') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <SetListsPage />
+      <MemoryRouter initialEntries={[at]}>
+        <SetListsPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
   return userEvent.setup()
@@ -247,6 +252,26 @@ describe('set lists, three weeks at a time', () => {
     expect(within(upcoming).getByText('Three weeks out')).toBeInTheDocument()
     expect(screen.queryByText('Too far ahead')).toBeNull()
     expect(screen.getByRole('button', { name: /Finished services/ })).toBeInTheDocument()
+  })
+
+  // A link from a service's running order (lib/serviceLinks) lands on that
+  // service, not on a list to find it in again.
+  it('opens on the service the address asks for, finished and folded away or not', async () => {
+    show('/set-lists?service=past')
+    await screen.findByRole('region', { name: 'Next service' })
+    // Finished is folded and a finished list is shut, unless it was asked for.
+    expect(screen.getByRole('button', { name: /Finished services/ })).toHaveAttribute('aria-expanded', 'true')
+    const card = document.getElementById('service-past')
+    expect(card).not.toBeNull()
+    expect(within(card as HTMLElement).getByRole('button', { name: /Last Sunday/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('keeps a finished list shut when nobody asked for it, and says when the one asked for is not listed', async () => {
+    show('/set-lists?service=far')
+    await screen.findByRole('region', { name: 'Next service' })
+    expect(screen.getByRole('button', { name: /Finished services/ })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('status')).toHaveTextContent('The service you came from is not on this page')
   })
 
   // A Sunday's two lists sit under one date heading, not the date twice.

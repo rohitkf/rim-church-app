@@ -46,9 +46,12 @@ export function Tile({
   interactive = false,
   padded = true,
   as: Tag = 'div',
+  id,
 }: {
   children: ReactNode
   className?: string
+  /** An anchor, for a page that can be asked to open on this tile (lib/serviceLinks). */
+  id?: string
   tone?: TileTone
   interactive?: boolean
   /** Off when the tile holds its own header/body structure. */
@@ -57,6 +60,7 @@ export function Tile({
 }) {
   return (
     <Tag
+      id={id}
       className={`group/tile rounded-[var(--radius-tile)] ${TILE_TONES[tone]} ${
         padded ? 'p-6 sm:p-7' : ''
       } transition-[transform,box-shadow] duration-300 ease-[var(--ease-glide)] ${

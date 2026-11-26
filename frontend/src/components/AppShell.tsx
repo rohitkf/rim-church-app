@@ -20,6 +20,7 @@ import { AppNoticeBanner } from './AppNoticeBanner'
 import { AppIdentityNotice } from './AppIdentityNotice'
 import { DockNav } from './DockNav'
 import { NAV_ITEMS as navItems, menuItems } from '../lib/navItems'
+import { PageTabs } from './PageTabs'
 import { usePageAccess } from '../lib/usePageAccess'
 import { NAV_LAYOUT_KEY, applyNavLayout, fetchNavLayout, navLabels } from '../lib/navLayout'
 import { NavNamesContext } from '../lib/navNames'
@@ -180,6 +181,8 @@ export function AppShell() {
         <AppNoticeBanner />
         {/* A new logo or name, said once on a device that already has the app (lib/installedIdentity). */}
         <AppIdentityNotice />
+        {/* Pages that are one entry in the menu, as tabs (lib/navItems). */}
+        <PageTabs />
         <Outlet />
       </main>
 

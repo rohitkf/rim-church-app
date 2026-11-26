@@ -34,6 +34,7 @@ import {
   opensByDefault,
 } from '../lib/availabilityWindow'
 import { Chevron, useExpanded } from '../components/Collapsible'
+import { serviceAnchor } from '../lib/serviceLinks'
 import { REMINDERS_KEY, withoutAnswered, type OpenRequest } from '../lib/reminders'
 import {
   AVAILABILITY_SERVICE_PARAM,
@@ -785,6 +786,7 @@ export function AvailabilityPage() {
     return (
     <section
       key={service.id}
+      id={serviceAnchor(service.id)}
       className={`rounded-[var(--radius-card)] bg-surface-lowest hairline p-6 ${
         finished ? 'opacity-70' : ''
       }`}

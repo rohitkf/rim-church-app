@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthContext'
 import { QueryState } from '../components/QueryState'
 import { Chevron, useExpanded } from '../components/Collapsible'
+import { serviceAnchor, useServiceFocus } from '../lib/serviceLinks'
 import { ActionButton, Eyebrow, LiveDot, Overlay, PageHeader, Tile } from '../components/Surface'
 import { CheckIcon, CloseIcon, PinIcon } from '../components/icons'
 import { Link } from 'react-router-dom'
@@ -123,6 +124,8 @@ export function TeamRotaPage() {
   // Finished services fold away: they are a record, not a question, and a
   // page that opens on last Sunday's rota buries next Sunday's.
   const { isExpanded, toggle: toggleService } = useExpanded()
+  // The service a link from its running order asked for (lib/serviceLinks): it arrives open.
+  const focusId = useServiceFocus()
   // And each team inside a service, folded the same way.
   const { isExpanded: isTeamToggled, toggle: toggleTeam } = useExpanded()
 
@@ -531,7 +534,7 @@ export function TeamRotaPage() {
               // come, or over, arrives folded with its header saying how it
               // stands (and what you are on), and a touch opens it. Touching
               // the one on now folds it.
-              const open = live !== isExpanded(service.id)
+              const open = (live || service.id === focusId) !== isExpanded(service.id)
               const myRoles = serviceAssignments.filter((a) => a.user_id === myId).map((a) => a.role_label)
               const heading = (
                 /*
@@ -584,6 +587,7 @@ export function TeamRotaPage() {
               return (
                 <Tile
                   key={service.id}
+                  id={serviceAnchor(service.id)}
                   as="section"
                   padded={false}
                   tone={live ? 'accent' : 'plain'}

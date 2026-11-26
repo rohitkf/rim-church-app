@@ -288,9 +288,13 @@ export function NavLayoutCard() {
                     {/* A page reached from inside another is not a second entry beside it (lib/navItems). */}
                     {host && (
                       <span className="break-words text-label-sm text-on-surface-faint">
-                        Opens from {nameOf(host)}. In the menu only for somebody {nameOf(host)} is closed to.
+                        {item?.tab
+                          ? `A tab of ${nameOf(host)}. In the menu on its own only for somebody ${nameOf(host)} is closed to.`
+                          : `Opens from ${nameOf(host)}. In the menu only for somebody ${nameOf(host)} is closed to.`}
                       </span>
                     )}
+                    {/* And the page that holds tabs says what the menu calls the two together. */}
+                    {item?.family && <span className="break-words text-label-sm text-on-surface-faint">In the menu as {item.family}, with its tabs.</span>}
                     {/* On a phone the row has no room for the name and who-may-open side by side. */}
                     {level !== 'everyone' && (
                       <span className="font-mono text-label-sm text-on-surface-faint sm:hidden">{levelShort(level)}</span>
