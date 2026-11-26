@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'the-menu-has-six-named-groups',
+    date: '2026-11-26',
+    title: 'The menu is in six named groups',
+    lead: 'Every page now sits under the heading it belongs to. Press More to see them all.',
+    points: [
+      'Dashboard and Calendar stay at the top, above the headings.',
+      'Serving: Availability, Team Rota, Checklists and Clock In. Service Planning: Set Lists, Songs, Stage Layout and Countdown.',
+      'After the Service: Debriefs and Issues. Communications: Church Updates, the chats, Polls and Feedback.',
+      'Church Life: Prayer Requests, Giving, Registrations and Reception. People & Teams: Teams, Volunteers, Families, DBS Checks and Inventory.',
+      'You only see the pages that are open to you. An Admin can still rearrange and rename any of it in Settings › Menu.',
+    ],
+  },
+  {
     key: 'services-are-planned-from-the-calendar',
     date: '2026-11-26',
     title: 'Services are planned from the Calendar',

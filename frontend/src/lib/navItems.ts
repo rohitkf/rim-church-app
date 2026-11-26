@@ -59,26 +59,30 @@ export function menuItems<T extends NavItem>(items: T[], canOpen: (path: string)
 }
 
 /*
- * The destinations, in the order a Sunday actually happens.
+ * The destinations, under six headings that each say one thing.
  *
- * They used to be in the order they were built, which is nobody's order:
- * Checklists before Availability, though you answer weeks before you tick
- * anything; Set Lists three places from the Service Planner it belongs
- * to; Team Chat at the far end from Messages.
+ * They used to be in the order they were built, which is nobody's order,
+ * and then under headings that had grown by accretion: "Sunday" held ten
+ * pages, from saying whether you can serve to the stage plan, and a page
+ * added later landed wherever its default heading happened to be. The
+ * Owner asked for groups with proper names and every page under the one
+ * it belongs to (November 2026). So, in order:
  *
- * Four runs, and the reason for each:
+ *   Above the headings: the Dashboard, then the Calendar, where the
+ *     services are and the running order it is all pointing at.
+ *   Serving: your own part, in the order it reaches you. Say whether you
+ *     can serve, see who was put on, tick what is yours, and who arrived.
+ *   Service Planning: what a service is made of. Its songs, where
+ *     everything stands, and its clock.
+ *   After the Service: what was said about it and what needs putting right.
+ *   Communications: what the church is saying, then the teams, then the
+ *     questions put to people, and last what people say about the app.
+ *   Church Life: praying, giving, and the events people sign up for.
+ *   People & Teams: the teams, the people who fill them, and what they keep.
  *
- *   1. Where am I, and what is the morning: the dashboard, then the
- *      Calendar, where the services are and the running order it is all
- *      pointing at. It is second because it is the thing most often
- *      opened on purpose: the shape of the service is what everything
- *      else hangs off.
- *   2. Your Sunday, in the order it reaches you: say whether you can serve,
- *      see who was put on, tick what you have done on the day — and the
- *      songs, which the worship team reaches for last of those.
- *   3. Talking about it.
- *   4. The reference pages you visit rarely and on purpose — the diary,
- *      the teams, the people, the cupboard.
+ * The names are the ones the church's own saved menu uses too, so a page
+ * added to the app later lands under the same heading in both
+ * (lib/navLayout's applyNavLayout places an unknown page by this name).
  *
  * The dock's phone window slides along this list (lib/dockWindow), so the
  * order is not only a menu but the path along it: from Availability the
@@ -88,68 +92,72 @@ export function menuItems<T extends NavItem>(items: T[], canOpen: (path: string)
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: GridIcon },
   // The services are planned from the Calendar (November 2026), which
-  // has taken the planner's place as the second thing in the menu. The
-  // planner's own entry is kept for somebody the Calendar is closed to.
+  // has taken the planner's place as the second thing in the menu.
   // Called Calendar since November 2026: it holds services, birthdays and
   // anniversaries as well, and "Events" was one of the five things on it.
   { to: '/events', label: 'Calendar', icon: CalendarIcon },
-  { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon, group: 'Sunday', within: '/events' },
 
-  // Your Sunday, in the order it happens to you, ending with the songs:
-  // say whether you can serve, see who was put on, tick off what is yours
-  // on the day. Three pages, each in the menu under its own name. For a
-  // month they were one "Serving" entry with a tab each; the church asked
-  // for them back as pages of their own (November 2026), and lib/navLayout's
-  // MOVED puts a menu saved in between right.
-  { to: '/availability', label: 'Availability', icon: HandIcon, group: 'Sunday' },
-  { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, group: 'Sunday' },
-  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, group: 'Sunday' },
-  { to: '/set-lists', label: 'Set Lists', icon: MusicIcon, group: 'Sunday' },
-  // Every song the church sings, kept for good (0241, 0243): where the
-  // set list's song box finds them.
-  { to: '/songs', label: 'Songs', icon: ListIcon, group: 'Sunday' },
+  // Your own part, in the order it happens to you: say whether you can
+  // serve, see who was put on, tick off what is yours on the day. Three
+  // pages, each in the menu under its own name. For a month they were one
+  // "Serving" entry with a tab each; the church asked for them back as
+  // pages of their own (November 2026), and lib/navLayout's MOVED puts a
+  // menu saved in between right. The heading has the name the entry had.
+  { to: '/availability', label: 'Availability', icon: HandIcon, group: 'Serving' },
+  { to: '/rota', label: 'Team Rota', icon: ClipboardUserIcon, group: 'Serving' },
+  { to: '/checklists', label: 'Checklists', icon: ChecklistIcon, group: 'Serving' },
   // Who has arrived, and when: the watchers' page, not the volunteers'
   // (they clock in from the Dashboard).
-  { to: '/clock-in', label: 'Clock In', icon: MapPinIcon, group: 'Sunday' },
+  { to: '/clock-in', label: 'Clock In', icon: MapPinIcon, group: 'Serving' },
+
+  // What a service is made of. The planner's own entry is kept for
+  // somebody the Calendar is closed to (`within`); everybody else reaches
+  // the services from the Calendar.
+  { to: '/service-planner', label: 'Service Planner', icon: CalendarIcon, group: 'Service Planning', within: '/events' },
+  { to: '/set-lists', label: 'Set Lists', icon: MusicIcon, group: 'Service Planning' },
+  // Every song the church sings, kept for good (0241, 0243): where the
+  // set list's song box finds them.
+  { to: '/songs', label: 'Songs', icon: ListIcon, group: 'Service Planning' },
   // Where everything stands on the morning, drawn once for everybody.
-  { to: '/stage', label: 'Stage Layout', icon: StageIcon, group: 'Sunday' },
+  { to: '/stage', label: 'Stage Layout', icon: StageIcon, group: 'Service Planning' },
   // The running order's clock, large, for whoever keeps the time.
-  { to: '/countdown', label: 'Countdown', icon: TimerIcon, group: 'Sunday' },
+  { to: '/countdown', label: 'Countdown', icon: TimerIcon, group: 'Service Planning' },
+
   // And what was said about it afterwards, which is the last step of a
   // Sunday rather than a thing looked up.
-  { to: '/debriefs', label: 'Debriefs', icon: NotebookIcon, group: 'After the service' },
+  { to: '/debriefs', label: 'Debriefs', icon: NotebookIcon, group: 'After the Service' },
   // What somebody noticed that a team has to put right. Teams always see
   // it; everybody does once App settings let everybody raise one.
-  { to: '/issues', label: 'Issues', icon: WarningIcon, group: 'After the service' },
+  { to: '/issues', label: 'Issues', icon: WarningIcon, group: 'After the Service' },
 
-  // Talking about it. Nothing in either belongs to somebody who is not on
-  // a team yet, so neither is offered until they are.
-  { to: '/messages', label: 'Messages', icon: MessageIcon, group: 'Talk' },
-  { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon, group: 'Talk' },
-  // For everybody, Church Members included: what the church is saying,
-  // and what it is asking.
-  { to: '/updates', label: 'Church Updates', icon: MegaphoneIcon, group: 'Talk' },
-  { to: '/polls', label: 'Polls', icon: PollIcon, group: 'Talk' },
-  // Telling the people who run the app what to fix — the last thing in
-  // Talk, because it is talk about the app rather than in it.
-  { to: '/feedback', label: 'Feedback', icon: FeedbackIcon, group: 'Talk' },
+  // For everybody, Church Members included: what the church is saying.
+  { to: '/updates', label: 'Church Updates', icon: MegaphoneIcon, group: 'Communications' },
+  // The teams talking. Nothing in either belongs to somebody who is not
+  // on a team yet, so neither is offered until they are.
+  { to: '/messages', label: 'Messages', icon: MessageIcon, group: 'Communications' },
+  { to: '/team-chat', label: 'Team Chat', icon: ChatTeamIcon, group: 'Communications' },
+  // What the church is asking.
+  { to: '/polls', label: 'Polls', icon: PollIcon, group: 'Communications' },
+  // Telling the people who run the app what to fix: the last thing here,
+  // because it is talk about the app rather than in it.
+  { to: '/feedback', label: 'Feedback', icon: FeedbackIcon, group: 'Communications' },
 
-  // Looked up rather than lived in: the teams, the people who fill them,
-  // and the cupboard they draw on. (The diary was here until it became
-  // where the services are planned; it is second now, above.)
+  // Asking for prayer, praying for each other, and what God has done (0197).
+  { to: '/prayer', label: 'Prayer Requests', icon: PrayIcon, group: 'Church Life' },
+  { to: '/giving', label: 'Giving', icon: GiftHeartIcon, group: 'Church Life' },
   // Events anybody can sign up for from a link (0244): the Owner's, and
   // whoever the grid gives "Run registrations".
-  { to: '/registrations', label: 'Registrations', icon: UserCheckIcon, group: 'Church life' },
+  { to: '/registrations', label: 'Registrations', icon: UserCheckIcon, group: 'Church Life' },
   // Reception (0247): the door, for whoever works it.
-  { to: '/door', label: 'Reception', icon: IdCardIcon, group: 'Church life' },
-  { to: '/giving', label: 'Giving', icon: GiftHeartIcon, group: 'Church life' },
-  // Asking for prayer, praying for each other, and what God has done (0197).
-  { to: '/prayer', label: 'Prayer Requests', icon: PrayIcon, group: 'Church life' },
-  { to: '/departments', label: 'Teams', icon: UsersIcon, group: 'People & things' },
-  { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, group: 'People & things' },
+  { to: '/door', label: 'Reception', icon: IdCardIcon, group: 'Church Life' },
+
+  // Looked up rather than lived in: the teams, the people who fill them,
+  // and the cupboard they draw on.
+  { to: '/departments', label: 'Teams', icon: UsersIcon, group: 'People & Teams' },
+  { to: '/volunteers', label: 'Volunteers', icon: IdCardIcon, group: 'People & Teams' },
   // Who is linked to whom, drawn as a tree, and linking more (0326): whoever may link families.
-  { to: '/families', label: 'Families', icon: FamilyTreeIcon, group: 'People & things' },
+  { to: '/families', label: 'Families', icon: FamilyTreeIcon, group: 'People & Teams' },
   // Everybody's DBS and marking one verified (0324): the Owner's, and whoever is given it.
-  { to: '/dbs', label: 'DBS Checks', icon: ShieldIcon, group: 'People & things' },
-  { to: '/inventory', label: 'Inventory', icon: BoxIcon, group: 'People & things' },
+  { to: '/dbs', label: 'DBS Checks', icon: ShieldIcon, group: 'People & Teams' },
+  { to: '/inventory', label: 'Inventory', icon: BoxIcon, group: 'People & Teams' },
 ]

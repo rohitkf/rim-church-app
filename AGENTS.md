@@ -1606,10 +1606,13 @@ always open it) → a rule in `lib/pageAccess.ts` `PAGE_RULES` (default,
 choices, what enforces it — and, if it has a key, the same choices as
 its `page.<key>` cells, in a migration and in `lib/permissions.ts`'s
 `CATALOG`) → nav entry in `lib/navItems.ts` `NAV_ITEMS`,
-with the default `group` it sits under in the More sheet (Sunday, After the service,
-Talk, Church life, People & things), placed beside the rest of its group. An Admin can rearrange the menu in App
+with the default `group` it sits under in the More sheet (Serving, Service Planning,
+After the Service, Communications, Church Life, People & Teams; `lib/navItems.test.ts` pins them, two to
+five pages each, with only the Dashboard and the Calendar above the headings), placed beside the rest of its group. An Admin can rearrange the menu in App
 settings (`nav_layout`, 0121, `lib/navLayout`); a page that arrangement has
-never seen lands in its default group, or at the top. **A menu entry that is
+never seen lands in its default group, or at the top. **The church's saved menu uses these same six names**
+(November 2026), which is what makes that work: a new page given a group name the saved menu does not have
+ends up above every heading, as Families and DBS Checks did. So a new page takes one of the six, not a new name. **A menu entry that is
 split, merged or given a new address goes in `lib/navLayout`'s `MOVED`** (old
 address to what stands in its place): the church's saved menu names addresses,
 so without it the old entry is silently dropped and its replacements fall to
