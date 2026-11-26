@@ -342,4 +342,37 @@ export function installErrorReporting(target: Pick<Window, 'addEventListener'> |
   target.addEventListener('unhandledrejection', (event) => {
     void reportError('promise', (event as PromiseRejectionEvent).reason)
   })
+  // Something the page's content policy refused (vercel.json): a script
+  // from elsewhere, or one typed into the page. Either the policy is
+  // missing something the app needs, or something is in the page that
+  // should not be; both are worth a line, and neither is seen otherwise.
+  target.addEventListener('securitypolicyviolation', (event) => {
+    const v = event as SecurityPolicyViolationEvent
+    if (!worthALine(v.effectiveDirective || v.violatedDirective, v.blockedURI, v.sourceFile, typeof location === 'undefined' ? '' : location.origin)) return
+    void reportError('window', new Error(blockedLine(v.effectiveDirective || v.violatedDirective, v.blockedURI)), { filename: v.sourceFile })
+  })
+}
+
+/**
+ * Whether something the policy refused is worth telling the church.
+ *
+ * Not a browser extension writing into the page: that trips the policy
+ * too, and is nobody's to fix. And not the app's own bundle asking, once
+ * as it loads, whether it may make a function as it runs: the library
+ * that reads the database's answers (zod) tries, is refused, and carries
+ * on the plain way. It asks while the bundle is still loading, before any
+ * setting of the app's could tell it not to, so the one refusal is
+ * expected. The same attempt from anywhere else (a script that got into
+ * the page) is exactly what this is for.
+ */
+export function worthALine(directive: string, blocked: string, source: string | null | undefined, origin: string): boolean {
+  if (/^(chrome|moz|safari-web)-extension/.test(source || '') || /^(chrome|moz|safari-web)-extension/.test(blocked || '')) return false
+  const ours = !!origin && (source || '').startsWith(`${origin}/assets/`)
+  if (blocked === 'eval' && directive.startsWith('script-src') && ours) return false
+  return true
+}
+
+/** "Blocked by the content policy: script-src https://elsewhere.example". The address only, never what followed the "?". */
+export function blockedLine(directive: string, blocked: string): string {
+  return `Blocked by the content policy: ${directive} ${(blocked || 'inline').split('?')[0].slice(0, 200)}`
 }

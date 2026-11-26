@@ -1,3 +1,4 @@
+import { BREACHED_PASSWORD, seenInBreaches } from '../lib/breachedPassword'
 import { type FormEvent, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
@@ -110,13 +111,19 @@ export function SignupPage() {
     // confirmed. Only a definite no stops here; not being able to ask
     // (no signal, a slow answer) stops nobody.
     setChecking(true)
-    const accepts = await mailDomainAccepts(email)
+    // And whether the password is one already found in other people's
+    // breaches (lib/breachedPassword), asked alongside: the same wait.
+    const [accepts, seen] = await Promise.all([mailDomainAccepts(email), seenInBreaches(password)])
     setChecking(false)
     if (accepts === false) {
       setNoMail(email.trim())
       return
     }
     setNoMail(null)
+    if (seen) {
+      setError(BREACHED_PASSWORD)
+      return
+    }
     // Not made yet: the address is shown on its own first, and asked about.
     setConfirming(true)
   }

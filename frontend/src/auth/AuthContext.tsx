@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { idleTooLong, noteIdleSignOut, noteUse } from '../lib/idleSignOut'
 import { SIGN_OUT_SCOPE } from '../lib/signOutScope'
 import { supabase } from '../lib/supabaseClient'
 import { errorMessage } from '../lib/errorMessage'
@@ -159,9 +160,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }, BOOT_TIMEOUT_MS)
 
+    // Asked once, now, before anything below can count as use: the
+    // session the browser kept is announced to the listener further down
+    // as soon as it is found, and that announcement must not be what
+    // makes a device unused for a month look used a moment ago.
+    let stoodIdle = idleTooLong()
+
     supabase.auth
       .getSession()
-      .then(({ data: { session } }) => {
+      .then(async ({ data: { session } }) => {
+        // A device nobody has used for a month does not open as its owner
+        // (lib/idleSignOut): signed out here, before anything is read.
+        if (session && stoodIdle) {
+          noteIdleSignOut()
+          await supabase.auth.signOut({ scope: SIGN_OUT_SCOPE }).catch(() => undefined)
+          stoodIdle = false
+          setSession(null)
+          noteSession(false)
+          return
+        }
+        stoodIdle = false
+        if (session) noteUse()
         setSession(session)
         noteSession(!!session)
         if (session?.user) return loadProfileAndRoles(session.user.id)
@@ -179,6 +198,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      // Signing in, and every quiet renewal of the token, is the app in
+      // use. Not while a month's standing idle is still being dealt with.
+      if (nextSession && !stoodIdle) noteUse()
       setSession(nextSession)
       // A read refused after this is the session's doing, not the app's (lib/clientErrors).
       noteSession(!!nextSession)

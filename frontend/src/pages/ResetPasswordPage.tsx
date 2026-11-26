@@ -1,3 +1,4 @@
+import { BREACHED_PASSWORD, seenInBreaches } from '../lib/breachedPassword'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
@@ -132,6 +133,12 @@ export function ResetPasswordPage() {
     }
     setSubmitting(true)
     try {
+      // A password already found in other people's breaches is refused
+      // before anything is changed (lib/breachedPassword).
+      if (await seenInBreaches(password)) {
+        setError(BREACHED_PASSWORD)
+        return
+      }
       // The name goes first. If it fails, nothing has been changed and they
       // can simply try again; the other way round would sign them in
       // nameless, which is the state this exists to prevent.

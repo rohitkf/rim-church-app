@@ -1,3 +1,5 @@
+import { IDLE_SIGN_OUT_DAYS, takeIdleNotice } from '../lib/idleSignOut'
+import { TRIES_BEFORE_A_WAIT, forgetTries, noteWrongPassword, waitFor, waitWords } from '../lib/signInTries'
 import { type FormEvent, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
@@ -45,6 +47,8 @@ export function LoginPage() {
   // A confirmation link pressed too late lands here with the reason in its
   // address (lib/authLinks). Read once, as the page opens.
   const [linkSaid] = useState(() => linkProblem(window.location.hash, window.location.search))
+  // Signed out for standing unused (lib/idleSignOut): said once, as the page opens.
+  const [idle] = useState(() => takeIdleNotice())
 
   if (session) {
     return <Navigate to={whereTheyWereHeaded(location.state)} replace />
@@ -57,6 +61,13 @@ export function LoginPage() {
     e.preventDefault()
     setError(null)
     setAdvice(null)
+    // Five wrong passwords for this email, and the form waits before it
+    // asks again (lib/signInTries).
+    const wait = waitFor(email)
+    if (wait > 0) {
+      setError(`Too many wrong passwords. Try again in ${waitWords(wait)}, or use “Forgot password?” to choose a new one.`)
+      return
+    }
     setSubmitting(true)
     // supabase-js reports most failures as a returned error, but a request
     // that never completes — or one this client's deadline cuts off —
@@ -81,17 +92,24 @@ export function LoginPage() {
 
       // The proxy winning means it has already established the session;
       // there is nothing left to report.
-      if (outcome.kind === 'direct' && outcome.result.error) setError(outcome.result.error.message)
+      if (outcome.kind === 'direct' && outcome.result.error) {
+        setError(refused(outcome.result.error.message))
+      } else {
+        forgetTries(email)
+      }
     } catch (err: unknown) {
       // No answer at all. Before reporting anything, try the same-origin
       // route: on a network that drops requests to the API host but not
       // to this one, that is the difference between signing in and not.
       const fallback = await signInViaProxy(email, password)
-      if (fallback.ok) return
+      if (fallback.ok) {
+        forgetTries(email)
+        return
+      }
       if (fallback.message) {
         // It answered and refused — a wrong password, say. That is the
         // real reason, and far more useful than anything about routes.
-        setError(fallback.message)
+        setError(refused(fallback.message))
         return
       }
 
@@ -103,6 +121,15 @@ export function LoginPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  /** What the server said, and one more wrong password counted when that is what it was. */
+  function refused(message: string): string {
+    if (!/invalid login credentials/i.test(message)) return message
+    const earned = noteWrongPassword(email)
+    return earned > 0
+      ? `${message}. That is ${TRIES_BEFORE_A_WAIT} wrong passwords: try again in ${waitWords(earned)}, or use “Forgot password?” to choose a new one.`
+      : message
   }
 
   return (
@@ -128,6 +155,14 @@ export function LoginPage() {
       {removed && (
         <div className="mb-4 rounded-[var(--radius-chip)] bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
           <p>Your account is no longer active. Speak to a church Admin if you think that is wrong.</p>
+        </div>
+      )}
+
+      {idle && !removed && (
+        <div role="status" className="mb-4 rounded-[var(--radius-chip)] bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
+          <p>
+            This device had not been used for {IDLE_SIGN_OUT_DAYS} days, so it was signed out. Sign in again to carry on.
+          </p>
         </div>
       )}
 
