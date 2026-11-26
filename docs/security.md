@@ -41,7 +41,6 @@ a link sent to the address. What an account may do comes from its roles:
 | Team member | Serves on a team: answers, sees the rota, ticks checklists |
 | Church member | An account on no team: the Calendar, updates, giving, prayer |
 | Nobody signed in | The public event pages only (`/register/…`, `/ticket/…`) and `/privacy` |
-| Half signed in | An account with a second step set up that has given only its password: the code page, and nothing else |
 
 **What each can see.** Nobody sees more than their standing needs, and the
 database decides, not the page: every read goes through a row rule or a
@@ -59,22 +58,19 @@ the device's own memory, so it covers a phone that is lost or handed on;
 a token copied off a device is not touched by it. **Open:** Supabase's own
 time limit on a session, which would cover that, needs the Pro plan.
 
-**A second step.** Anybody can add one in Settings › Your account: after
-the password, a six-digit code from an authenticator app (0334,
-`lib/secondStep`). It is not only a screen. Every request the app makes
-passes through `reject_removed_user()` before anything else runs, and an
-account with an authenticator set up is refused there until its session
-says the code was given (the token's `aal` claim), so calling the API
-directly with the password's token gets nothing. Setting one up signs the
-account's other devices out. Somebody who loses the phone asks the Owner,
-who can clear it (Settings › Your account, the Owner only); the Owner's
-own is cleared from Supabase's dashboard. **Not covered:** file storage
-and realtime do not pass through that function; files stay behind their
-own row rules and expiring links. **Owner:** it is each person's choice.
-Whether the Owner, Admins and Pastors, who can read contact, DBS and visa
-details, should be required to have one is the Owner's to decide; the app
-does not force it, because forcing it on somebody without their phone to
-hand locks them out of a Sunday.
+**A second step: built, and switched off.** A code from an authenticator
+app after the password was built and released on 26 November 2026 (0334,
+`lib/secondStep`), and the Owner said the same day that there is no need
+for any two-step sign-in for now. So it is not offered: the card that sets
+one up is not drawn (`SECOND_STEP_OFFERED`), nothing in the app mentions
+it, and enrolment is off on the server (`mfa_totp_enroll_enabled`), so one
+cannot be made by calling Supabase directly. Nobody had set one up. What
+stays in place does nothing while no account has an authenticator: the
+rule in `reject_removed_user()` that refuses a half signed-in account, and
+the page that asks for the code. **Open, Owner:** the Owner, Admins and
+Pastors can read contact, DBS and visa details behind a password alone.
+Turning it back on is one constant, one server setting and the words in
+the tour, the release note and `/privacy`.
 
 ## 3. Data rules
 
@@ -135,7 +131,7 @@ the Owner, who must hand the app on first.
 
 | Where somebody could get in | What they would try | What stands in the way | Tested |
 | --- | --- | --- | --- |
-| The sign-in page | Guessing passwords; signing up as somebody else | Email must be confirmed; eight-character minimum; per-address limits; a second step for whoever has set one up, enforced in the database. No lockout, no CAPTCHA (section 1) | Audit, November 2026; `lib/secondStep.test.ts` |
+| The sign-in page | Guessing passwords; signing up as somebody else | Email must be confirmed; eight-character minimum; per-address limits. No lockout, no CAPTCHA, and no second step (built, switched off: section 2) | Audit, November 2026 |
 | The public event pages | Flooding registrations; reading other people's tickets; injecting text | No account needed by design. Tickets are reached by an unguessable code; every public function checks its own inputs; text is escaped | Audit, November 2026: 7 confirmed issues fixed (0330), 18 of 21 leads fixed (0331) |
 | Any form, signed in | Sending what the page would not: a row already approved, another team's id | The database re-checks: row rules, triggers, `may()` | Each fix replayed against its attack on a local database before release |
 | File uploads | A huge file, a script dressed as a picture | Size and type limits on the bucket; private buckets; proofs capped at five | Audit, November 2026 |
@@ -174,7 +170,7 @@ Where the app stood against the five on 26 November 2026:
 | Document | Standing |
 | --- | --- |
 | Security rules | Kept. Open: a lock on the account itself, which needs a paid plan or the Owner's CAPTCHA keys |
-| Sign-in rules | Kept: thirty days without use signs a device out, and a second step for whoever sets one up. Owner: whether to require it of anybody |
+| Sign-in rules | Kept: thirty days without use signs a device out. A second step is built and switched off, at the Owner's word |
 | Data rules | Kept, said to people, and in their own hands: a copy and removal from Settings. Open: the church's own wording in the four boxes, and a qualified reading |
 | Threat map | This table, with no row open |
 | Launch checklist | The seven lines above |
