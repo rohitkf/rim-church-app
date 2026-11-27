@@ -80,6 +80,11 @@ the tour, the release note and `/privacy`.
   anniversary, a photo and an emergency contact if given.
 - Serving: teams, rota places, answers, checklist ticks, clock-ins (the
   time and where the phone was, read once, at the press of Clock in).
+- On my way (0337): the time somebody says they will arrive, or that they
+  cannot make it. Not where they are: an estimate is worked out on the
+  phone from the rounded distance "Am I at church?" already answers with,
+  and only the number of minutes is sent. Read by their own team that day,
+  its Heads, and whoever sees clock-ins. Deleted overnight.
 - What people write: messages, chat, prayer requests, debriefs, issues,
   poll answers, feedback.
 - Families: links between accounts, and children written in by name.
@@ -94,7 +99,7 @@ database (HTTPS), in Supabase's database in Ireland (`eu-west-1`), served
 by Vercel. Registration emails go through Resend. Private files are read
 through links that expire.
 
-**When it is deleted.** By the clock, not by remembering: twenty-four
+**When it is deleted.** By the clock, not by remembering: twenty-six
 scheduled jobs. A service and everything about it goes a fortnight after
 its date; chat, polls, clock-ins, closed prayer requests, feedback and
 church events each on their own count of days, set in Settings and said on

@@ -65,6 +65,7 @@ export function PrivacyPage() {
             <li>The teams you are on, the services you are put on, and your answers when you are asked whether you can serve.</li>
             <li>What you tick on a checklist, and what you write: messages, team chat, prayer requests, debrief notes, issues, poll answers and feedback.</li>
             <li>When you clock in on a Sunday: the time, and where your phone was at that moment. Your location is read once, when you press Clock in, and never in the background.</li>
+            <li>If you tell your team you are on your way: the time you expect to be there, or that you cannot make it. If you ask your phone to work the time out, it is read once to see how far away you are; only the time is kept, never where you were, and it is cleared overnight.</li>
             <li>A line for each phone or computer you allow notifications on, so they can be sent.</li>
             <li>If the app breaks while you use it, what went wrong, on which page and on what kind of device, so it can be fixed.</li>
           </ul>

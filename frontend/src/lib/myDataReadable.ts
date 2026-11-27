@@ -73,6 +73,7 @@ const TABLES: Record<string, { title: string; about?: string }> = {
   clock_ins: { title: 'When you clocked in', about: 'The time, and where your phone was at that moment.' },
   clock_in_history: { title: 'Changes to your clock-ins' },
   clock_in_requests: { title: 'Times you asked to be clocked in' },
+  on_my_way: { title: 'What you told your team about arriving today', about: 'A time, or that you could not make it. Never where you were. It is cleared overnight.' },
   location_access: { title: 'Whether this app may use your location' },
   messages: { title: 'Messages you posted' },
   team_messages: { title: 'What you wrote in team chat' },
@@ -164,6 +165,10 @@ const COLUMNS: Record<string, string> = {
   installed: 'App installed on the device',
   reported_at: 'Last told',
   asked_at: 'Asked',
+  word: 'What you said',
+  eta_at: 'When you expected to be there',
+  how: 'How the time was arrived at',
+  said_at: 'Said',
   asked_by: 'Asked by',
   is_shadow: 'Shadowing',
   include_pre: 'There before the service',
@@ -195,7 +200,7 @@ const COLUMNS: Record<string, string> = {
 }
 
 /** References that say nothing by themselves: the row's own number, and the reader on every row. */
-const LEFT_OUT = new Set(['id', 'user_id', 'household_id', 'permanent_id', 'reference_id', 'guest_id', 'order_index', 'address_tries', 'address_tried_at', 'address_looked_up_at'])
+const LEFT_OUT = new Set(['id', 'user_id', 'household_id', 'permanent_id', 'reference_id', 'guest_id', 'order_index', 'address_tries', 'address_tried_at', 'address_looked_up_at', 'heads_told'])
 
 /** Columns whose ids name a thing, and which kind. */
 const NAMED: Record<string, keyof Omit<Lookups, 'me'>> = { department_id: 'team', service_id: 'service', role_id: 'role', session_id: 'session' }
