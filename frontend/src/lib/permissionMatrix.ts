@@ -181,6 +181,7 @@ const PAGE_ROW: Record<string, string> = {
   '/team-chat': 'Open Team Chat',
   '/songs': 'Open the song library',
   '/volunteers': 'Open Volunteers',
+  '/on-my-way': 'Open On my way',
 }
 
 

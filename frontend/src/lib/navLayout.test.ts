@@ -120,7 +120,8 @@ describe('a menu saved while Serving was one entry', () => {
     // None of the three has fallen to the top for want of a heading.
     // Families and DBS Checks (0326) are pages this saved menu has never seen, and it has no
     // "People & things" for them to land under: at the top, in sight, for the church to place.
-    expect(menu.filter((i) => !i.group).map((i) => i.to)).toEqual(['/', '/clock-in', '/countdown', '/families', '/dbs'])
+    // So is On my way (0338), which a menu saved before it has never seen.
+    expect(menu.filter((i) => !i.group).map((i) => i.to)).toEqual(['/', '/clock-in', '/countdown', '/on-my-way', '/families', '/dbs'])
   })
 
   it('works where Serving sat at the top, under no heading', () => {

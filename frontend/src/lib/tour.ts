@@ -408,6 +408,12 @@ export const TOUR_CHAPTERS: TourChapter[] = [
         body: 'Each team’s card shows who is in, and who is still to come. Anybody late for their call time is in red and first, and Arrivals, person by person, keeps each person’s last four weeks. Requests to be clocked in come to whoever answers them.',
       },
       {
+        path: '/on-my-way',
+        target: 'page-title',
+        title: 'On my way',
+        body: 'Every team today, name by name: who is here, who is on the way and roughly when, who can’t make it, and who has said nothing. Only the times people gave, never where they are. Who may open it is set in Access & Privileges.',
+      },
+      {
         path: '/departments',
         target: 'page-title',
         title: 'Your team’s page',

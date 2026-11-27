@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'on-my-way-page',
+    date: '2026-11-27',
+    title: 'Every team’s arrivals on one page',
+    lead: 'On my way has its own page: every team on the day, name by name, as here, on the way and when, can’t make it, or no word.',
+    points: [
+      'The earliest called team comes first, and a box finds somebody in any team.',
+      'The Owner, the Admins, a Pastor and Overwatch have it to begin with. Who else may open it is set in Access & Privileges, by role or for a team or a person.',
+      'Your Dashboard still shows your own team, with Every team a tap away.',
+    ],
+    link: { to: '/on-my-way', label: 'Open On my way' },
+    page: '/on-my-way',
+  },
+  {
     key: 'on-my-way',
     date: '2026-11-27',
     title: 'On my way',

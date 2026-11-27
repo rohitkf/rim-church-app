@@ -920,6 +920,8 @@ export const CATALOG = {
   'page.team_chat': page('team leads', 'team'),
   'page.songs': page('everyone team leads', 'everyone'),
   'page.volunteers': page('team leads', 'admins'),
+  // Every team's arrivals (0338): the Owner, Admins and a Pastor out of the box; Overwatch through its room.
+  'page.on_my_way': { ...page('team leads', 'admins'), pastor: offer('none all', 'all') },
 } as const satisfies Record<string, Record<GrantRole, Rule> & Partial<Record<StandingRole, Rule>>>
 
 export type CapabilityKey = keyof typeof CATALOG
