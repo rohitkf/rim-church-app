@@ -41,6 +41,15 @@ const me = { id: 'u1', first_name: 'Rohit', last_name: 'Test', email: user.email
 // its "not in the shape the app expects" line instead of itself.
 const RPC = {
   // Prayer Requests: one general request from somebody else, prayed for.
+  // On my way (0337): a team called an hour ago, somebody in, somebody coming, somebody silent.
+  team_arrivals: {
+    on: true, on_date: day(0), due: true, first_call: at(0, -1), closes_at: at(0, 6), clocked: false, word: null, eta_at: null, said_at: null, sees_all: true,
+    teams: [{ id: 'd1', name: 'Media', color: '#a855f7', mine: true, on_duty: true, call_at: at(0, -1), people: [
+      { id: 'u1', first_name: 'Rohit', last_name: 'Test', on_rota: true, state: 'none', eta_at: null, said_at: null },
+      { id: 'u9', first_name: 'Grace', last_name: 'Mensah', on_rota: true, state: 'coming', eta_at: at(0, 0.4), said_at: at(0, -0.1) },
+      { id: 'p-long', first_name: 'Bartholomew-Alexander', last_name: 'Kunnumpurathu-Varghesekutty', on_rota: true, state: 'not_coming', eta_at: null, said_at: at(0, -2) },
+      { id: 'p-sam', first_name: 'Sam', last_name: 'Varghese', on_rota: true, state: 'here', eta_at: null, said_at: null } ] }],
+  },
   prayer_board: {
     pastoral: true, moderator: true, may_assign: true, may_run_lists: true, lists: [],
     requests: [{ id: 'pr1', kind: 'general', status: 'open', anonymous: false, mine: false,

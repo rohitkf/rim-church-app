@@ -75,6 +75,8 @@ const NOTIFICATIONS: Record<string, { label: string; href: string }> = {
   clock_in_reminder: { label: 'Clock in when you arrive', href: '/' },
   clock_in_request: { label: 'Somebody is asking to be clocked in', href: '/' },
   clock_in_decided: { label: 'Your request to be clocked in was answered', href: '/' },
+  on_my_way_ask: { label: 'Tell your team when you will be there', href: '/' },
+  on_my_way_change: { label: 'Somebody on your team has said whether they are coming', href: '/' },
   prayer_private: { label: 'A private prayer request has come in', href: '/prayer?tab=inbox' },
   prayer_assigned: { label: 'You have been asked to pray for somebody', href: '/prayer?tab=assigned' },
   prayer_listed: { label: 'A request was added to a prayer list you are on', href: '/prayer?tab=lists' },

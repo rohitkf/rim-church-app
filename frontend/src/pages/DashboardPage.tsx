@@ -57,6 +57,7 @@ import { TodayEvents } from '../components/TodayEvents'
 import { CelebrationsPanel } from '../components/CelebrationsPanel'
 import { ServiceLinkPill } from '../components/ServiceLinkControl'
 import { ClockInPanel } from '../components/ClockInPanel'
+import { OnMyWayCard } from '../components/OnMyWayCard'
 import { WhereAmIDot } from '../components/WhereAmIDot'
 import { ClockInRequests } from '../components/ClockInRequests'
 import { FloatingServiceTitle } from '../components/FloatingServiceTitle'
@@ -510,6 +511,10 @@ export function DashboardPage() {
           until the day's last service ends (0192) — and, on the days
           before, a word asking them to let the app read their location. */}
       <ClockInPanel className="mb-6" />
+      {/* Who on this person's team is here, on the way or not coming, and
+          the way to say which they are (0337). Under Clock in: the other
+          answer to the same question. */}
+      <OnMyWayCard className="mb-6" />
       {/* Requests to be clocked in that this person may answer (0194). */}
       <ClockInRequests className="mb-6" />
       {/* Whatever is waiting on this person — a poll, whether they can

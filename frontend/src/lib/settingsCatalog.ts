@@ -1139,6 +1139,14 @@ export const SETTINGS_CATALOG: SettingEntry[] = [
     affects: ['/clock-in'],
   },
   {
+    ...column('clock_in_on_my_way'),
+    kind: 'switch',
+    label: 'On my way',
+    summary: 'People due in tell their team when they will arrive.',
+    help: 'On, anybody due in on a service day can say “On my way” from the Dashboard, with roughly how many minutes they will be, or that they cannot make it. Their own team, its Heads and whoever sees the Clock In page read it beside their name: here, about when, or no word. At their call time, anybody on the rota who has not clocked in and has said nothing is asked once on their phone. The app keeps the time they give and never where they are, and clears it overnight. Off, nobody is asked and the card is not shown.',
+    affects: ['/clock-in'],
+  },
+  {
     ...column('clock_in_late_minutes'),
     kind: 'dial',
     label: 'Counts as late',

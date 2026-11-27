@@ -46,6 +46,19 @@ function isFor(r: Release, canOpen: (page: string) => boolean, can: (cap: string
 
 export const RELEASES: Release[] = [
   {
+    key: 'on-my-way',
+    date: '2026-11-27',
+    title: 'On my way',
+    lead: 'On a service day your Dashboard shows who on your team is in, who is on the way and when, and who has not said.',
+    points: [
+      'Running late? Press On my way and choose how long you will be, or let your phone work it out from how far away you are.',
+      'Only the time is sent. Where you are is never kept, and the times are cleared overnight.',
+      'If you cannot make it, say so there: your team sees it and its Head is told.',
+      'At your call time, if you have not clocked in or said anything, your phone asks you once.',
+    ],
+    link: { to: '/', label: 'Open the Dashboard' },
+  },
+  {
     key: 'a-refund-for-money-that-arrived',
     date: '2026-11-26',
     title: 'A refund is owed once the money is found',

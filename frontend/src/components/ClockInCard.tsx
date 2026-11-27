@@ -33,6 +33,7 @@ const KEYS = [
   'clock_in_accuracy_m',
   'clock_in_include_yes',
   'clock_in_late_minutes',
+  'clock_in_on_my_way',
 ] as const
 
 export function ClockInCard() {
@@ -75,7 +76,7 @@ export function ClockInCard() {
           {mine && (
             <SectionTile title="When, and how strict" hint="One opening time for the button and the reminder.">
               <SettingList>
-                {rows(['clock_in_lead_minutes', 'clock_in_radius_m', 'clock_in_accuracy_m', 'clock_in_include_yes', 'clock_in_late_minutes'])}
+                {rows(['clock_in_lead_minutes', 'clock_in_radius_m', 'clock_in_accuracy_m', 'clock_in_include_yes', 'clock_in_late_minutes', 'clock_in_on_my_way'])}
               </SettingList>
             </SectionTile>
           )}
