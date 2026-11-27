@@ -95,9 +95,9 @@ describe('the permission catalog', () => {
       expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'all' })
     }
     // Out of the box: reading both registrations pages, verifying payments, commenting on a session (0308),
-    // and everybody's visa and DBS details and linking families (0327: "As well as pastor").
+    // and everybody's visa and DBS details and linking families (0327: "As well as pastor"), and every team's arrivals (0338).
     const yes = CAPABILITY_KEYS.filter((cap) => hasCell(cap, 'pastor') && ruleFor(cap, 'pastor').byDefault !== 'none').sort()
-    expect(yes).toEqual(['people.compliance', 'people.family', 'prayer.assign', 'prayer.lists', 'prayer.pastoral', 'reg.door_view', 'reg.verify', 'reg.view', 'svc.comment'])
+    expect(yes).toEqual(['page.on_my_way', 'people.compliance', 'people.family', 'prayer.assign', 'prayer.lists', 'prayer.pastoral', 'reg.door_view', 'reg.verify', 'reg.view', 'svc.comment'])
     // Every other cell is a choice, and starts at No.
     for (const cap of CAPABILITY_KEYS.filter((c) => hasCell(c, 'pastor') && !yes.includes(c))) {
       expect(ruleFor(cap, 'pastor'), cap).toEqual({ reaches: ['none', 'all'], byDefault: 'none' })

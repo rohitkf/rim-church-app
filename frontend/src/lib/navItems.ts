@@ -184,6 +184,8 @@ export const NAV_ITEMS: NavItem[] = [
   // Who has arrived, and when: the watchers' page, not the volunteers'
   // (they clock in from the Dashboard).
   { to: '/clock-in', label: 'Clock In', icon: MapPinIcon, group: 'Serving' },
+  // Every team's arrivals on the day (0338): who is here, on the way, or not coming.
+  { to: '/on-my-way', label: 'On my way', icon: TimerIcon, group: 'Serving' },
 
   // What a service is made of. The planner's own entry is kept for
   // somebody the Calendar is closed to (`within`); everybody else reaches

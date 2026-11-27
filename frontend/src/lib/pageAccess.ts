@@ -203,6 +203,13 @@ export const PAGE_RULES: Record<string, PageRule> = {
     by: ['clockin.view'],
     note: 'The Owner, Overwatch, and whoever “See the Clock In page” says in Access & Privileges — Admins out of the box — with the people and teams named in Settings › Clock in. Everybody’s arrival times and where they were.',
   },
+  '/on-my-way': {
+    key: 'on-my-way',
+    default: 'admins',
+    choices: ['team', 'leads', 'admins', 'owner'],
+    enforcement: 'page',
+    note: 'Every team’s arrivals on a service day: who is here, who is on the way and when, who cannot make it, who has said nothing. The Owner, Admins and a Pastor out of the box, and Overwatch unless Settings › Overwatch closes it. Give it to a team or a person by name in Access & Privileges. Never where anybody is: only the times they gave.',
+  },
   '/registrations': {
     default: 'admins',
     choices: ['admins'],

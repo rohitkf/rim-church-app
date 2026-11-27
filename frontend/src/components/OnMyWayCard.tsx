@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useAppSettings } from '../lib/appSettings'
 import { churchClock } from '../lib/clockIn'
@@ -58,14 +59,13 @@ export function OnMyWayCard({ className = '' }: { className?: string }) {
     refetchOnWindowFocus: true,
   })
   const data = query.data
-  // Every team is for whoever sees the Clock In page; a preview is narrowed to what its standing would be given.
-  const teams = teamsFor(data, { seesAll: !!data?.sees_all && canOpen('/clock-in'), teamIds, previewing: !!viewAs })
+  // Your own teams. Every team is the On my way page's (0338), a link away for whoever may open it.
+  const teams = teamsFor(data, { seesAll: false, teamIds, previewing: !!viewAs })
 
   const [choosing, setChoosing] = useState(false)
   const [minutes, setMinutes] = useState<number | null>(null)
   const [estimate, setEstimate] = useState<Estimate | null>(null)
   const [finding, setFinding] = useState(false)
-  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
 
   const say = useMutation({
@@ -119,6 +119,11 @@ export function OnMyWayCard({ className = '' }: { className?: string }) {
               {here} of {expected} in so far
             </p>
           </div>
+          {canOpen('/on-my-way') && (
+            <Link to="/on-my-way" className="tap shrink-0 text-label-md font-medium text-accent-blue-soft">
+              Every team
+            </Link>
+          )}
         </div>
 
         {mayPressOnMyWay && (
@@ -237,19 +242,7 @@ export function OnMyWayCard({ className = '' }: { className?: string }) {
               myId={myId}
               now={now}
               clock={clock}
-              // A team of their own is open; the rest, for whoever sees every team, open on a tap.
-              shut={!team.mine && teams.length > 1 && !open.has(team.id)}
-              onToggle={
-                !team.mine && teams.length > 1
-                  ? () =>
-                      setOpen((was) => {
-                        const next = new Set(was)
-                        if (next.has(team.id)) next.delete(team.id)
-                        else next.add(team.id)
-                        return next
-                      })
-                  : undefined
-              }
+              shut={false}
             />
           ))}
         </ul>
@@ -259,7 +252,8 @@ export function OnMyWayCard({ className = '' }: { className?: string }) {
   )
 }
 
-function TeamRows({
+/** One team, name by name, as the Dashboard and the On my way page both draw it. */
+export function TeamRows({
   team,
   myId,
   now,

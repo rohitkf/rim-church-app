@@ -218,6 +218,7 @@ const router = createBrowserRouter(
             <Route path="/set-lists" lazy={page(() => import('./pages/SetListsPage'), 'SetListsPage')} />
             <Route path="/songs" lazy={page(() => import('./pages/SongsPage'), 'SongsPage')} />
             <Route path="/clock-in" lazy={page(() => import('./pages/ClockInPage'), 'ClockInPage')} />
+            <Route path="/on-my-way" lazy={page(() => import('./pages/OnMyWayPage'), 'OnMyWayPage')} />
             <Route path="/registrations" lazy={page(() => import('./pages/RegistrationsPage'), 'RegistrationsPage')} />
             <Route path="/registrations/new" lazy={page(() => import('./pages/RegistrationEditorPage'), 'RegistrationEditorPage')} />
             <Route path="/registrations/:id" lazy={page(() => import('./pages/RegistrationEventPage'), 'RegistrationEventPage')} />

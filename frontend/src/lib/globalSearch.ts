@@ -121,6 +121,7 @@ export const PAGE_WORDS: Record<string, { detail: string; also: string }> = {
   '/rota': { detail: 'Who is doing what', also: 'rota roster assign roles duty schedule who is on' },
   '/checklists': { detail: 'Pre-service checks and sign-off', also: 'checks verify sign off tick packing up' },
   '/clock-in': { detail: 'Who has arrived, and asking to be clocked in', also: 'clock in arrive present attendance location late' },
+  '/on-my-way': { detail: 'Every team: who is here, on the way, or not coming', also: 'on my way arrivals eta late running late who is here coming not coming' },
   '/service-planner': { detail: 'Services and their running orders, on the Calendar', also: 'plan running order sessions templates service flow' },
   '/set-lists': { detail: 'The songs for each service', also: 'set list songs worship music keys lyrics' },
   '/songs': { detail: 'Every song the church sings', also: 'songs database library lyrics key music worship' },

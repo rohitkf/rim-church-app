@@ -114,7 +114,7 @@ const ROUTES = ['/', '/service-planner', '/availability', '/rota', '/checklists'
   '/settings/data',
   // Every other page and room App.tsx has, so none of them goes unlooked-at.
   '/service-planner/templates', '/service-planner/n1', '/checklists/d1/n1', '/inventory/d1', '/stage/n1',
-  '/countdown', '/songs', '/clock-in', '/registrations', '/registrations/new', '/door', '/prayer', '/serving',
+  '/countdown', '/songs', '/clock-in', '/on-my-way', '/registrations', '/registrations/new', '/door', '/prayer', '/serving',
   '/location', '/settings/notices', '/settings/health', '/settings/onboarding', '/settings/reception',
   '/settings/overwatch', '/settings/clock-in', '/settings/prayer', '/settings/video', '/settings/church']
 

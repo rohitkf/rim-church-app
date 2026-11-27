@@ -91,7 +91,7 @@ describe('the menu’s headings', () => {
   it('put each entry where somebody would look for it', () => {
     const menu = menuItems(NAV_ITEMS, everything)
     const under = (heading: string) => menu.filter((i) => i.group === heading).map((i) => i.label)
-    expect(under('Serving')).toEqual(['Availability', 'Team Rota', 'Checklists', 'Clock In'])
+    expect(under('Serving')).toEqual(['Availability', 'Team Rota', 'Checklists', 'Clock In', 'On my way'])
     expect(under('Services')).toEqual(['Set Lists', 'Stage Layout', 'Countdown', 'After the Service'])
     expect(under('Communications')).toEqual(['Church Updates', 'Chat', 'Polls', 'Feedback'])
     expect(under('Church Life')).toEqual(['Prayer Requests', 'Giving', 'Registrations'])

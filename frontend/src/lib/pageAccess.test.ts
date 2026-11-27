@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 // choice. Which levels each page offers is its page.* cells since 0215 —
 // pageCells.test.ts and permissionCatalog.test.ts hold those to
 // PAGE_RULES and to the database.
-import levels from '../../../supabase/migrations/0277_nothing_in_settings_is_fixed.sql?raw'
+// 0338 restated it with the On my way page among the Admins'.
+import levels from '../../../supabase/migrations/0338_the_on_my_way_page.sql?raw'
 import {
   PAGE_RULES,
   compactAccess,
@@ -32,9 +33,9 @@ describe('the page rules', () => {
       .map((r) => r.key!)
       .sort()
     expect(fromApp).toEqual(everyone)
-    // One page starts as the Admins' alone (0277); every other is a team's.
+    // Two pages start as the Admins' (0277, 0338); every other is a team's.
     const admins = sqlDefaults().admins
-    expect(admins).toEqual(['volunteers'])
+    expect(admins).toEqual(['volunteers', 'on-my-way'])
     for (const r of Object.values(PAGE_RULES)) {
       if (r.key && r.default !== 'everyone') expect(r.default, r.key).toBe(admins.includes(r.key) ? 'admins' : 'team')
     }

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import type { ArrivalPerson, Say, TeamArrivals } from '../lib/onMyWay'
 import type { Estimate } from '../lib/onMyWayEstimate'
 
@@ -14,14 +15,14 @@ const state = vi.hoisted(() => ({
   estimate: { at: 'unknown' } as unknown,
   teamIds: ['t1'] as string[],
   viewAs: null as null | { as: string },
-  seesClockIn: false,
+  seesPage: false,
   on: true,
 }))
 
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ session: { user: { id: 'me' } }, viewAs: state.viewAs }) }))
 vi.mock('../lib/appSettings', () => ({ useAppSettings: () => ({ timezone: 'Europe/London', clock_in_on_my_way: state.on }) }))
 vi.mock('../lib/useMyTeams', () => ({ useMyTeams: () => ({ teamIds: state.teamIds, onATeam: true, settled: true }) }))
-vi.mock('../lib/usePageAccess', () => ({ usePageAccess: () => ({ canOpen: (path: string) => path === '/clock-in' && state.seesClockIn, settled: true }) }))
+vi.mock('../lib/usePageAccess', () => ({ usePageAccess: () => ({ canOpen: (path: string) => path === '/on-my-way' && state.seesPage, settled: true }) }))
 vi.mock('../lib/useErrorText', () => ({ useErrorText: () => (_e: unknown, fallback: string) => fallback }))
 vi.mock('./TeamMark', () => ({ TeamMark: () => <span data-testid="team-mark" /> }))
 vi.mock('../lib/onMyWay', async (original) => ({
@@ -85,7 +86,9 @@ function show() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <OnMyWayCard />
+      <MemoryRouter>
+        <OnMyWayCard />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
   return userEvent.setup()
@@ -98,7 +101,7 @@ beforeEach(() => {
   state.estimate = { at: 'unknown' } satisfies Estimate
   state.teamIds = ['t1']
   state.viewAs = null
-  state.seesClockIn = false
+  state.seesPage = false
   state.on = true
 })
 
@@ -256,18 +259,21 @@ describe('saying "On my way"', () => {
 describe('whose teams', () => {
   const worship = { id: 't2', name: 'Worship', color: null, mine: false, on_duty: false, call_at: mins(-5), people: [person('w', 'Wendy')] }
 
-  it('shows every team to whoever sees the Clock In page: their own open, the rest a tap away', async () => {
-    state.seesClockIn = true
+  it('shows only your own teams, with a link to every team for whoever may open the On my way page (0338)', async () => {
+    state.seesPage = true
     state.arrivals = arrivals({ sees_all: true, teams: [...arrivals().teams, worship] })
-    const user = show()
+    show()
     const card = await screen.findByRole('region', { name: 'Who is here' })
     expect(within(card).getByRole('list', { name: 'Media: who is here' })).toBeInTheDocument()
-    expect(within(card).queryByRole('list', { name: 'Worship: who is here' })).toBeNull()
-    expect(card).toHaveTextContent('0 of 1 here')
-    await user.click(within(card).getByRole('button', { name: 'Show Worship' }))
-    expect(within(within(card).getByRole('list', { name: 'Worship: who is here' })).getByText('Wendy Test')).toBeInTheDocument()
-    await user.click(within(card).getByRole('button', { name: 'Hide Worship' }))
-    expect(within(card).queryByRole('list', { name: 'Worship: who is here' })).toBeNull()
+    expect(card).not.toHaveTextContent('Worship')
+    expect(within(card).getByRole('link', { name: 'Every team' })).toHaveAttribute('href', '/on-my-way')
+  })
+
+  it('has no link for somebody the page is not open to', async () => {
+    state.arrivals = arrivals({ sees_all: false })
+    show()
+    const card = await screen.findByRole('region', { name: 'Who is here' })
+    expect(within(card).queryByRole('link', { name: 'Every team' })).toBeNull()
   })
 
   it('in a preview shows what that standing would be given, not the previewer’s own answer', async () => {
@@ -275,7 +281,7 @@ describe('whose teams', () => {
     state.arrivals = arrivals({ sees_all: true, teams: [...arrivals().teams, worship] })
     state.viewAs = { as: 'member' }
     state.teamIds = []
-    state.seesClockIn = false
+    state.seesPage = false
     show()
     await new Promise((r) => setTimeout(r, 30))
     expect(screen.queryByRole('region', { name: 'Who is here' })).toBeNull()
@@ -283,9 +289,9 @@ describe('whose teams', () => {
 
   it('in a preview as somebody on Worship shows Worship, and not the previewer’s own Media', async () => {
     state.arrivals = arrivals({ sees_all: true, teams: [...arrivals().teams, worship] })
-    state.viewAs = { as: 'team_member' }
+    state.viewAs = { as: 'member' }
     state.teamIds = ['t2']
-    state.seesClockIn = false
+    state.seesPage = false
     show()
     const card = await screen.findByRole('region', { name: 'Who is here' })
     expect(within(card).getByRole('list', { name: 'Worship: who is here' })).toBeInTheDocument()
