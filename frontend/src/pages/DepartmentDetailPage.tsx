@@ -601,7 +601,24 @@ export function DepartmentDetailPage() {
           <p className="mt-2 rounded-[var(--radius-chip)] bg-error-container px-3 py-2 text-body-sm text-on-error-container">{uploadError}</p>
         )}
 
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+        {/* Above both cards: it finds core members and guests alike, and inside the Core members card it read as finding only them (the Owner, November 2026). */}
+        {(coreMembers.length + guestMembers.length > 1 || findMember) && (
+          <SearchField
+            className="mt-8"
+            value={findMember}
+            onChange={setFindMember}
+            label="Find somebody on this team"
+            placeholder="Find somebody on this team"
+            status={
+              findingMember
+                ? shownCore.length + shownGuests.length === 0
+                  ? `Nobody on this team matches “${findMember.trim()}”. Try fewer letters.`
+                  : `${shownCore.length} core, ${shownGuests.length} guest${shownGuests.length === 1 ? '' : 's'} found`
+                : null
+            }
+          />
+        )}
+        <div className={`${coreMembers.length + guestMembers.length > 1 || findMember ? 'mt-4' : 'mt-8'} grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]`}>
           <section className="rounded-[var(--radius-card)] bg-surface-lowest hairline p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-headline-md">Core members</h2>
@@ -610,22 +627,6 @@ export function DepartmentDetailPage() {
               </span>
             </div>
 
-            {(coreMembers.length + guestMembers.length > 1 || findMember) && (
-              <SearchField
-                className="mt-4"
-                value={findMember}
-                onChange={setFindMember}
-                label="Find somebody on this team"
-                placeholder="Find somebody on this team"
-                status={
-                  findingMember
-                    ? shownCore.length + shownGuests.length === 0
-                      ? `Nobody on this team matches “${findMember.trim()}”. Try fewer letters.`
-                      : `${shownCore.length} core, ${shownGuests.length} guest${shownGuests.length === 1 ? '' : 's'} found`
-                    : null
-                }
-              />
-            )}
 
             <QueryState isLoading={membersQuery.isLoading} error={membersQuery.error}>
               {/*
