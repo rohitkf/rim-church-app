@@ -341,3 +341,38 @@ describe('somebody with no account', () => {
     expect(screen.queryByRole('status')).toBeNull()
   })
 })
+
+/*
+ * The box finds core members and guests alike. It sat inside the Core
+ * members card, where it read as finding only them, so it sits above both
+ * cards (the Owner, November 2026).
+ */
+describe('finding somebody on the team', () => {
+  const kofi = (over: Record<string, unknown> = {}) =>
+    member({ id: 'm2', user_id: 'p2', member_type: 'guest', profiles: { id: 'p2', first_name: 'Kofi', last_name: 'Owusu', phone: null, avatar_url: null, dob: null }, ...over })
+
+  it('is above both cards, in neither, and narrows both', async () => {
+    state.members = [member(), kofi()]
+    show()
+    const box = await screen.findByRole('searchbox', { name: 'Find somebody on this team' })
+    const core = screen.getByRole('heading', { name: 'Core members' }).closest('section')!
+    const guests = screen.getByRole('heading', { name: 'Guest members' }).closest('section')!
+    expect(core.contains(box)).toBe(false)
+    expect(guests.contains(box)).toBe(false)
+    // Before both in the page.
+    expect(box.compareDocumentPosition(core) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(box.compareDocumentPosition(guests) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    await userEvent.type(box, 'owsu')
+    expect(await screen.findByText('0 core, 1 guest found')).toBeInTheDocument()
+    expect(within(guests).getByText('Kofi Owusu')).toBeInTheDocument()
+    expect(within(core).queryAllByText('Grace Mensah')).toEqual([])
+  })
+
+  it('is not drawn over one person', async () => {
+    state.members = [member()]
+    show()
+    await screen.findAllByText('Grace Mensah')
+    expect(screen.queryByRole('searchbox', { name: 'Find somebody on this team' })).toBeNull()
+  })
+})
